@@ -15,3 +15,11 @@ body {
 html.dark {
   color-scheme: dark;
 }
+
+html.dark body {
+  background-color: var(--el-bg-color-page);
+}
+
+html.dark .login-page {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}

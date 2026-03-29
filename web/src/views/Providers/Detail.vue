@@ -2,7 +2,7 @@
   <div class="provider-detail">
     <el-page-header @back="$router.back()">
       <template #content>
-        {{ provider?.name || 'Provider' }}
+        {{ provider?.name || t('menu.providers') }}
       </template>
     </el-page-header>
 
@@ -15,7 +15,7 @@
             {{ provider?.enabled ? t('common.enabled') : t('common.disabled') }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item :label="t('provider.lastSync')">{{ provider?.last_sync_at || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('provider.lastSync')">{{ formatDateTime(provider?.last_sync_at) }}</el-descriptions-item>
       </el-descriptions>
       <div class="actions">
         <el-button type="primary" @click="syncModels" :loading="syncing">{{ t('provider.syncModels') }}</el-button>
@@ -25,9 +25,9 @@
     <el-card>
       <template #header>{{ t('provider.models') }}</template>
       <el-table :data="models" stripe>
-        <el-table-column prop="model_id" label="Model ID" />
+        <el-table-column prop="model_id" :label="t('provider.modelId')" />
         <el-table-column prop="display_name" :label="t('common.name')" />
-        <el-table-column prop="context_window" label="Context" />
+        <el-table-column prop="context_window" :label="t('provider.contextWindow')" />
         <el-table-column :label="t('common.status')">
           <template #default="{ row }">
             <el-tag :type="row.is_available ? 'success' : 'danger'">
@@ -46,6 +46,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import api from '@/api'
+import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
 const route = useRoute()

@@ -3,8 +3,8 @@
     <el-container>
       <el-aside :width="sidebarCollapsed ? '64px' : '220px'" class="sidebar">
         <div class="logo">
-          <span v-if="!sidebarCollapsed">AI Model Proxy</span>
-          <span v-else>AI</span>
+          <span v-if="!sidebarCollapsed">{{ t('app.title') }}</span>
+          <span v-else>{{ t('app.shortTitle') }}</span>
         </div>
         <el-menu
           :default-active="$route.path"
@@ -33,10 +33,13 @@
             <template #title>{{ t('menu.usage') }}</template>
           </el-menu-item>
           <el-menu-item index="/settings">
-            <el-icon><Setting /></el-icon>
+            <el-icon><Tools /></el-icon>
             <template #title>{{ t('menu.settings') }}</template>
           </el-menu-item>
         </el-menu>
+        <div class="sidebar-footer" v-if="!sidebarCollapsed">
+          <span class="version">{{ version }}</span>
+        </div>
       </el-aside>
       <el-container>
         <el-header class="header">
@@ -90,15 +93,15 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const appStore = useAppStore()
 const userStore = useUserStore()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const isDark = computed(() => appStore.isDark)
-const locale = computed(() => appStore.locale)
 const username = computed(() => userStore.username)
+const version = import.meta.env.VITE_APP_VERSION || 'dev'
 
 function toggleSidebar() {
   appStore.toggleSidebar()
@@ -109,6 +112,7 @@ function toggleTheme() {
 }
 
 function setLocale(lang: string) {
+  locale.value = lang
   appStore.setLocale(lang)
 }
 
@@ -123,12 +127,17 @@ async function handleUserCommand(command: string) {
 <style scoped>
 .main-layout {
   height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar {
   background-color: var(--el-bg-color);
   border-right: 1px solid var(--el-border-color);
   transition: width 0.3s;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
 }
 
 .logo {
@@ -143,6 +152,8 @@ async function handleUserCommand(command: string) {
 
 .sidebar-menu {
   border-right: none;
+  height: calc(100vh - 60px - 45px);
+  overflow-y: auto;
 }
 
 .header {
@@ -151,6 +162,7 @@ async function handleUserCommand(command: string) {
   justify-content: space-between;
   background-color: var(--el-bg-color);
   border-bottom: 1px solid var(--el-border-color);
+  padding: 0 20px;
 }
 
 .header-left {
@@ -178,5 +190,23 @@ async function handleUserCommand(command: string) {
 
 .main {
   background-color: var(--el-bg-color-page);
+  padding: 0;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+.sidebar-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px;
+  text-align: center;
+  border-top: 1px solid var(--el-border-color);
+}
+
+.version {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>

@@ -1,4 +1,8 @@
 export default {
+  app: {
+    title: 'AI Model Proxy',
+    shortTitle: 'AI'
+  },
   common: {
     save: 'Save',
     cancel: 'Cancel',
@@ -20,7 +24,8 @@ export default {
     type: 'Type',
     description: 'Description',
     yes: 'Yes',
-    no: 'No'
+    no: 'No',
+    to: 'To'
   },
   login: {
     title: 'AI Model Proxy',
@@ -57,7 +62,9 @@ export default {
     syncModels: 'Sync Models',
     addProvider: 'Add Provider',
     editProvider: 'Edit Provider',
-    lastSync: 'Last Sync'
+    lastSync: 'Last Sync',
+    modelId: 'Model ID',
+    contextWindow: 'Context Window'
   },
   apiKey: {
     name: 'Key Name',
@@ -77,7 +84,12 @@ export default {
     promptTokens: 'Prompt Tokens',
     completionTokens: 'Completion Tokens',
     successRate: 'Success Rate',
-    avgLatency: 'Avg Latency'
+    avgLatency: 'Avg Latency',
+    totalRequests: 'Total Requests',
+    time: 'Time',
+    model: 'Model',
+    startTime: 'Start Time',
+    endTime: 'End Time'
   },
   settings: {
     changePassword: 'Change Password',
@@ -85,5 +97,12 @@ export default {
     newPassword: 'New Password',
     confirmPassword: 'Confirm Password',
     passwordChanged: 'Password changed successfully'
+  },
+  modelMapping: {
+    alias: 'Alias',
+    actualModel: 'Actual Model',
+    weight: 'Weight',
+    model: 'Model',
+    required: 'Required'
   }
 }

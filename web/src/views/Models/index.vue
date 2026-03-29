@@ -8,14 +8,14 @@
         </div>
       </template>
       <el-table :data="mappings" stripe v-loading="loading">
-        <el-table-column prop="alias" label="Alias" />
+        <el-table-column prop="alias" :label="t('modelMapping.alias')" />
         <el-table-column :label="t('provider.name')">
           <template #default="{ row }">{{ row.provider?.name }}</template>
         </el-table-column>
-        <el-table-column label="Actual Model">
+        <el-table-column :label="t('modelMapping.actualModel')">
           <template #default="{ row }">{{ row.provider_model?.model_id }}</template>
         </el-table-column>
-        <el-table-column prop="weight" label="Weight" />
+        <el-table-column prop="weight" :label="t('modelMapping.weight')" />
         <el-table-column :label="t('common.status')">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
@@ -30,8 +30,8 @@
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="t('common.create')">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
-        <el-form-item label="Alias" prop="alias">
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="auto">
+        <el-form-item :label="t('modelMapping.alias')" prop="alias">
           <el-input v-model="form.alias" placeholder="e.g., gpt-4" />
         </el-form-item>
         <el-form-item :label="t('provider.name')" prop="provider_id">
@@ -39,12 +39,12 @@
             <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Model" prop="provider_model_id">
+        <el-form-item :label="t('modelMapping.model')" prop="provider_model_id">
           <el-select v-model="form.provider_model_id" style="width: 100%">
             <el-option v-for="m in providerModels" :key="m.id" :label="m.model_id" :value="m.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="Weight">
+        <el-form-item :label="t('modelMapping.weight')">
           <el-input-number v-model="form.weight" :min="1" :max="100" />
         </el-form-item>
       </el-form>
@@ -79,9 +79,9 @@ const form = reactive({
 })
 
 const rules = {
-  alias: [{ required: true, message: 'Required', trigger: 'blur' }],
-  provider_id: [{ required: true, message: 'Required', trigger: 'change' }],
-  provider_model_id: [{ required: true, message: 'Required', trigger: 'change' }]
+  alias: [{ required: true, message: () => t('modelMapping.required'), trigger: 'blur' }],
+  provider_id: [{ required: true, message: () => t('modelMapping.required'), trigger: 'change' }],
+  provider_model_id: [{ required: true, message: () => t('modelMapping.required'), trigger: 'change' }]
 }
 
 onMounted(() => {

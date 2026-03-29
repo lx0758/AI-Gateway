@@ -6,14 +6,18 @@
           <span>{{ t('usage.stats') }}</span>
           <el-date-picker
             v-model="dateRange"
-            type="daterange"
+            type="datetimerange"
+            :range-separator="t('common.to')"
+            :start-placeholder="t('usage.startTime')"
+            :end-placeholder="t('usage.endTime')"
+            value-format="YYYY-MM-DD HH:mm:ss"
             @change="fetchStats"
           />
         </div>
       </template>
       <el-row :gutter="20">
         <el-col :span="6">
-          <el-statistic title="Total Requests" :value="stats.total_requests" />
+          <el-statistic :title="t('usage.totalRequests')" :value="stats.total_requests" />
         </el-col>
         <el-col :span="6">
           <el-statistic :title="t('usage.successRate')" :value="stats.success_rate" suffix="%" />
@@ -30,8 +34,10 @@
     <el-card class="logs-card">
       <template #header>{{ t('usage.logs') }}</template>
       <el-table :data="logs" stripe v-loading="loading">
-        <el-table-column prop="created_at" label="Time" width="180" />
-        <el-table-column prop="model" label="Model" />
+        <el-table-column :label="t('usage.time')" width="180">
+          <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
+        </el-table-column>
+        <el-table-column prop="model" :label="t('usage.model')" />
         <el-table-column prop="prompt_tokens" :label="t('usage.promptTokens')" />
         <el-table-column prop="completion_tokens" :label="t('usage.completionTokens')" />
         <el-table-column prop="latency_ms" :label="t('usage.avgLatency')">
@@ -51,6 +57,7 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
+import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
 
@@ -62,10 +69,7 @@ const stats = ref<any>({
 })
 const logs = ref<any[]>([])
 const loading = ref(false)
-const dateRange = ref<[Date, Date]>([
-  new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-  new Date()
-])
+const dateRange = ref<string[] | null>(null)
 
 onMounted(() => {
   fetchStats()

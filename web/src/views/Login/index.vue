@@ -34,8 +34,8 @@
         </el-form-item>
       </el-form>
       <div class="lang-switch">
-        <el-button text @click="setLocale('zh')">中文</el-button>
-        <el-button text @click="setLocale('en')">EN</el-button>
+        <el-button text @click="changeLocale('zh')" :class="{ active: locale === 'zh' }">中文</el-button>
+        <el-button text @click="changeLocale('en')" :class="{ active: locale === 'en' }">EN</el-button>
       </div>
     </div>
   </div>
@@ -49,7 +49,7 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const router = useRouter()
 const userStore = useUserStore()
 const appStore = useAppStore()
@@ -63,8 +63,8 @@ const form = reactive({
 })
 
 const rules = {
-  username: [{ required: true, message: t('login.username'), trigger: 'blur' }],
-  password: [{ required: true, message: t('login.password'), trigger: 'blur' }]
+  username: [{ required: true, message: () => t('login.username'), trigger: 'blur' }],
+  password: [{ required: true, message: () => t('login.password'), trigger: 'blur' }]
 }
 
 async function handleLogin() {
@@ -84,7 +84,8 @@ async function handleLogin() {
   }
 }
 
-function setLocale(lang: string) {
+function changeLocale(lang: string) {
+  locale.value = lang
   appStore.setLocale(lang)
 }
 </script>
@@ -122,5 +123,10 @@ function setLocale(lang: string) {
   justify-content: center;
   gap: 10px;
   margin-top: 20px;
+}
+
+.lang-switch .active {
+  color: var(--el-color-primary);
+  font-weight: bold;
 }
 </style>

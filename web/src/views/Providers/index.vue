@@ -35,7 +35,7 @@
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? t('provider.editProvider') : t('provider.addProvider')">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="auto">
         <el-form-item :label="t('provider.name')" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>

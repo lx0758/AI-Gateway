@@ -31,7 +31,7 @@
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="t('apiKey.createKey')">
-      <el-form :model="form" ref="formRef" label-width="120px">
+      <el-form :model="form" ref="formRef" label-width="auto">
         <el-form-item :label="t('apiKey.name')">
           <el-input v-model="form.name" />
         </el-form-item>

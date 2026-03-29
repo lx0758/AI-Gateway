@@ -4,7 +4,7 @@
 
 ## 特性
 
-- **OpenAI 兼容 API**: 暴露标准的 `/v1/chat/completions` 和 `/v1/models` 接口
+- **OpenAI 兼容 API**: 暴露标准的 `/openai/v1/chat/completions` 和 `/openai/v1/models` 接口
 - **多厂商支持**: 支持 OpenAI、Anthropic 等厂商，可轻松扩展
 - **格式自动转换**: OpenAI ↔ Anthropic 请求/响应格式自动转换
 - **模型别名映射**: 将模型别名映射到实际厂商模型
@@ -31,10 +31,10 @@ cd ai-model-proxy
 cd web && npm install && npm run build && cd ..
 
 # 运行服务
-go run ./cmd/server
+cd server && go run ./cmd/server
 
 # 或构建后运行
-go build -o ai-model-proxy ./cmd/server
+cd server && go build -o ai-model-proxy ./cmd/server
 ./ai-model-proxy
 ```
 
@@ -43,36 +43,36 @@ go build -o ai-model-proxy ./cmd/server
 ### 默认账号
 
 - 用户名: `admin`
-- 密码: `admin123`
+- 密码: `admin`
 
 ## 配置
 
-配置文件 `configs/config.yaml`:
+使用环境变量配置，所有变量以 `AMP_` 为前缀：
 
-```yaml
-server:
-  port: 18080          # 服务端口
-  mode: debug         # 运行模式: debug/release
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| `AMP_SERVER_PORT` | `18080` | 服务端口 |
+| `AMP_SERVER_MODE` | `debug` | 运行模式 (debug/release) |
+| `AMP_DATABASE_PATH` | `data.db` | SQLite 数据库路径 |
+| `AMP_SESSION_SECRET` | (自动生成) | Session 密钥，未设置时自动生成 |
+| `AMP_SESSION_MAX_AGE` | `86400` | Session 有效期(秒) |
+| `AMP_SESSION_SECURE` | `false` | Cookie Secure 标志 |
+| `AMP_SESSION_HTTP_ONLY` | `true` | Cookie HttpOnly 标志 |
+| `AMP_SESSION_SAME_SITE` | `lax` | Cookie SameSite 属性 |
+| `AMP_ADMIN_USERNAME` | `admin` | 默认管理员用户名 |
+| `AMP_ADMIN_PASSWORD` | `admin` | 默认管理员密码 |
 
-database:
-  type: sqlite
-  path: ./data/ai-model-proxy.db
+### 示例
 
-session:
-  secret: change-this-secret-in-production  # 生产环境请修改
-  max_age: 86400      # Session 有效期(秒)
-  secure: false       # HTTPS 环境设为 true
-  http_only: true
-  same_site: lax
+```bash
+# 使用自定义端口
+AMP_SERVER_PORT=3000 ./ai-model-proxy
 
-auth:
-  default_admin:
-    username: admin
-    password: admin123
-
-log:
-  level: info
-  format: console
+# 生产环境配置
+AMP_SERVER_MODE=release \
+AMP_SESSION_SECRET=your-secret-key \
+AMP_ADMIN_PASSWORD=secure-password \
+./ai-model-proxy
 ```
 
 ## API 接口
@@ -80,9 +80,9 @@ log:
 ### OpenAI 兼容接口 (需要 API Key)
 
 ```
-POST /v1/chat/completions   # 聊天补全
-GET  /v1/models             # 模型列表
-GET  /v1/models/:id         # 模型详情
+POST /openai/v1/chat/completions   # 聊天补全
+GET  /openai/v1/models             # 模型列表
+GET  /openai/v1/models/:id         # 模型详情
 ```
 
 ### 管理接口 (需要登录)
@@ -159,7 +159,7 @@ curl -X POST http://localhost:18080/api/v1/api-keys \
 ### 4. 调用代理 API
 
 ```bash
-curl http://localhost:18080/v1/chat/completions \
+curl http://localhost:18080/openai/v1/chat/completions \
   -H "Authorization: Bearer sk-your-proxy-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -172,23 +172,24 @@ curl http://localhost:18080/v1/chat/completions \
 
 ```
 ai-model-proxy/
-├── cmd/server/main.go        # 入口
-├── configs/config.yaml       # 配置
-├── internal/
-│   ├── config/               # 配置加载
-│   ├── handler/              # HTTP 处理器
-│   ├── middleware/           # 中间件
-│   ├── model/                # 数据模型
-│   ├── router/               # 模型路由
-│   └── transformer/          # 格式转换
-├── web/                      # Vue 3 前端
+├── web/                        # Vue 3 前端
 │   ├── src/
-│   │   ├── views/            # 页面组件
-│   │   ├── stores/           # Pinia 状态
-│   │   ├── locales/          # i18n 翻译
-│   │   └── api/              # API 客户端
+│   │   ├── views/              # 页面组件
+│   │   ├── stores/             # Pinia 状态
+│   │   ├── locales/            # i18n 翻译
+│   │   └── api/                # API 客户端
 │   └── vite.config.ts
-└── openspec/                 # 设计文档
+├── server/                     # Go 后端
+│   ├── cmd/server/main.go      # 入口
+│   ├── internal/
+│   │   ├── config/             # 配置加载
+│   │   ├── handler/            # HTTP 处理器
+│   │   ├── middleware/         # 中间件
+│   │   ├── model/              # 数据模型
+│   │   ├── router/             # 模型路由
+│   │   └── transformer/        # 格式转换
+│   └── go.mod
+└── openspec/                   # 设计文档
 ```
 
 ## 支持的厂商
@@ -213,9 +214,33 @@ npm run build   # 构建生产版本
 ### 后端开发
 
 ```bash
+cd server
 go run ./cmd/server           # 运行
 go build -o ai-model-proxy ./cmd/server  # 构建
 ```
+
+## 迁移指南 (v0.x → v1.0)
+
+### API 路径变更
+
+| 旧路径 | 新路径 |
+|--------|--------|
+| `/v1/chat/completions` | `/openai/v1/chat/completions` |
+| `/v1/models` | `/openai/v1/models` |
+
+### 配置方式变更
+
+- **旧版本**: 使用 `configs/config.yaml` 文件配置
+- **新版本**: 使用环境变量配置，无需配置文件
+
+### 默认值变更
+
+| 配置项 | 旧默认值 | 新默认值 |
+|--------|----------|----------|
+| 服务端口 | `8080` | `18080` |
+| 数据库路径 | `./data/ai-model-proxy.db` | `data.db` |
+| 管理员密码 | `admin123` | `admin` |
+| Session 密钥 | 硬编码 | 自动生成 |
 
 ## License
 

@@ -1,0 +1,27 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Server",
+            "type": "go",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/server/",
+            "mode": "auto",
+            "program": "${workspaceFolder}/server/cmd/server/main.go"
+        },
+        {
+            "name": "Web",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/web/",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "dev"
+            ]
+        }
+    ]
+}
