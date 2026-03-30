@@ -23,7 +23,8 @@
         </el-table-column>
         <el-table-column :label="t('apiKey.usedQuota')">
           <template #default="{ row }">
-            {{ row.used_quota }} / {{ row.quota || '∞' }}
+            <div>{{ row.used_quota }} / {{ row.quota || '∞' }}</div>
+            <div v-if="row.used_count" style="font-size: 12px; color: #999;">{{ row.used_count }} calls</div>
           </template>
         </el-table-column>
         <el-table-column :label="t('common.status')">

@@ -178,8 +178,10 @@ func (t *OpenAIToAnthropicTransformer) mapStopReason(reason string) string {
 	}
 }
 
-func (t *OpenAIToAnthropicTransformer) TransformStream(reader io.Reader, writer io.Writer) error {
+func (t *OpenAIToAnthropicTransformer) TransformStream(reader io.Reader, writer io.Writer) *StreamResult {
+	result := &StreamResult{}
 	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 	var messageID string
 	var model string
 
@@ -200,13 +202,18 @@ func (t *OpenAIToAnthropicTransformer) TransformStream(reader io.Reader, writer 
 			case "message_start":
 				var msg struct {
 					Message struct {
-						ID    string `json:"id"`
-						Model string `json:"model"`
+						ID    string         `json:"id"`
+						Model string         `json:"model"`
+						Usage AnthropicUsage `json:"usage"`
 					} `json:"message"`
 				}
 				if err := json.Unmarshal([]byte(data), &msg); err == nil {
 					messageID = msg.Message.ID
 					model = msg.Message.Model
+					if result.Usage == nil {
+						result.Usage = &Usage{}
+					}
+					result.Usage.PromptTokens = msg.Message.Usage.InputTokens
 				}
 
 			case "content_block_delta":
@@ -239,8 +246,16 @@ func (t *OpenAIToAnthropicTransformer) TransformStream(reader io.Reader, writer 
 					Delta struct {
 						StopReason string `json:"stop_reason"`
 					} `json:"delta"`
+					Usage struct {
+						OutputTokens int `json:"output_tokens"`
+					} `json:"usage"`
 				}
 				if err := json.Unmarshal([]byte(data), &delta); err == nil {
+					if result.Usage == nil {
+						result.Usage = &Usage{}
+					}
+					result.Usage.CompletionTokens = delta.Usage.OutputTokens
+
 					chunk := StreamChunk{
 						ID:      messageID,
 						Object:  "chat.completion.chunk",
@@ -262,12 +277,14 @@ func (t *OpenAIToAnthropicTransformer) TransformStream(reader io.Reader, writer 
 				if f, ok := writer.(interface{ Flush() }); ok {
 					f.Flush()
 				}
-				return nil
+				result.Error = scanner.Err()
+				return result
 			}
 		}
 	}
 
-	return scanner.Err()
+	result.Error = scanner.Err()
+	return result
 }
 
 func (t *OpenAIToAnthropicTransformer) writeChunk(w io.Writer, chunk StreamChunk) {

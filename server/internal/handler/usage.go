@@ -50,6 +50,25 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		successRate = float64(successRequests) / float64(totalRequests) * 100
 	}
 
+	var modelStats []struct {
+		Model       string `json:"model"`
+		ActualModel string `json:"actual_model"`
+		Count       int64  `json:"count"`
+		Tokens      int64  `json:"tokens"`
+	}
+	model.DB.Raw(`
+		SELECT 
+			model,
+			COALESCE(actual_model, model) as actual_model,
+			COUNT(*) as count,
+			SUM(prompt_tokens + completion_tokens) as tokens
+		FROM usage_logs
+		WHERE created_at >= ? AND created_at <= ?
+		GROUP BY model, actual_model
+		ORDER BY count DESC
+		LIMIT 20
+	`, startDate, endDate+" 23:59:59").Scan(&modelStats)
+
 	c.JSON(http.StatusOK, gin.H{
 		"totalRequests":    totalRequests,
 		"successRequests":  successRequests,
@@ -57,6 +76,7 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		"totalTokens":      totalTokens,
 		"promptTokens":     totalPromptTokens,
 		"completionTokens": totalCompletionTokens,
+		"modelStats":       modelStats,
 	})
 }
 

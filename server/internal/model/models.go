@@ -76,6 +76,7 @@ type APIKey struct {
 	RateLimit     int            `gorm:"default:0" json:"rate_limit"`
 	Quota         int64          `gorm:"default:0" json:"quota"`
 	UsedQuota     int64          `gorm:"default:0" json:"used_quota"`
+	UsedCount     int64          `gorm:"default:0" json:"used_count"`
 	ExpiresAt     *time.Time     `json:"expires_at"`
 	Enabled       bool           `gorm:"default:true" json:"enabled"`
 	CreatedAt     time.Time      `json:"created_at"`
@@ -92,9 +93,10 @@ type APIKeyModel struct {
 
 type UsageLog struct {
 	ID               uint      `gorm:"primaryKey" json:"id"`
-	APIKeyID         uint      `gorm:"index;not null" json:"api_key_id"`
+	APIKeyID         uint      `gorm:"index" json:"api_key_id"`
 	ProviderID       uint      `gorm:"index" json:"provider_id"`
 	Model            string    `gorm:"size:128;not null" json:"model"`
+	ActualModel      string    `gorm:"size:128" json:"actual_model"`
 	PromptTokens     int       `gorm:"default:0" json:"prompt_tokens"`
 	CompletionTokens int       `gorm:"default:0" json:"completion_tokens"`
 	LatencyMs        int       `gorm:"default:0" json:"latency_ms"`

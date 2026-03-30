@@ -31,6 +31,8 @@ func (h *ProxyHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 
+	alias := req.Model
+
 	apiKeyID, _ := c.Get("api_key_id")
 	if keyID, ok := apiKeyID.(uint); ok {
 		var permissionCount int64
@@ -58,6 +60,9 @@ func (h *ProxyHandler) ChatCompletions(c *gin.Context) {
 	}
 
 	req.Model = result.ActualModel
+	if req.Stream {
+		req.StreamOptions = &transformer.StreamOptions{IncludeUsage: true}
+	}
 
 	trans := h.getTransformer(result.Provider.APIType)
 
@@ -99,29 +104,29 @@ func (h *ProxyHandler) ChatCompletions(c *gin.Context) {
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		h.logUsage(c, result.Provider.ID, req.Model, 0, 0, int(time.Since(startTime).Milliseconds()), "error", err.Error())
+		h.logUsage(c, result.Provider.ID, alias, result.ActualModel, 0, 0, int(time.Since(startTime).Milliseconds()), "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer resp.Body.Close()
 
 	if req.Stream {
-		h.handleStreamResponse(c, resp, trans, result.Provider.ID, req.Model, startTime)
+		h.handleStreamResponse(c, resp, trans, result.Provider.ID, alias, result.ActualModel, startTime)
 	} else {
-		h.handleNormalResponse(c, resp, trans, result.Provider.ID, req.Model, startTime)
+		h.handleNormalResponse(c, resp, trans, result.Provider.ID, alias, result.ActualModel, startTime)
 	}
 }
 
-func (h *ProxyHandler) handleNormalResponse(c *gin.Context, resp *http.Response, trans transformer.Transformer, providerID uint, modelName string, startTime time.Time) {
+func (h *ProxyHandler) handleNormalResponse(c *gin.Context, resp *http.Response, trans transformer.Transformer, providerID uint, alias string, actualModel string, startTime time.Time) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		h.logUsage(c, providerID, modelName, 0, 0, int(time.Since(startTime).Milliseconds()), "error", err.Error())
+		h.logUsage(c, providerID, alias, actualModel, 0, 0, int(time.Since(startTime).Milliseconds()), "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		h.logUsage(c, providerID, modelName, 0, 0, int(time.Since(startTime).Milliseconds()), "error", string(body))
+		h.logUsage(c, providerID, alias, actualModel, 0, 0, int(time.Since(startTime).Milliseconds()), "error", string(body))
 		c.JSON(resp.StatusCode, gin.H{"error": string(body)})
 		return
 	}
@@ -132,21 +137,31 @@ func (h *ProxyHandler) handleNormalResponse(c *gin.Context, resp *http.Response,
 		return
 	}
 
-	h.logUsage(c, providerID, modelName, openaiResp.Usage.PromptTokens, openaiResp.Usage.CompletionTokens, int(time.Since(startTime).Milliseconds()), "success", "")
+	h.logUsage(c, providerID, alias, actualModel, openaiResp.Usage.PromptTokens, openaiResp.Usage.CompletionTokens, int(time.Since(startTime).Milliseconds()), "success", "")
 
 	c.JSON(http.StatusOK, openaiResp)
 }
 
-func (h *ProxyHandler) handleStreamResponse(c *gin.Context, resp *http.Response, trans transformer.Transformer, providerID uint, modelName string, startTime time.Time) {
+func (h *ProxyHandler) handleStreamResponse(c *gin.Context, resp *http.Response, trans transformer.Transformer, providerID uint, alias string, actualModel string, startTime time.Time) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 
-	if err := trans.TransformStream(resp.Body, c.Writer); err != nil {
-		h.logUsage(c, providerID, modelName, 0, 0, int(time.Since(startTime).Milliseconds()), "error", err.Error())
+	result := trans.TransformStream(resp.Body, c.Writer)
+
+	usage := result.Usage
+	if usage == nil {
+		usage = &transformer.Usage{}
 	}
 
-	h.logUsage(c, providerID, modelName, 0, 0, int(time.Since(startTime).Milliseconds()), "success", "")
+	status := "success"
+	errorMsg := ""
+	if result.Error != nil {
+		status = "error"
+		errorMsg = result.Error.Error()
+	}
+
+	h.logUsage(c, providerID, alias, actualModel, usage.PromptTokens, usage.CompletionTokens, int(time.Since(startTime).Milliseconds()), status, errorMsg)
 }
 
 func (h *ProxyHandler) getTransformer(apiType string) transformer.Transformer {
@@ -158,12 +173,13 @@ func (h *ProxyHandler) getTransformer(apiType string) transformer.Transformer {
 	}
 }
 
-func (h *ProxyHandler) logUsage(c *gin.Context, providerID uint, modelName string, promptTokens, completionTokens, latencyMs int, status, errorMsg string) {
+func (h *ProxyHandler) logUsage(c *gin.Context, providerID uint, alias string, actualModel string, promptTokens, completionTokens int, latencyMs int, status, errorMsg string) {
 	apiKeyID, _ := c.Get("api_key_id")
 
 	usageLog := model.UsageLog{
 		ProviderID:       providerID,
-		Model:            modelName,
+		Model:            alias,
+		ActualModel:      actualModel,
 		PromptTokens:     promptTokens,
 		CompletionTokens: completionTokens,
 		LatencyMs:        latencyMs,
@@ -179,7 +195,10 @@ func (h *ProxyHandler) logUsage(c *gin.Context, providerID uint, modelName strin
 
 	if keyID, ok := apiKeyID.(uint); ok {
 		model.DB.Model(&model.APIKey{}).Where("id = ?", keyID).
-			UpdateColumn("used_quota", model.DB.Raw("used_quota + ?", promptTokens+completionTokens))
+			Updates(map[string]interface{}{
+				"used_quota": model.DB.Raw("used_quota + ?", promptTokens+completionTokens),
+				"used_count": model.DB.Raw("used_count + 1"),
+			})
 	}
 }
 

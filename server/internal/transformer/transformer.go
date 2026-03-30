@@ -10,14 +10,15 @@ type ChatMessage struct {
 }
 
 type OpenAIRequest struct {
-	Model       string        `json:"model"`
-	Messages    []ChatMessage `json:"messages"`
-	MaxTokens   int           `json:"max_tokens,omitempty"`
-	Temperature float64       `json:"temperature,omitempty"`
-	Stream      bool          `json:"stream,omitempty"`
-	Tools       []Tool        `json:"tools,omitempty"`
-	ToolChoice  interface{}   `json:"tool_choice,omitempty"`
-	Stop        []string      `json:"stop,omitempty"`
+	Model         string         `json:"model"`
+	Messages      []ChatMessage  `json:"messages"`
+	MaxTokens     int            `json:"max_tokens,omitempty"`
+	Temperature   float64        `json:"temperature,omitempty"`
+	Stream        bool           `json:"stream,omitempty"`
+	StreamOptions *StreamOptions `json:"stream_options,omitempty"`
+	Tools         []Tool         `json:"tools,omitempty"`
+	ToolChoice    interface{}    `json:"tool_choice,omitempty"`
+	Stop          []string       `json:"stop,omitempty"`
 }
 
 type Tool struct {
@@ -84,8 +85,17 @@ type StreamChunk struct {
 	Choices []Choice `json:"choices"`
 }
 
+type StreamOptions struct {
+	IncludeUsage bool `json:"include_usage,omitempty"`
+}
+
+type StreamResult struct {
+	Usage *Usage
+	Error error
+}
+
 type Transformer interface {
 	TransformRequest(req *OpenAIRequest) (interface{}, error)
 	TransformResponse(body []byte) (*OpenAIResponse, error)
-	TransformStream(reader io.Reader, writer io.Writer) error
+	TransformStream(reader io.Reader, writer io.Writer) *StreamResult
 }
