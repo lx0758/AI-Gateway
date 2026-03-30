@@ -93,3 +93,37 @@ func RequireAPIKey() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func RequireAPIKeyForAnthropic() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		apiKeyHeader := c.GetHeader("x-api-key")
+		if apiKeyHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing x-api-key header"})
+			c.Abort()
+			return
+		}
+
+		var apiKey model.APIKey
+		if err := model.DB.Where("key = ? AND enabled = ?", apiKeyHeader, true).First(&apiKey).Error; err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid API key"})
+			c.Abort()
+			return
+		}
+
+		if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "API key expired"})
+			c.Abort()
+			return
+		}
+
+		if apiKey.Quota > 0 && apiKey.UsedQuota >= apiKey.Quota {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "quota exceeded"})
+			c.Abort()
+			return
+		}
+
+		c.Set("api_key_id", apiKey.ID)
+		c.Set("api_key", &apiKey)
+		c.Next()
+	}
+}

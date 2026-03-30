@@ -1,15 +1,14 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"ai-proxy/internal/manufacturer"
 	"ai-proxy/internal/model"
 )
 
@@ -170,186 +169,36 @@ func (h *ProviderModelHandler) Sync(c *gin.Context) {
 		return
 	}
 
-	switch provider.APIType {
-	case "openai":
-		h.syncOpenAIModels(c, &provider)
-	case "anthropic":
-		h.syncAnthropicModels(c, &provider)
-	default:
+	mfr := manufacturer.NewFactory().Create(&provider)
+	if mfr == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported provider type"})
-	}
-}
-
-func (h *ProviderModelHandler) syncOpenAIModels(c *gin.Context, provider *model.Provider) {
-	baseURL := provider.BaseURL
-	if baseURL == "" {
-		baseURL = "https://api.openai.com/v1"
+		return
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("GET", baseURL+"/models", nil)
+	models, err := mfr.SyncModels(&provider)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create request: " + err.Error()})
-		return
-	}
-	req.Header.Set("Authorization", "Bearer "+provider.APIKey)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch models: " + err.Error()})
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("OpenAI API error: %s", string(body))})
-		return
-	}
-
-	var result struct {
-		Data []struct {
-			ID      string `json:"id"`
-			Object  string `json:"object"`
-			OwnedBy string `json:"owned_by"`
-		} `json:"data"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse response: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	added := 0
 	updated := 0
 
-	for _, m := range result.Data {
-		var pm model.ProviderModel
-		res := model.DB.Where("provider_id = ? AND model_id = ?", provider.ID, m.ID).First(&pm)
+	for _, pm := range models {
+		var existing model.ProviderModel
+		res := model.DB.Where("provider_id = ? AND model_id = ?", provider.ID, pm.ModelID).First(&existing)
 
 		if res.Error != nil {
-			pm = model.ProviderModel{
-				ProviderID:     provider.ID,
-				ModelID:        m.ID,
-				DisplayName:    m.ID,
-				OwnedBy:        m.OwnedBy,
-				SupportsStream: true,
-				IsAvailable:    true,
-				Source:         "sync",
-			}
 			model.DB.Create(&pm)
 			added++
-		} else if pm.Source != "manual" {
-			model.DB.Model(&pm).Updates(map[string]interface{}{
-				"owned_by":     m.OwnedBy,
-				"is_available": true,
-			})
-			updated++
-		}
-	}
-
-	now := time.Now()
-	model.DB.Model(provider).Update("last_sync_at", &now)
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "OpenAI models synced",
-		"added":   added,
-		"updated": updated,
-		"total":   len(result.Data),
-	})
-}
-
-func (h *ProviderModelHandler) syncAnthropicModels(c *gin.Context, provider *model.Provider) {
-	baseURL := provider.BaseURL
-	if baseURL == "" {
-		baseURL = "https://api.anthropic.com/v1"
-	}
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	req, err := http.NewRequest("GET", baseURL+"/models", nil)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create request: " + err.Error()})
-		return
-	}
-	req.Header.Set("x-api-key", provider.APIKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch models: " + err.Error()})
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Anthropic API error: %s", string(body))})
-		return
-	}
-
-	var result struct {
-		Data []struct {
-			ID            string `json:"id"`
-			Type          string `json:"type"`
-			DisplayName   string `json:"display_name"`
-			CreatedAt     string `json:"created_at"`
-			MaxInputToken int    `json:"max_input_tokens"`
-			MaxTokens     int    `json:"max_tokens"`
-			Capabilities  struct {
-				ImageInput struct {
-					Supported bool `json:"supported"`
-				} `json:"image_input"`
-				Thinking struct {
-					Supported bool `json:"supported"`
-				} `json:"thinking"`
-			} `json:"capabilities"`
-		} `json:"data"`
-		HasMore bool `json:"has_more"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse response: " + err.Error()})
-		return
-	}
-
-	added := 0
-	updated := 0
-
-	for _, m := range result.Data {
-		var pm model.ProviderModel
-		res := model.DB.Where("provider_id = ? AND model_id = ?", provider.ID, m.ID).First(&pm)
-
-		displayName := m.DisplayName
-		if displayName == "" {
-			displayName = m.ID
-		}
-
-		supportsVision := m.Capabilities.ImageInput.Supported
-		supportsTools := true
-
-		if res.Error != nil {
-			pm = model.ProviderModel{
-				ProviderID:     provider.ID,
-				ModelID:        m.ID,
-				DisplayName:    displayName,
-				OwnedBy:        "anthropic",
-				ContextWindow:  m.MaxInputToken,
-				MaxOutput:      m.MaxTokens,
-				SupportsVision: supportsVision,
-				SupportsTools:  supportsTools,
-				SupportsStream: true,
-				IsAvailable:    true,
-				Source:         "sync",
-			}
-			model.DB.Create(&pm)
-			added++
-		} else if pm.Source != "manual" {
-			model.DB.Model(&pm).Updates(map[string]interface{}{
-				"display_name":    displayName,
-				"context_window":  m.MaxInputToken,
-				"max_output":      m.MaxTokens,
-				"supports_vision": supportsVision,
-				"supports_tools":  supportsTools,
+		} else if existing.Source != "manual" {
+			model.DB.Model(&existing).Updates(map[string]interface{}{
+				"display_name":    pm.DisplayName,
+				"owned_by":        pm.OwnedBy,
+				"context_window":  pm.ContextWindow,
+				"max_output":      pm.MaxOutput,
+				"supports_vision": pm.SupportsVision,
+				"supports_tools":  pm.SupportsTools,
 				"is_available":    true,
 			})
 			updated++
@@ -357,12 +206,12 @@ func (h *ProviderModelHandler) syncAnthropicModels(c *gin.Context, provider *mod
 	}
 
 	now := time.Now()
-	model.DB.Model(provider).Update("last_sync_at", &now)
+	model.DB.Model(&provider).Update("last_sync_at", &now)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Anthropic models synced",
+		"message": fmt.Sprintf("%s models synced", mfr.Name()),
 		"added":   added,
 		"updated": updated,
-		"total":   len(result.Data),
+		"total":   len(models),
 	})
 }
