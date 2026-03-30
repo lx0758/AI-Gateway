@@ -1,6 +1,5 @@
 import axios from 'axios'
 import { useUserStore } from '@/stores/user'
-import router from '@/router'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -13,7 +12,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const userStore = useUserStore()
       userStore.user = null
-      router.push('/login')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }

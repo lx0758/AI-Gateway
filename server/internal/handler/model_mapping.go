@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-model-proxy/internal/model"
+	"ai-proxy/internal/model"
 )
 
 type ModelMappingHandler struct{}
@@ -19,8 +19,11 @@ type CreateModelMappingRequest struct {
 }
 
 type UpdateModelMappingRequest struct {
-	Weight  *int  `json:"weight"`
-	Enabled *bool `json:"enabled"`
+	Alias           *string `json:"alias"`
+	ProviderID      *uint   `json:"provider_id"`
+	ProviderModelID *uint   `json:"provider_model_id"`
+	Weight          *int    `json:"weight"`
+	Enabled         *bool   `json:"enabled"`
 }
 
 func NewModelMappingHandler() *ModelMappingHandler {
@@ -103,6 +106,29 @@ func (h *ModelMappingHandler) Update(c *gin.Context) {
 	}
 
 	updates := map[string]interface{}{}
+	if req.Alias != nil {
+		updates["alias"] = *req.Alias
+	}
+	if req.ProviderID != nil {
+		var provider model.Provider
+		if err := model.DB.First(&provider, *req.ProviderID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "provider not found"})
+			return
+		}
+		updates["provider_id"] = *req.ProviderID
+	}
+	if req.ProviderModelID != nil {
+		providerID := mapping.ProviderID
+		if req.ProviderID != nil {
+			providerID = *req.ProviderID
+		}
+		var pm model.ProviderModel
+		if err := model.DB.Where("id = ? AND provider_id = ?", *req.ProviderModelID, providerID).First(&pm).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "provider model not found"})
+			return
+		}
+		updates["provider_model_id"] = *req.ProviderModelID
+	}
 	if req.Weight != nil {
 		updates["weight"] = *req.Weight
 	}

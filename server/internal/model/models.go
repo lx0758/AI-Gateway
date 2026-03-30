@@ -80,6 +80,14 @@ type APIKey struct {
 	Enabled       bool           `gorm:"default:true" json:"enabled"`
 	CreatedAt     time.Time      `json:"created_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	Models        []APIKeyModel  `gorm:"foreignKey:APIKeyID" json:"models,omitempty"`
+}
+
+type APIKeyModel struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	APIKeyID   uint      `gorm:"index;not null" json:"api_key_id"`
+	ModelAlias string    `gorm:"size:128;not null" json:"model_alias"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type UsageLog struct {

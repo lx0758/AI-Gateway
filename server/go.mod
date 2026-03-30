@@ -1,4 +1,4 @@
-module ai-model-proxy
+module ai-proxy
 
 go 1.26.1
 

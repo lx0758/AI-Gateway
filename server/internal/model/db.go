@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 
@@ -26,7 +27,11 @@ func InitDB(dbPath string) error {
 		return err
 	}
 
-	return autoMigrate()
+	if err := autoMigrate(); err != nil {
+		return err
+	}
+
+	return migrateAllowedModels()
 }
 
 func autoMigrate() error {
@@ -36,8 +41,44 @@ func autoMigrate() error {
 		&ProviderModel{},
 		&ModelMapping{},
 		&APIKey{},
+		&APIKeyModel{},
 		&UsageLog{},
 	)
+}
+
+func migrateAllowedModels() error {
+	var keys []APIKey
+	if err := DB.Where("allowed_models != ? AND allowed_models != ''", "[]").Find(&keys).Error; err != nil {
+		return err
+	}
+
+	for _, key := range keys {
+		if key.AllowedModels == "" {
+			continue
+		}
+
+		var models []string
+		if err := json.Unmarshal([]byte(key.AllowedModels), &models); err != nil {
+			continue
+		}
+
+		for _, alias := range models {
+			var existing APIKeyModel
+			if err := DB.Where("api_key_id = ? AND model_alias = ?", key.ID, alias).First(&existing).Error; err == nil {
+				continue
+			}
+
+			akm := APIKeyModel{
+				APIKeyID:   key.ID,
+				ModelAlias: alias,
+			}
+			DB.Create(&akm)
+		}
+
+		DB.Model(&key).Update("allowed_models", "[]")
+	}
+
+	return nil
 }
 
 func GetDB() *gorm.DB {

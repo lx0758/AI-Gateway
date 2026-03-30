@@ -10,6 +10,17 @@
       <el-table :data="keys" stripe v-loading="loading">
         <el-table-column prop="name" :label="t('apiKey.name')" />
         <el-table-column prop="key" :label="t('apiKey.key')" />
+        <el-table-column :label="t('apiKey.allowedModels')">
+          <template #default="{ row }">
+            <template v-if="row.models && row.models.length > 0">
+              <el-tag v-for="m in row.models.slice(0, 3)" :key="m.id" size="small" style="margin-right: 4px">
+                {{ m.model_alias }}
+              </el-tag>
+              <el-tag v-if="row.models.length > 3" size="small" type="info">+{{ row.models.length - 3 }}</el-tag>
+            </template>
+            <span v-else style="color: #999">{{ t('apiKey.allModels') }}</span>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('apiKey.usedQuota')">
           <template #default="{ row }">
             {{ row.used_quota }} / {{ row.quota || '∞' }}
@@ -22,7 +33,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.action')">
+        <el-table-column :label="t('common.action')" width="100">
           <template #default="{ row }">
             <el-button link type="danger" @click="handleDelete(row.id)">{{ t('common.delete') }}</el-button>
           </template>
@@ -34,6 +45,11 @@
       <el-form :model="form" ref="formRef" label-width="auto">
         <el-form-item :label="t('apiKey.name')">
           <el-input v-model="form.name" />
+        </el-form-item>
+        <el-form-item :label="t('apiKey.allowedModels')">
+          <el-select v-model="form.allowed_models" multiple style="width: 100%" :placeholder="t('apiKey.allModels')" filterable>
+            <el-option v-for="m in availableModels" :key="m.alias" :label="m.alias" :value="m.alias" />
+          </el-select>
         </el-form-item>
         <el-form-item :label="t('apiKey.quota')">
           <el-input-number v-model="form.quota" :min="0" />
@@ -68,6 +84,7 @@ import api from '@/api'
 const { t } = useI18n()
 
 const keys = ref<any[]>([])
+const availableModels = ref<any[]>([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 const keyDialogVisible = ref(false)
@@ -77,11 +94,13 @@ const formRef = ref()
 const form = reactive({
   name: '',
   quota: 0,
-  rate_limit: 0
+  rate_limit: 0,
+  allowed_models: [] as string[]
 })
 
 onMounted(() => {
   fetchKeys()
+  fetchAvailableModels()
 })
 
 async function fetchKeys() {
@@ -94,8 +113,24 @@ async function fetchKeys() {
   }
 }
 
+async function fetchAvailableModels() {
+  try {
+    const res = await api.get('/model-mappings')
+    const seen = new Set<string>()
+    availableModels.value = (res.data.mappings || [])
+      .filter((m: any) => {
+        if (seen.has(m.alias)) return false
+        seen.add(m.alias)
+        return true
+      })
+      .map((m: any) => ({ alias: m.alias }))
+  } catch (e) {
+    console.error(e)
+  }
+}
+
 function showDialog() {
-  Object.assign(form, { name: '', quota: 0, rate_limit: 0 })
+  Object.assign(form, { name: '', quota: 0, rate_limit: 0, allowed_models: [] })
   dialogVisible.value = true
 }
 

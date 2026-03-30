@@ -1,6 +1,6 @@
 export default {
   app: {
-    title: 'AI 模型代理',
+    title: 'AI 代理',
     shortTitle: 'AI'
   },
   common: {
@@ -8,6 +8,7 @@ export default {
     cancel: '取消',
     delete: '删除',
     edit: '编辑',
+    detail: '详情',
     create: '创建',
     search: '搜索',
     status: '状态',
@@ -28,7 +29,7 @@ export default {
     to: '至'
   },
   login: {
-    title: 'AI 模型代理',
+    title: 'AI 代理',
     username: '用户名',
     password: '密码',
     submit: '登录',
@@ -57,6 +58,7 @@ export default {
     apiType: 'API 类型',
     baseUrl: '接口地址',
     apiKey: 'API 密钥',
+    apiKeyPlaceholder: '留空则保持当前密钥不变',
     models: '模型',
     testConnection: '测试连接',
     syncModels: '同步模型',

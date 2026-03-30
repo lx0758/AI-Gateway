@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-model-proxy/internal/model"
+	"ai-proxy/internal/model"
 )
 
 type ProviderHandler struct{}

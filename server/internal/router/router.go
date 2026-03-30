@@ -1,7 +1,7 @@
 package router
 
 import (
-	"ai-model-proxy/internal/model"
+	"ai-proxy/internal/model"
 )
 
 type RouteResult struct {

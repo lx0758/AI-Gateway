@@ -1,6 +1,6 @@
 export default {
   app: {
-    title: 'AI Model Proxy',
+    title: 'AI Proxy',
     shortTitle: 'AI'
   },
   common: {
@@ -8,6 +8,7 @@ export default {
     cancel: 'Cancel',
     delete: 'Delete',
     edit: 'Edit',
+    detail: 'Detail',
     create: 'Create',
     search: 'Search',
     status: 'Status',
@@ -28,7 +29,7 @@ export default {
     to: 'To'
   },
   login: {
-    title: 'AI Model Proxy',
+    title: 'AI Proxy',
     username: 'Username',
     password: 'Password',
     submit: 'Login',
@@ -57,6 +58,7 @@ export default {
     apiType: 'API Type',
     baseUrl: 'Base URL',
     apiKey: 'API Key',
+    apiKeyPlaceholder: 'Leave empty to keep current key',
     models: 'Models',
     testConnection: 'Test Connection',
     syncModels: 'Sync Models',

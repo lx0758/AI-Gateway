@@ -21,26 +21,27 @@
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.action')">
+        <el-table-column :label="t('common.action')" width="150">
           <template #default="{ row }">
+            <el-button link type="primary" @click="showDialog(row.id)">{{ t('common.edit') }}</el-button>
             <el-button link type="danger" @click="handleDelete(row.id)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="t('common.create')">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="auto">
+    <el-dialog v-model="dialogVisible" :title="editingId ? t('common.edit') : t('common.create')">
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="auto" v-loading="dialogLoading">
         <el-form-item :label="t('modelMapping.alias')" prop="alias">
           <el-input v-model="form.alias" placeholder="e.g., gpt-4" />
         </el-form-item>
         <el-form-item :label="t('provider.name')" prop="provider_id">
-          <el-select v-model="form.provider_id" @change="loadProviderModels" style="width: 100%">
+          <el-select v-model="form.provider_id" @change="loadProviderModels" style="width: 100%" filterable>
             <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
         </el-form-item>
         <el-form-item :label="t('modelMapping.model')" prop="provider_model_id">
-          <el-select v-model="form.provider_model_id" style="width: 100%">
+          <el-select v-model="form.provider_model_id" style="width: 100%" filterable :placeholder="form.provider_id ? '' : t('provider.name')">
             <el-option v-for="m in providerModels" :key="m.id" :label="m.model_id" :value="m.id" />
           </el-select>
         </el-form-item>
@@ -69,6 +70,8 @@ const providers = ref<any[]>([])
 const providerModels = ref<any[]>([])
 const loading = ref(false)
 const dialogVisible = ref(false)
+const dialogLoading = ref(false)
+const editingId = ref<number | null>(null)
 const formRef = ref()
 
 const form = reactive({
@@ -110,10 +113,31 @@ async function loadProviderModels() {
   providerModels.value = res.data.models || []
 }
 
-function showDialog() {
+async function showDialog(id?: number) {
+  editingId.value = id || null
   Object.assign(form, { alias: '', provider_id: null, provider_model_id: null, weight: 1 })
   providerModels.value = []
   dialogVisible.value = true
+
+  if (id) {
+    dialogLoading.value = true
+    try {
+      const res = await api.get(`/model-mappings`)
+      const mapping = res.data.mappings?.find((m: any) => m.id === id)
+      if (mapping) {
+        form.alias = mapping.alias
+        form.provider_id = mapping.provider_id
+        form.provider_model_id = mapping.provider_model_id
+        form.weight = mapping.weight
+        await loadProviderModels()
+      }
+    } catch (e) {
+      ElMessage.error(t('common.error'))
+      dialogVisible.value = false
+    } finally {
+      dialogLoading.value = false
+    }
+  }
 }
 
 async function handleSubmit() {
@@ -121,7 +145,16 @@ async function handleSubmit() {
   if (!valid) return
 
   try {
-    await api.post('/model-mappings', form)
+    if (editingId.value) {
+      await api.put(`/model-mappings/${editingId.value}`, {
+        alias: form.alias,
+        provider_id: form.provider_id,
+        provider_model_id: form.provider_model_id,
+        weight: form.weight
+      })
+    } else {
+      await api.post('/model-mappings', form)
+    }
     ElMessage.success(t('common.success'))
     dialogVisible.value = false
     fetchMappings()

@@ -1,15 +1,16 @@
-# AI Model Proxy
+# AI Proxy
 
-一个统一的 AI 模型代理服务，将多个大模型厂商的 API 聚合为 OpenAI 兼容格式。
+统一的 AI 服务代理平台。当前版本聚合多个大模型厂商的 API 为 OpenAI 兼容格式，未来将扩展支持 MCP/ACP 等协议代理。
 
 ## 特性
 
 - **OpenAI 兼容 API**: 暴露标准的 `/openai/v1/chat/completions` 和 `/openai/v1/models` 接口
-- **多厂商支持**: 支持 OpenAI、Anthropic 等厂商，可轻松扩展
+- **多厂商支持**: 支持 `@ai-sdk/openai-compatible` 和 `@ai-sdk/anthropic` 类型厂商，可轻松扩展
 - **格式自动转换**: OpenAI ↔ Anthropic 请求/响应格式自动转换
-- **模型别名映射**: 将模型别名映射到实际厂商模型
+- **模型别名映射**: 将模型别名映射到实际厂商模型，支持编辑修改
 - **负载均衡**: 支持多厂商轮询和故障转移
-- **API Key 管理**: 生成和管理代理 API Key
+- **API Key 管理**: 生成和管理代理 API Key，支持模型访问权限控制
+- **手动模型保护**: 同步厂商模型时保护手动创建的模型配置
 - **用量统计**: 请求日志和用量仪表盘
 - **Web 控制台**: Vue 3 管理界面，支持中英文、暗色模式
 
@@ -107,7 +108,11 @@ DELETE /api/v1/model-mappings/:id # 删除映射
 
 GET  /api/v1/api-keys       # API Key 列表
 POST /api/v1/api-keys       # 创建 API Key
+PUT  /api/v1/api-keys/:id   # 更新 API Key
 DELETE /api/v1/api-keys/:id # 删除 API Key
+GET  /api/v1/api-keys/:id/models  # 获取 Key 允许的模型列表
+POST /api/v1/api-keys/:id/models  # 添加模型权限
+DELETE /api/v1/api-keys/:id/models/:model_alias # 删除模型权限
 
 GET  /api/v1/usage/stats    # 用量统计
 GET  /api/v1/usage/logs     # 用量日志
@@ -194,11 +199,10 @@ ai-model-proxy/
 
 ## 支持的厂商
 
-| 厂商 | API Type | 格式转换 |
-|------|----------|---------|
-| OpenAI | `openai` | 直通 |
-| Anthropic | `anthropic` | OpenAI ↔ Anthropic |
-| 其他 OpenAI 兼容 | `openai` | 直通 |
+| API Type | 显示名称 | 格式转换 |
+|----------|----------|---------|
+| `openai` | `@ai-sdk/openai-compatible` | 直通 |
+| `anthropic` | `@ai-sdk/anthropic` | OpenAI ↔ Anthropic |
 
 ## 开发
 

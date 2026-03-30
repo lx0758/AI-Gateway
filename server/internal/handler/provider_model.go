@@ -10,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-model-proxy/internal/model"
+	"ai-proxy/internal/model"
 )
 
 type ProviderModelHandler struct{}
@@ -239,7 +239,7 @@ func (h *ProviderModelHandler) syncOpenAIModels(c *gin.Context, provider *model.
 			}
 			model.DB.Create(&pm)
 			added++
-		} else {
+		} else if pm.Source != "manual" {
 			model.DB.Model(&pm).Updates(map[string]interface{}{
 				"owned_by":     m.OwnedBy,
 				"is_available": true,
@@ -343,7 +343,7 @@ func (h *ProviderModelHandler) syncAnthropicModels(c *gin.Context, provider *mod
 			}
 			model.DB.Create(&pm)
 			added++
-		} else {
+		} else if pm.Source != "manual" {
 			model.DB.Model(&pm).Updates(map[string]interface{}{
 				"display_name":    displayName,
 				"context_window":  m.MaxInputToken,

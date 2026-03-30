@@ -17,7 +17,7 @@ const routes = [
       { path: 'providers', name: 'Providers', component: () => import('@/views/Providers/index.vue') },
       { path: 'providers/:id', name: 'ProviderDetail', component: () => import('@/views/Providers/Detail.vue') },
       { path: 'models', name: 'ModelMappings', component: () => import('@/views/Models/index.vue') },
-      { path: 'api-keys', name: 'APIKeys', component: () => import('@/views/APIKeys/index.vue') },
+      { path: 'keys', name: 'APIKeys', component: () => import('@/views/APIKeys/index.vue') },
       { path: 'usage', name: 'Usage', component: () => import('@/views/Usage/index.vue') },
       { path: 'settings', name: 'Settings', component: () => import('@/views/Settings/index.vue') }
     ]
@@ -29,8 +29,12 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
+  
+  if (!userStore.user) {
+    await userStore.fetchUser()
+  }
   
   if (to.meta.requiresAuth !== false && !userStore.isLoggedIn) {
     next('/login')

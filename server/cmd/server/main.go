@@ -6,11 +6,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-model-proxy/internal/config"
-	"ai-model-proxy/internal/handler"
-	"ai-model-proxy/internal/middleware"
-	"ai-model-proxy/internal/model"
-	"ai-model-proxy/res"
+	"ai-proxy/internal/config"
+	"ai-proxy/internal/handler"
+	"ai-proxy/internal/middleware"
+	"ai-proxy/internal/model"
+	"ai-proxy/res"
 )
 
 func main() {
@@ -91,7 +91,11 @@ func main() {
 
 			protected.GET("/api-keys", apiKeyHandler.List)
 			protected.POST("/api-keys", apiKeyHandler.Create)
+			protected.PUT("/api-keys/:id", apiKeyHandler.Update)
 			protected.DELETE("/api-keys/:id", apiKeyHandler.Delete)
+			protected.GET("/api-keys/:id/models", apiKeyHandler.ListModels)
+			protected.POST("/api-keys/:id/models", apiKeyHandler.AddModel)
+			protected.DELETE("/api-keys/:id/models/:model_alias", apiKeyHandler.RemoveModel)
 
 			protected.GET("/usage/stats", usageHandler.Stats)
 			protected.GET("/usage/logs", usageHandler.Logs)

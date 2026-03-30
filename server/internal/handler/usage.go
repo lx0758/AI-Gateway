@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-model-proxy/internal/model"
+	"ai-proxy/internal/model"
 )
 
 type UsageHandler struct{}
@@ -51,12 +51,12 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"total_requests":    totalRequests,
-		"success_requests":  successRequests,
-		"success_rate":      successRate,
-		"total_tokens":      totalTokens,
-		"prompt_tokens":     totalPromptTokens,
-		"completion_tokens": totalCompletionTokens,
+		"totalRequests":    totalRequests,
+		"successRequests":  successRequests,
+		"successRate":      successRate,
+		"totalTokens":      totalTokens,
+		"promptTokens":     totalPromptTokens,
+		"completionTokens": totalCompletionTokens,
 	})
 }
 
@@ -144,11 +144,11 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 	`, sevenDaysAgo).Scan(&modelStats)
 
 	c.JSON(http.StatusOK, gin.H{
-		"today_requests":   todayRequests,
-		"active_providers": activeProviders,
-		"active_keys":      activeKeys,
-		"daily_stats":      dailyStats,
-		"provider_stats":   providerStats,
-		"model_stats":      modelStats,
+		"todayRequests":   todayRequests,
+		"activeProviders": activeProviders,
+		"activeKeys":      activeKeys,
+		"dailyStats":      dailyStats,
+		"providerStats":   providerStats,
+		"modelStats":      modelStats,
 	})
 }

@@ -9,9 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-model-proxy/internal/model"
-	"ai-model-proxy/internal/router"
-	"ai-model-proxy/internal/transformer"
+	"ai-proxy/internal/model"
+	"ai-proxy/internal/router"
+	"ai-proxy/internal/transformer"
 )
 
 type ProxyHandler struct {
@@ -29,6 +29,22 @@ func (h *ProxyHandler) ChatCompletions(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	apiKeyID, _ := c.Get("api_key_id")
+	if keyID, ok := apiKeyID.(uint); ok {
+		var permissionCount int64
+		model.DB.Model(&model.APIKeyModel{}).Where("api_key_id = ?", keyID).Count(&permissionCount)
+		if permissionCount > 0 {
+			var hasPermission int64
+			model.DB.Model(&model.APIKeyModel{}).
+				Where("api_key_id = ? AND model_alias = ?", keyID, req.Model).
+				Count(&hasPermission)
+			if hasPermission == 0 {
+				c.JSON(http.StatusForbidden, gin.H{"error": "model not allowed for this API key"})
+				return
+			}
+		}
 	}
 
 	result, err := h.router.Route(req.Model)
@@ -184,7 +200,7 @@ func (h *ProxyHandler) ListModels(c *gin.Context) {
 				"id":       m.Alias,
 				"object":   "model",
 				"created":  time.Now().Unix(),
-				"owned_by": "ai-model-proxy",
+				"owned_by": "ai-proxy",
 			})
 		}
 	}
@@ -208,6 +224,6 @@ func (h *ProxyHandler) GetModel(c *gin.Context) {
 		"id":       mapping.Alias,
 		"object":   "model",
 		"created":  time.Now().Unix(),
-		"owned_by": "ai-model-proxy",
+		"owned_by": "ai-proxy",
 	})
 }

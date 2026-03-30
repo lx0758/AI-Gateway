@@ -24,7 +24,7 @@
             <el-icon><Grid /></el-icon>
             <template #title>{{ t('menu.models') }}</template>
           </el-menu-item>
-          <el-menu-item index="/api-keys">
+          <el-menu-item index="/keys">
             <el-icon><Key /></el-icon>
             <template #title>{{ t('menu.apiKeys') }}</template>
           </el-menu-item>
