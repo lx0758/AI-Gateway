@@ -113,8 +113,12 @@ export default {
     keyStats: 'Key Stats',
     keyName: 'Key Name',
     callCount: 'Calls',
-    providerModel: 'Type/Provider/Model',
+    providerModel: 'Provider/Model',
+    typeProviderModel: 'Type/Provider/Model',
     source: 'Source',
+    sourceStats: 'Source Stats',
+    providerStats: 'Provider Stats',
+    providerModelStats: 'Provider/Model Stats',
     key: 'Key',
     latency: 'Latency',
     error: 'Error'

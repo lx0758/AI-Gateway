@@ -16,70 +16,6 @@ func NewUsageHandler() *UsageHandler {
 	return &UsageHandler{}
 }
 
-func (h *UsageHandler) Stats(c *gin.Context) {
-	startDate := c.DefaultQuery("start_date", time.Now().AddDate(0, 0, -7).Format("2006-01-02"))
-	endDate := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
-
-	var totalRequests int64
-	var successRequests int64
-	var totalTokens int64
-	var avgLatency float64
-
-	model.DB.Model(&model.UsageLog{}).
-		Where("created_at >= ? AND created_at <= ?", startDate, endDate+" 23:59:59").
-		Count(&totalRequests)
-
-	model.DB.Model(&model.UsageLog{}).
-		Where("created_at >= ? AND created_at <= ? AND status = ?", startDate, endDate+" 23:59:59", "success").
-		Count(&successRequests)
-
-	model.DB.Model(&model.UsageLog{}).
-		Where("created_at >= ? AND created_at <= ?", startDate, endDate+" 23:59:59").
-		Select("COALESCE(SUM(total_tokens), 0)").Scan(&totalTokens)
-
-	model.DB.Model(&model.UsageLog{}).
-		Where("created_at >= ? AND created_at <= ?", startDate, endDate+" 23:59:59").
-		Select("COALESCE(AVG(latency_ms), 0)").Scan(&avgLatency)
-
-	successRate := float64(0)
-	if totalRequests > 0 {
-		successRate = float64(successRequests) / float64(totalRequests) * 100
-	}
-
-	var modelStats []struct {
-		Model        string  `json:"model"`
-		ActualModel  string  `json:"actual_model"`
-		ProviderName string  `json:"provider_name"`
-		Count        int64   `json:"count"`
-		Tokens       int64   `json:"tokens"`
-		AvgLatency   float64 `json:"avg_latency"`
-	}
-	model.DB.Raw(`
-		SELECT 
-			ul.model,
-			COALESCE(ul.actual_model, ul.model) as actual_model,
-			COALESCE(p.name, 'Unknown') as provider_name,
-			COUNT(*) as count,
-			COALESCE(SUM(ul.total_tokens), 0) as tokens,
-			COALESCE(AVG(ul.latency_ms), 0) as avg_latency
-		FROM usage_logs ul
-		LEFT JOIN providers p ON ul.provider_id = p.id
-		WHERE ul.created_at >= ? AND ul.created_at <= ?
-		GROUP BY ul.model, ul.actual_model, p.name
-		ORDER BY count DESC
-		LIMIT 20
-	`, startDate, endDate+" 23:59:59").Scan(&modelStats)
-
-	c.JSON(http.StatusOK, gin.H{
-		"totalRequests":   totalRequests,
-		"successRequests": successRequests,
-		"successRate":     successRate,
-		"totalTokens":     totalTokens,
-		"avgLatency":      avgLatency,
-		"modelStats":      modelStats,
-	})
-}
-
 type logsResponse struct {
 	ID              uint      `json:"id"`
 	Source          string    `json:"source"`
@@ -100,24 +36,12 @@ type logsResponse struct {
 
 func (h *UsageHandler) Logs(c *gin.Context) {
 	startDate := c.DefaultQuery("start_date", time.Now().AddDate(0, 0, -1).Format("2006-01-02"))
-	endDate := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
-	paramKey := c.Query("key")
-	paramModel := c.Query("model")
+	endDate := c.DefaultQuery("end_date", time.Now().AddDate(0, 0, 1).Format("2006-01-02"))
 
 	query := "SELECT * FROM usage_logs WHERE created_at >= ? AND created_at <= ?"
-	args := []interface{}{startDate, endDate + " 23:59:59"}
+	args := []interface{}{startDate, endDate}
 
-	if paramKey != "" {
-		query += " AND key_id = ?"
-		args = append(args, paramKey)
-	}
-
-	if paramModel != "" {
-		query += " AND model = ?"
-		args = append(args, paramModel)
-	}
-
-	query += " ORDER BY created_at DESC LIMIT 1000"
+	query += " ORDER BY created_at DESC"
 
 	var logsResponse []logsResponse
 	if err := model.DB.Raw(query, args...).Scan(&logsResponse).Error; err != nil {
@@ -210,36 +134,6 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		"dailyStats":      dailyStats,
 		"providerStats":   providerStats,
 		"modelStats":      modelStats,
-	})
-}
-
-func (h *UsageHandler) KeyStats(c *gin.Context) {
-	startDate := c.DefaultQuery("start_date", time.Now().AddDate(0, 0, -7).Format("2006-01-02"))
-	endDate := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
-
-	var keyStats []struct {
-		KeyID      uint    `json:"key_id"`
-		KeyName    string  `json:"key_name"`
-		Count      int64   `json:"count"`
-		Tokens     int64   `json:"tokens"`
-		AvgLatency float64 `json:"avg_latency"`
-	}
-	model.DB.Raw(`
-		SELECT 
-			ul.key_id as key_id,
-			COALESCE(k.name, 'Unknown') as key_name,
-			COUNT(*) as count,
-			COALESCE(SUM(ul.total_tokens), 0) as tokens,
-			COALESCE(AVG(ul.latency_ms), 0) as avg_latency
-		FROM usage_logs ul
-		LEFT JOIN keys k ON ul.key_id = k.id
-		WHERE ul.created_at >= ? AND ul.created_at <= ?
-		GROUP BY ul.key_id, k.name
-		ORDER BY count DESC
-	`, startDate, endDate+" 23:59:59").Scan(&keyStats)
-
-	c.JSON(http.StatusOK, gin.H{
-		"keyStats": keyStats,
 	})
 }
 
