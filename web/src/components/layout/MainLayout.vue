@@ -26,7 +26,7 @@
           </el-menu-item>
           <el-menu-item index="/keys">
             <el-icon><Key /></el-icon>
-            <template #title>{{ t('menu.apiKeys') }}</template>
+            <template #title>{{ t('menu.keys') }}</template>
           </el-menu-item>
           <el-menu-item index="/usage">
             <el-icon><TrendCharts /></el-icon>

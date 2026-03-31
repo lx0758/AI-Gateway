@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -42,14 +42,14 @@ func (h *ProxyHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 
-	apiKeyID, _ := c.Get("api_key_id")
-	if keyID, ok := apiKeyID.(uint); ok {
+	KeyID, _ := c.Get("key_id")
+	if keyID, ok := KeyID.(uint); ok {
 		var permissionCount int64
-		model.DB.Model(&model.APIKeyModel{}).Where("api_key_id = ?", keyID).Count(&permissionCount)
+		model.DB.Model(&model.KeyModel{}).Where("key_id = ?", keyID).Count(&permissionCount)
 		if permissionCount > 0 {
 			var hasPermission int64
-			model.DB.Model(&model.APIKeyModel{}).
-				Where("api_key_id = ? AND model_alias = ?", keyID, req.Model).
+			model.DB.Model(&model.KeyModel{}).
+				Where("key_id = ? AND model_alias = ?", keyID, req.Model).
 				Count(&hasPermission)
 			if hasPermission == 0 {
 				c.JSON(http.StatusForbidden, gin.H{"error": "model not allowed for this API key"})
@@ -74,14 +74,30 @@ func (h *ProxyHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 
+	start := time.Now()
 	tokens, err := mfr.ExecuteOpenAIRequest(c, result.ProviderModel)
+	latency := time.Since(start).Milliseconds()
+
+	status := "success"
+	errorMsg := ""
 	if err != nil {
+		status = "error"
+		errorMsg = err.Error()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
 	}
 
-	// TODO: add calling count and tokens usage to database
-	log.Printf("calling OpenAI api use tokens:%d", tokens)
+	usageLog := model.UsageLog{
+		Source:      "openai",
+		KeyID:       KeyID.(uint),
+		Model:       req.Model,
+		ProviderID:  result.Provider.ID,
+		ActualModel: result.ProviderModel.ModelID,
+		TotalTokens: int64(tokens),
+		LatencyMs:   latency,
+		Status:      status,
+		ErrorMsg:    errorMsg,
+	}
+	model.DB.Create(&usageLog)
 }
 
 func (h *ProxyHandler) ListModels(c *gin.Context) {

@@ -107,6 +107,7 @@ func main() {
 			protected.GET("/usage/stats", usageHandler.Stats)
 			protected.GET("/usage/logs", usageHandler.Logs)
 			protected.GET("/usage/dashboard", usageHandler.Dashboard)
+			protected.GET("/usage/key-stats", usageHandler.KeyStats)
 		}
 	}
 

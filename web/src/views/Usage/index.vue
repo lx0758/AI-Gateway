@@ -23,46 +23,86 @@
           <el-statistic :title="t('usage.successRate')" :value="stats.successRate?.toFixed(1)" suffix="%" />
         </el-col>
         <el-col :span="6">
-          <el-statistic :title="t('usage.totalTokens')" :value="stats.totalTokens" />
+          <el-statistic :title="t('usage.totalTokens') || '总 Tokens'" :value="stats.totalTokens" />
         </el-col>
         <el-col :span="6">
-          <el-statistic :title="t('usage.promptTokens')" :value="stats.promptTokens" />
+          <el-statistic :title="t('usage.avgLatency') || '平均耗时'" :value="formatLatency(stats.avgLatency)" />
         </el-col>
       </el-row>
+    </el-card>
+
+    <el-card class="key-stats-card" v-if="keyStats.length">
+      <template #header>{{ t('usage.keyStats') || 'Key 统计' }}</template>
+       <el-table :data="keyStats" stripe size="small">
+        <el-table-column prop="key_name" :label="t('usage.keyName') || 'Key 名称'" width="120" />
+        <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" width="100" />
+        <el-table-column prop="tokens" :label="'Tokens'" width="100">
+          <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
+          <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
+        </el-table-column>
+      </el-table>
     </el-card>
 
     <el-card class="model-stats-card" v-if="stats.modelStats?.length">
       <template #header>{{ t('usage.modelStats') || '模型统计' }}</template>
       <el-table :data="stats.modelStats" stripe size="small">
-        <el-table-column prop="model" :label="t('usage.model') || '映射模型'" />
-        <el-table-column prop="actual_model" :label="t('usage.actualModel') || '实际模型'" />
-        <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" width="120" />
-        <el-table-column prop="tokens" :label="t('usage.totalTokens') || 'Token'" width="120" />
+        <el-table-column prop="model" :label="t('usage.model') || '映射模型'" width="120" />
+        <el-table-column prop="actual_model" :label="t('usage.providerModel') || '厂家/模型'" width="280" >
+          <template #default="{ row }">
+            <el-tag size="small" type="info">{{ row.provider_name }}/{{ row.actual_model }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" width="100" />
+        <el-table-column prop="tokens" :label="'Tokens'" width="100">
+          <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
+          <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
+        </el-table-column>
       </el-table>
     </el-card>
 
     <el-card class="logs-card">
       <template #header>{{ t('usage.logs') }}</template>
-      <el-table :data="logs" stripe v-loading="loading">
-        <el-table-column :label="t('usage.time')" width="180">
+      <el-table :data="logs" stripe v-loading="loading" size="small">
+        <el-table-column :label="t('usage.time') || '时间'" width="160">
           <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column prop="model" :label="t('usage.model')">
+        <el-table-column prop="source" :label="t('usage.source') || '来源'" width="120">
+          <template #default="{ row }">
+            <el-tag size="small" type="info">{{ row.source }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="key_name" :label="t('usage.key') || 'Key'" width="120" />
+        <el-table-column prop="model" :label="t('usage.model') || '模型'" width="150">
           <template #default="{ row }">
             <span>{{ row.model }}</span>
-            <el-tag v-if="row.actual_model && row.actual_model !== row.model" size="small" type="info" style="margin-left: 4px">
-              {{ row.actual_model }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('usage.providerModel') || '厂家/模型'" width="280">
+          <template #default="{ row }">
+            <el-tag size="small" type="info">{{ row.provider_name }}/{{ row.actual_model }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="total_tokens" :label="'Tokens'" width="100">
+          <template #default="{ row }">{{ formatTokens(row.total_tokens) }}</template>
+        </el-table-column>
+        <el-table-column prop="latency_ms" :label="t('usage.latency') || '耗时'" width="100">
+          <template #default="{ row }">{{ formatLatency(row.latency_ms) }}</template>
+        </el-table-column>
+        <el-table-column prop="status" :label="t('common.status') || '结果'" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'success' ? 'success' : 'danger'" size="small">
+              {{ row.status }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="prompt_tokens" :label="t('usage.promptTokens')" width="100" />
-        <el-table-column prop="completion_tokens" :label="t('usage.completionTokens')" width="120" />
-        <el-table-column prop="latency_ms" :label="t('usage.avgLatency')" width="100">
-          <template #default="{ row }">{{ row.latency_ms }}ms</template>
-        </el-table-column>
-        <el-table-column prop="status" :label="t('common.status')" width="100">
+        <el-table-column prop="error_msg" :label="t('usage.error') || '错误信息'" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-tag :type="row.status === 'success' ? 'success' : 'danger'">{{ row.status }}</el-tag>
+            <span v-if="row.error_msg" class="error-text">{{ row.error_msg }}</span>
+            <span v-else>-</span>
           </template>
         </el-table-column>
       </el-table>
@@ -74,7 +114,7 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '@/api'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatLatency, formatTokens } from '@/utils/format'
 
 const { t } = useI18n()
 
@@ -82,15 +122,17 @@ const stats = ref<any>({
   totalRequests: 0,
   successRate: 0,
   totalTokens: 0,
-  promptTokens: 0,
+  avgLatency: 0,
   modelStats: []
 })
+const keyStats = ref<any[]>([])
 const logs = ref<any[]>([])
 const loading = ref(false)
 const dateRange = ref<string[] | null>(null)
 
 onMounted(() => {
   fetchStats()
+  fetchKeyStats()
   fetchLogs()
 })
 
@@ -98,6 +140,15 @@ async function fetchStats() {
   try {
     const res = await api.get('/usage/stats')
     stats.value = res.data
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function fetchKeyStats() {
+  try {
+    const res = await api.get('/usage/key-stats')
+    keyStats.value = res.data.keyStats || []
   } catch (e) {
     console.error(e)
   }
@@ -117,6 +168,11 @@ async function fetchLogs() {
 <style scoped>
 .usage-page { padding: 20px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
+.key-stats-card { margin-top: 20px; }
 .model-stats-card { margin-top: 20px; }
 .logs-card { margin-top: 20px; }
+.error-text { 
+  color: var(--el-color-danger); 
+  font-size: 12px;
+}
 </style>

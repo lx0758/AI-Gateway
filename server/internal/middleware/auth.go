@@ -69,7 +69,7 @@ func RequireAPIKey() gin.HandlerFunc {
 
 		key := strings.TrimPrefix(authHeader, "Bearer ")
 
-		var apiKey model.APIKey
+		var apiKey model.Key
 		if err := model.DB.Where("key = ? AND enabled = ?", key, true).First(&apiKey).Error; err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid API key"})
 			c.Abort()
@@ -88,7 +88,7 @@ func RequireAPIKey() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("api_key_id", apiKey.ID)
+		c.Set("key_id", apiKey.ID)
 		c.Set("api_key", &apiKey)
 		c.Next()
 	}
@@ -103,7 +103,7 @@ func RequireAPIKeyForAnthropic() gin.HandlerFunc {
 			return
 		}
 
-		var apiKey model.APIKey
+		var apiKey model.Key
 		if err := model.DB.Where("key = ? AND enabled = ?", apiKeyHeader, true).First(&apiKey).Error; err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid API key"})
 			c.Abort()
@@ -122,7 +122,7 @@ func RequireAPIKeyForAnthropic() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("api_key_id", apiKey.ID)
+		c.Set("key_id", apiKey.ID)
 		c.Set("api_key", &apiKey)
 		c.Next()
 	}

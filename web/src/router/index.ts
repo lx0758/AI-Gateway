@@ -17,7 +17,7 @@ const routes = [
       { path: 'providers', name: 'Providers', component: () => import('@/views/Providers/index.vue') },
       { path: 'providers/:id', name: 'ProviderDetail', component: () => import('@/views/Providers/Detail.vue') },
       { path: 'models', name: 'ModelMappings', component: () => import('@/views/Models/index.vue') },
-      { path: 'keys', name: 'APIKeys', component: () => import('@/views/APIKeys/index.vue') },
+      { path: 'keys', name: 'Keys', component: () => import('@/views/Keys/index.vue') },
       { path: 'usage', name: 'Usage', component: () => import('@/views/Usage/index.vue') },
       { path: 'settings', name: 'Settings', component: () => import('@/views/Settings/index.vue') }
     ]

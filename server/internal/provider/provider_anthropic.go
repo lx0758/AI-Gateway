@@ -157,7 +157,7 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
-		return 0, nil
+		return 0, fmt.Errorf("Anthropic API error: %s", string(respBody))
 	}
 
 	tokens := 0
@@ -772,7 +772,7 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
-		return 0, nil
+		return 0, fmt.Errorf("Anthropic API error: %s", string(respBody))
 	}
 
 	tokens := 0

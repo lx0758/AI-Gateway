@@ -1,25 +1,31 @@
 <template>
   <div class="dashboard">
     <el-row :gutter="20">
-      <el-col :span="6">
+      <el-col :span="4">
         <el-card shadow="hover" class="stat-card">
-          <div class="stat-value">{{ stats.totalRequests || 0 }}</div>
-          <div class="stat-label">{{ t('dashboard.totalRequests') }}</div>
+          <div class="stat-value">{{ formatTokens(stats.totalTokens) }}</div>
+          <div class="stat-label">{{ t('dashboard.totalTokens') || '总 Tokens' }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="4">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-value">{{ stats.todayRequests || 0 }}</div>
           <div class="stat-label">{{ t('dashboard.todayRequests') }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="4">
+        <el-card shadow="hover" class="stat-card">
+          <div class="stat-value">{{ formatLatency(stats.avgLatency) }}</div>
+          <div class="stat-label">{{ t('dashboard.avgLatency') || '平均耗时' }}</div>
+        </el-card>
+      </el-col>
+      <el-col :span="4">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-value">{{ stats.activeProviders || 0 }}</div>
           <div class="stat-label">{{ t('dashboard.activeProviders') }}</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="4">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-value">{{ stats.activeKeys || 0 }}</div>
           <div class="stat-label">{{ t('dashboard.activeKeys') }}</div>
@@ -44,18 +50,38 @@
       </el-col>
     </el-row>
 
-    <el-card shadow="hover">
-      <template #header>{{ t('dashboard.modelRanking') }}</template>
-      <el-table v-if="hasModelData" :data="stats.modelStats || []" stripe v-loading="loading">
-        <el-table-column prop="model" :label="t('common.name')" />
-        <el-table-column prop="count" :label="t('common.total')">
-          <template #default="{ row }">
-            {{ row.count }} {{ t('common.type') === 'Type' ? 'requests' : '次' }}
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-empty v-else :description="t('common.noData')" />
-    </el-card>
+    <el-row :gutter="20" class="stats-row">
+      <el-col :span="12">
+        <el-card shadow="hover">
+          <template #header>{{ t('dashboard.providerStats') || '厂商统计' }}</template>
+          <el-table v-if="hasProviderStats" :data="stats.providerStats || []" stripe size="small" v-loading="loading">
+            <el-table-column prop="provider" :label="t('dashboard.provider') || '厂商'" />
+            <el-table-column prop="count" :label="t('dashboard.callCount') || '调用次数'" width="100" />
+            <el-table-column prop="tokens" :label="'Tokens'" width="100">
+              <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
+            </el-table-column>
+            <el-table-column :label="t('dashboard.avgLatency') || '平均耗时'" width="100">
+              <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-else :description="t('common.noData')" />
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card shadow="hover">
+          <template #header>{{ t('dashboard.modelRanking') }}</template>
+          <el-table v-if="hasModelData" :data="stats.modelStats || []" stripe v-loading="loading">
+            <el-table-column prop="model" :label="t('common.name')" />
+            <el-table-column prop="count" :label="t('common.total')">
+              <template #default="{ row }">
+                {{ row.count }} {{ t('common.type') === 'Type' ? 'requests' : '次' }}
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-else :description="t('common.noData')" />
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -64,13 +90,15 @@ import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import api from '@/api'
+import { formatLatency, formatTokens } from '@/utils/format'
 
 const { t } = useI18n()
 const isDark = computed(() => document.documentElement.classList.contains('dark'))
 
 const stats = ref<any>({
-  totalRequests: 0,
+  totalTokens: 0,
   todayRequests: 0,
+  avgLatency: 0,
   activeProviders: 0,
   activeKeys: 0,
   dailyStats: [],
@@ -86,6 +114,7 @@ let pieChart: echarts.ECharts | null = null
 
 const hasTrendData = computed(() => stats.value.dailyStats && stats.value.dailyStats.length > 0)
 const hasProviderData = computed(() => stats.value.providerStats && stats.value.providerStats.length > 0)
+const hasProviderStats = computed(() => stats.value.providerStats && stats.value.providerStats.length > 0)
 const hasModelData = computed(() => stats.value.modelStats && stats.value.modelStats.length > 0)
 
 onMounted(async () => {
@@ -228,7 +257,7 @@ function initPieChart() {
 }
 
 .stat-value {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: bold;
   color: var(--el-color-primary);
 }
@@ -240,6 +269,10 @@ function initPieChart() {
 
 .charts-row {
   margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.stats-row {
   margin-bottom: 20px;
 }
 

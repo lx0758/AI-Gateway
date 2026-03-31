@@ -44,7 +44,7 @@ export default {
     dashboard: 'Dashboard',
     providers: 'Providers',
     models: 'Model Mappings',
-    apiKeys: 'API Keys',
+    keys: 'API Keys',
     usage: 'Usage Statistics',
     settings: 'Settings'
   },
@@ -55,7 +55,12 @@ export default {
     activeKeys: 'Active Keys',
     requestTrend: 'Request Trend (Last 7 Days)',
     providerDistribution: 'Provider Distribution',
-    modelRanking: 'Model Usage Ranking'
+    modelRanking: 'Model Usage Ranking',
+    totalTokens: 'Total Tokens',
+    avgLatency: 'Avg Latency',
+    providerStats: 'Provider Stats',
+    provider: 'Provider',
+    callCount: 'Calls'
   },
   provider: {
     name: 'Provider Name',
@@ -103,7 +108,16 @@ export default {
     time: 'Time',
     model: 'Model',
     startTime: 'Start Time',
-    endTime: 'End Time'
+    endTime: 'End Time',
+    modelStats: 'Model Stats',
+    keyStats: 'Key Stats',
+    keyName: 'Key Name',
+    callCount: 'Calls',
+    providerModel: 'Provider/Model',
+    source: 'Source',
+    key: 'Key',
+    latency: 'Latency',
+    error: 'Error'
   },
   settings: {
     changePassword: 'Change Password',

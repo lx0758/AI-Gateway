@@ -49,4 +49,4 @@
 
 **数据存储**：
 - SQLite 数据库
-- 核心表：providers, provider_models, model_mappings, api_keys, usage_logs, users
+- 核心表：providers, provider_models, model_mappings, keys, usage_logs, users

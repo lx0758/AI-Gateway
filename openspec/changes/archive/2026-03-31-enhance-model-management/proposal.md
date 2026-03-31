@@ -38,4 +38,4 @@
   - `views/Providers/index.vue`
   - `views/Providers/Detail.vue`
   - `views/Models/index.vue`
-  - `views/APIKeys/index.vue`
+  - `views/Keys/index.vue`

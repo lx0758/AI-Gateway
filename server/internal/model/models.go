@@ -67,7 +67,7 @@ type ModelMapping struct {
 	Provider          *Provider      `gorm:"foreignKey:ProviderID" json:"provider,omitempty"`
 }
 
-type APIKey struct {
+type Key struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`
 	Key           string         `gorm:"uniqueIndex;size:64;not null" json:"key"`
 	Name          string         `gorm:"size:128" json:"name"`
@@ -80,26 +80,26 @@ type APIKey struct {
 	Enabled       bool           `gorm:"default:true" json:"enabled"`
 	CreatedAt     time.Time      `json:"created_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	Models        []APIKeyModel  `gorm:"foreignKey:APIKeyID" json:"models,omitempty"`
+	Models        []KeyModel     `gorm:"foreignKey:KeyID" json:"models,omitempty"`
 }
 
-type APIKeyModel struct {
+type KeyModel struct {
 	ID         uint      `gorm:"primaryKey" json:"id"`
-	APIKeyID   uint      `gorm:"index;not null" json:"api_key_id"`
+	KeyID      uint      `gorm:"index;not null" json:"key_id"`
 	ModelAlias string    `gorm:"size:128;not null" json:"model_alias"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
 type UsageLog struct {
-	ID               uint      `gorm:"primaryKey" json:"id"`
-	APIKeyID         uint      `gorm:"index" json:"api_key_id"`
-	ProviderID       uint      `gorm:"index" json:"provider_id"`
-	Model            string    `gorm:"size:128;not null" json:"model"`
-	ActualModel      string    `gorm:"size:128" json:"actual_model"`
-	PromptTokens     int       `gorm:"default:0" json:"prompt_tokens"`
-	CompletionTokens int       `gorm:"default:0" json:"completion_tokens"`
-	LatencyMs        int       `gorm:"default:0" json:"latency_ms"`
-	Status           string    `gorm:"size:32;not null" json:"status"`
-	ErrorMsg         string    `gorm:"type:text" json:"error_msg"`
-	CreatedAt        time.Time `gorm:"index" json:"created_at"`
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	Source      string    `gorm:"size:32" json:"source"`
+	KeyID       uint      `gorm:"index" json:"key_id"`
+	Model       string    `gorm:"size:128;not null" json:"model"`
+	ProviderID  uint      `gorm:"index" json:"provider_id"`
+	ActualModel string    `gorm:"size:128" json:"actual_model"`
+	TotalTokens int64     `gorm:"default:0" json:"total_tokens"`
+	LatencyMs   int64     `gorm:"default:0" json:"latency_ms"`
+	Status      string    `gorm:"size:32;not null" json:"status"`
+	ErrorMsg    string    `gorm:"type:text" json:"error_msg"`
+	CreatedAt   time.Time `gorm:"index" json:"created_at"`
 }

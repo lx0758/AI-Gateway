@@ -45,7 +45,7 @@
 **前端变更：**
 - `web/src/views/Providers/index.vue` - 编辑对话框加载现有数据，API 类型显示新格式
 - `web/src/views/Models/index.vue` - 新增编辑对话框
-- `web/src/views/APIKeys/index.vue` - 新增模型权限配置字段
+- `web/src/views/Keys/index.vue` - 新增模型权限配置字段
 - `web/src/router/index.ts` - 路由守卫先恢复用户状态再判断登录
 - `web/src/App.vue` - 移除冗余的 fetchUser 调用
 - `web/src/locales/*.ts` - 标题改为 "AI Proxy" / "AI 代理"

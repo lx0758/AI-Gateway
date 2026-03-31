@@ -6,7 +6,7 @@ The system SHALL record details of every API request.
 
 #### Scenario: Log successful request
 - **WHEN** API request completes successfully
-- **THEN** system logs api_key_id, provider_id, model, tokens, latency, and status
+- **THEN** system logs key_id, provider_id, model, tokens, latency, and status
 
 #### Scenario: Log failed request
 - **WHEN** API request fails

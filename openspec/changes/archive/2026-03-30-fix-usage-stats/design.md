@@ -73,7 +73,7 @@ data: [DONE]
 ```go
 type UsageLog struct {
     ID               uint      `gorm:"primaryKey" json:"id"`
-    APIKeyID         uint      `gorm:"index" json:"api_key_id"`        // 移除 not null
+    APIKeyID         uint      `gorm:"index" json:"key_id"`        // 移除 not null
     ProviderID       uint      `gorm:"index" json:"provider_id"`
     Model            string    `gorm:"size:128;not null" json:"model"`           // 用户请求的别名
     ActualModel      string    `gorm:"size:128" json:"actual_model"`             // 新增: 实际模型
@@ -262,10 +262,10 @@ func Migrate(db *gorm.DB) error {
         db.Exec("ALTER TABLE usage_logs ADD COLUMN actual_model VARCHAR(128)")
     }
     if !db.Migrator().HasColumn(&APIKey{}, "used_count") {
-        db.Exec("ALTER TABLE api_keys ADD COLUMN used_count INTEGER DEFAULT 0")
+        db.Exec("ALTER TABLE keys ADD COLUMN used_count INTEGER DEFAULT 0")
     }
     
-    // 修改 api_key_id 允许 NULL（管理员请求）
+    // 修改 key_id 允许 NULL（管理员请求）
     // SQLite 不支持 ALTER COLUMN，需要重建表
     // 或者保持 not null，管理员请求不记录 usage
     

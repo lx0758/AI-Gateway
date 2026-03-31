@@ -129,7 +129,7 @@ func (m *OpenAICompatibleProvider) ExecuteOpenAIRequest(c *gin.Context, pm *mode
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
-		return 0, nil
+		return 0, fmt.Errorf("OpenAI API error: %s", string(respBody))
 	}
 
 	tokens := 0
@@ -291,7 +291,7 @@ func (m *OpenAICompatibleProvider) ExecuteAnthropicRequest(c *gin.Context, pm *m
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
-		return 0, nil
+		return 0, fmt.Errorf("OpenAI API error: %s", string(respBody))
 	}
 
 	tokens := 0

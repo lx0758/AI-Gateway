@@ -40,14 +40,14 @@ func autoMigrate() error {
 		&Provider{},
 		&ProviderModel{},
 		&ModelMapping{},
-		&APIKey{},
-		&APIKeyModel{},
+		&Key{},
+		&KeyModel{},
 		&UsageLog{},
 	)
 }
 
 func migrateAllowedModels() error {
-	var keys []APIKey
+	var keys []Key
 	if err := DB.Where("allowed_models != ? AND allowed_models != ''", "[]").Find(&keys).Error; err != nil {
 		return err
 	}
@@ -63,13 +63,13 @@ func migrateAllowedModels() error {
 		}
 
 		for _, alias := range models {
-			var existing APIKeyModel
-			if err := DB.Where("api_key_id = ? AND model_alias = ?", key.ID, alias).First(&existing).Error; err == nil {
+			var existing KeyModel
+			if err := DB.Where("key_id = ? AND model_alias = ?", key.ID, alias).First(&existing).Error; err == nil {
 				continue
 			}
 
-			akm := APIKeyModel{
-				APIKeyID:   key.ID,
+			akm := KeyModel{
+				KeyID:      key.ID,
 				ModelAlias: alias,
 			}
 			DB.Create(&akm)

@@ -44,7 +44,7 @@ export default {
     dashboard: '仪表盘',
     providers: '厂商管理',
     models: '模型映射',
-    apiKeys: 'API 密钥',
+    keys: 'API 密钥',
     usage: '用量统计',
     settings: '系统设置'
   },
@@ -55,7 +55,12 @@ export default {
     activeKeys: '活跃密钥',
     requestTrend: '请求趋势（近 7 天）',
     providerDistribution: '厂商分布',
-    modelRanking: '模型使用排名'
+    modelRanking: '模型使用排名',
+    totalTokens: '总 Tokens',
+    avgLatency: '平均耗时',
+    providerStats: '厂商统计',
+    provider: '厂商',
+    callCount: '调用次数'
   },
   provider: {
     name: '厂商名称',
@@ -94,16 +99,25 @@ export default {
   usage: {
     stats: '统计',
     logs: '日志',
-    totalTokens: '总 Token',
+    totalTokens: '总 Tokens',
     promptTokens: '提示 Token',
     completionTokens: '补全 Token',
     successRate: '成功率',
-    avgLatency: '平均延迟',
+    avgLatency: '平均耗时',
     totalRequests: '总请求数',
     time: '时间',
     model: '模型',
     startTime: '开始时间',
-    endTime: '结束时间'
+    endTime: '结束时间',
+    modelStats: '模型统计',
+    keyStats: 'Key 统计',
+    keyName: 'Key 名称',
+    callCount: '调用次数',
+    providerModel: '厂商/模型',
+    source: '来源',
+    key: 'Key',
+    latency: '耗时',
+    error: '错误信息'
   },
   settings: {
     changePassword: '修改密码',

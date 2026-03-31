@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>{{ t('menu.apiKeys') }}</span>
+          <span>{{ t('menu.keys') }}</span>
           <div class="header-actions">
             <el-button type="danger" @click="handleBatchDelete" :disabled="selectedIds.length === 0">{{ t('common.batchDelete') }} ({{ selectedIds.length }})</el-button>
             <el-button type="primary" @click="showDialog()">{{ t('apiKey.createKey') }}</el-button>
@@ -24,6 +24,12 @@
             </template>
             <span v-else style="color: #999">{{ t('apiKey.allModels') }}</span>
           </template>
+        </el-table-column>
+        <el-table-column :label="'Tokens'" width="100">
+          <template #default="{ row }">{{ formatTokens(row.total_tokens) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('usage.avgLatency') || '平均耗时'" width="100">
+          <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
         </el-table-column>
         <el-table-column :label="t('apiKey.usedQuota')">
           <template #default="{ row }">
@@ -84,6 +90,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
+import { formatLatency, formatTokens } from '@/utils/format'
 
 const { t } = useI18n()
 

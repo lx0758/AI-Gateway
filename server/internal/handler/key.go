@@ -42,19 +42,65 @@ func generateAPIKey() string {
 }
 
 func (h *APIKeyHandler) List(c *gin.Context) {
-	var keys []model.APIKey
+	var keys []model.Key
 	if err := model.DB.Preload("Models").Find(&keys).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	for i := range keys {
-		if len(keys[i].Key) > 8 {
-			keys[i].Key = keys[i].Key[:8] + "****" + keys[i].Key[len(keys[i].Key)-4:]
+	type KeyWithStats struct {
+		ID          uint             `json:"id"`
+		Key         string           `json:"key"`
+		Name        string           `json:"name"`
+		Enabled     bool             `json:"enabled"`
+		Quota       int64            `json:"quota"`
+		UsedQuota   int64            `json:"used_quota"`
+		UsedCount   int64            `json:"used_count"`
+		Models      []model.KeyModel `json:"models,omitempty"`
+		TotalTokens int64            `json:"total_tokens"`
+		AvgLatency  float64          `json:"avg_latency"`
+		ExpiresAt   *time.Time       `json:"expires_at"`
+		CreatedAt   time.Time        `json:"created_at"`
+	}
+
+	result := make([]KeyWithStats, len(keys))
+	for i, k := range keys {
+		maskedKey := k.Key
+		if len(maskedKey) > 8 {
+			maskedKey = maskedKey[:8] + "****" + maskedKey[len(maskedKey)-4:]
+		}
+
+		result[i] = KeyWithStats{
+			ID:        k.ID,
+			Key:       maskedKey,
+			Name:      k.Name,
+			Enabled:   k.Enabled,
+			Quota:     k.Quota,
+			UsedQuota: k.UsedQuota,
+			UsedCount: k.UsedCount,
+			Models:    k.Models,
+			ExpiresAt: k.ExpiresAt,
+			CreatedAt: k.CreatedAt,
+		}
+
+		var stats struct {
+			TotalTokens int64
+			AvgLatency  float64
+			CallCount   int64
+		}
+		model.DB.Model(&model.UsageLog{}).
+			Where("key_id = ?", k.ID).
+			Select("COALESCE(SUM(total_tokens), 0) as total_tokens, COALESCE(AVG(latency_ms), 0) as avg_latency, COUNT(*) as call_count").
+			Scan(&stats)
+
+		result[i].TotalTokens = stats.TotalTokens
+		result[i].AvgLatency = stats.AvgLatency
+		if stats.CallCount > 0 {
+			result[i].UsedCount = stats.CallCount
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"keys": keys})
+	c.JSON(http.StatusOK, gin.H{"keys": result})
 }
 
 func (h *APIKeyHandler) Create(c *gin.Context) {
@@ -64,7 +110,7 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		return
 	}
 
-	key := model.APIKey{
+	key := model.Key{
 		Key:       generateAPIKey(),
 		Name:      req.Name,
 		RateLimit: req.RateLimit,
@@ -84,8 +130,8 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 	}
 
 	for _, alias := range req.AllowedModels {
-		akm := model.APIKeyModel{
-			APIKeyID:   key.ID,
+		akm := model.KeyModel{
+			KeyID:      key.ID,
 			ModelAlias: alias,
 		}
 		model.DB.Create(&akm)
@@ -104,9 +150,9 @@ func (h *APIKeyHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	model.DB.Where("api_key_id = ?", id).Delete(&model.APIKeyModel{})
+	model.DB.Where("key_id = ?", id).Delete(&model.KeyModel{})
 
-	if err := model.DB.Delete(&model.APIKey{}, id).Error; err != nil {
+	if err := model.DB.Delete(&model.Key{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -121,7 +167,7 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var key model.APIKey
+	var key model.Key
 	if err := model.DB.First(&key, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "key not found"})
 		return
@@ -176,14 +222,14 @@ func (h *APIKeyHandler) AddModel(c *gin.Context) {
 		return
 	}
 
-	var existing model.APIKeyModel
-	if err := model.DB.Where("api_key_id = ? AND model_alias = ?", id, req.ModelAlias).First(&existing).Error; err == nil {
+	var existing model.KeyModel
+	if err := model.DB.Where("key_id = ? AND model_alias = ?", id, req.ModelAlias).First(&existing).Error; err == nil {
 		c.JSON(http.StatusOK, gin.H{"message": "model already added"})
 		return
 	}
 
-	akm := model.APIKeyModel{
-		APIKeyID:   uint(id),
+	akm := model.KeyModel{
+		KeyID:      uint(id),
 		ModelAlias: req.ModelAlias,
 	}
 	if err := model.DB.Create(&akm).Error; err != nil {
@@ -207,7 +253,7 @@ func (h *APIKeyHandler) RemoveModel(c *gin.Context) {
 		return
 	}
 
-	if err := model.DB.Where("api_key_id = ? AND model_alias = ?", id, modelAlias).Delete(&model.APIKeyModel{}).Error; err != nil {
+	if err := model.DB.Where("key_id = ? AND model_alias = ?", id, modelAlias).Delete(&model.KeyModel{}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -222,8 +268,8 @@ func (h *APIKeyHandler) ListModels(c *gin.Context) {
 		return
 	}
 
-	var models []model.APIKeyModel
-	if err := model.DB.Where("api_key_id = ?", id).Find(&models).Error; err != nil {
+	var models []model.KeyModel
+	if err := model.DB.Where("key_id = ?", id).Find(&models).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

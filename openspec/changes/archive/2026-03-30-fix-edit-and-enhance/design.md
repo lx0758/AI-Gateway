@@ -39,12 +39,12 @@
 
 ```
 当前：
-api_keys.allowed_models = '["gpt-4", "claude-3"]'  -- JSON 字符串
+keys.allowed_models = '["gpt-4", "claude-3"]'  -- JSON 字符串
 
 改进后：
 api_key_models 表
 ├── id (PK)
-├── api_key_id (FK → api_keys.id)
+├── key_id (FK → keys.id)
 ├── model_alias (关联到 model_mappings.alias)
 └── created_at
 ```

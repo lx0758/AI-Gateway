@@ -26,3 +26,17 @@ export function formatDate(date: string | Date | null | undefined): string {
   
   return `${year}-${month}-${day}`
 }
+
+export function formatLatency(ms: number | null | undefined): string {
+  if (ms == null) return '0s'
+  const seconds = ms / 1000
+  return seconds.toFixed(1) + 's'
+}
+
+export function formatTokens(tokens: number | null | undefined): string {
+  if (tokens == null) return '0'
+  if (tokens >= 1e9) return (tokens / 1e9).toFixed(1) + 'B'
+  if (tokens >= 1e6) return (tokens / 1e6).toFixed(1) + 'M'
+  if (tokens >= 1e3) return (tokens / 1e3).toFixed(1) + 'K'
+  return tokens.toString()
+}
