@@ -28,7 +28,7 @@ type openAIUsage struct {
 }
 
 func (u openAIUsage) total() int {
-	return u.TotalTokens + u.CompletionTokensDetails.ReasoningTokens
+	return u.TotalTokens
 }
 
 type OpenAICompatibleProvider struct {
@@ -41,6 +41,10 @@ func NewOpenAICompatibleProvider(cfg *Config) *OpenAICompatibleProvider {
 
 func (m *OpenAICompatibleProvider) Name() string {
 	return m.cfg.ProviderName
+}
+
+func (m *OpenAICompatibleProvider) Type() string {
+	return m.cfg.ProviderType
 }
 
 func (m *OpenAICompatibleProvider) SyncModels(provider *model.Provider) ([]model.ProviderModel, error) {
@@ -610,6 +614,7 @@ func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io
 			continue
 		}
 		data := strings.TrimPrefix(line, "data: ")
+
 		if data == "[DONE]" {
 			break
 		}
@@ -629,7 +634,7 @@ func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io
 			continue
 		}
 
-		tokens = chunk.OpenAIUsage.total()
+		tokens += chunk.OpenAIUsage.total()
 
 		if !sentMessageStart {
 			m.writeAnthropicSSE(dst, "message_start", map[string]interface{}{
@@ -811,7 +816,9 @@ func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io
 						"stop_reason": stopReason,
 					},
 					"usage": map[string]interface{}{
-						"output_tokens": tokens,
+						"input_tokens":            chunk.OpenAIUsage.PromptTokens - chunk.OpenAIUsage.PromptTokensDetails.CachedTokens,
+						"output_tokens":           chunk.OpenAIUsage.CompletionTokens,
+						"cache_read_input_tokens": chunk.OpenAIUsage.PromptTokensDetails.CachedTokens,
 					},
 				})
 				m.writeAnthropicSSE(dst, "message_stop", map[string]interface{}{

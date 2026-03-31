@@ -8,7 +8,7 @@
 
     <el-card class="info-card">
       <el-descriptions :column="2" border>
-        <el-descriptions-item :label="t('provider.apiType')">{{ formatApiType(provider?.api_type) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('provider.type')">{{ formatType(provider?.type) }}</el-descriptions-item>
         <el-descriptions-item :label="t('provider.baseUrl')">{{ provider?.base_url }}</el-descriptions-item>
         <el-descriptions-item :label="t('common.status')">
           <el-tag :type="provider?.enabled ? 'success' : 'info'">
@@ -196,13 +196,13 @@ const rules = {
   model_id: [{ required: true, message: () => t('common.required'), trigger: 'blur' }]
 }
 
-const apiTypeLabels: Record<string, string> = {
+const typeLabels: Record<string, string> = {
   openai: '@ai-sdk/openai-compatible',
   anthropic: '@ai-sdk/anthropic'
 }
 
-function formatApiType(type: string) {
-  return apiTypeLabels[type] || type
+function formatType(type: string) {
+  return typeLabels[type] || type
 }
 
 onMounted(() => {

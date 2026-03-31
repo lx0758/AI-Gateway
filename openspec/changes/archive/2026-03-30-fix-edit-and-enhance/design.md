@@ -122,7 +122,7 @@ if pm.Source == "manual" {
 **理由：**
 - 与 Vercel AI SDK 生态保持一致，方便开发者理解
 - 明确表达代理的是 SDK 调用而非直接 API 调用
-- 后端 `api_type` 字段值保持不变，仅前端显示转换
+- 后端 `type` 字段值保持不变，仅前端显示转换
 
 ## Risks / Trade-offs
 

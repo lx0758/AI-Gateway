@@ -25,12 +25,12 @@ func NewFactory() *Factory {
 func (f *Factory) Create(provider *model.Provider) Provider {
 	cfg := &Config{
 		ProviderName: provider.Name,
-		ProviderType: provider.APIType,
+		ProviderType: provider.Type,
 		BaseURL:      provider.BaseURL,
 		APIKey:       provider.APIKey,
 	}
 
-	switch provider.APIType {
+	switch provider.Type {
 	case ProviderTypeOpenAI:
 		return NewOpenAICompatibleProvider(cfg)
 	case ProviderTypeAnthropic:

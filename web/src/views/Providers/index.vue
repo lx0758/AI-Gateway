@@ -12,19 +12,19 @@
       </template>
       <el-table :data="providers" stripe v-loading="loading" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="name" :label="t('provider.name')" />
-        <el-table-column prop="api_type" :label="t('provider.apiType')">
+        <el-table-column prop="name" :label="t('provider.name')" width="180" />
+        <el-table-column prop="type" :label="t('provider.type')" width="250">
           <template #default="{ row }">
-            {{ formatApiType(row.api_type) }}
+            {{ formatType(row.type) }}
           </template>
         </el-table-column>
         <el-table-column prop="base_url" :label="t('provider.baseUrl')" />
-        <el-table-column :label="t('provider.models')">
+        <el-table-column :label="t('provider.models')" width="80">
           <template #default="{ row }">
             {{ row.models?.length || 0 }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')">
+        <el-table-column :label="t('common.status')" width="100">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
@@ -44,8 +44,8 @@
         <el-form-item :label="t('provider.name')" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item :label="t('provider.apiType')" prop="api_type">
-          <el-select v-model="form.api_type" style="width: 100%">
+        <el-form-item :label="t('provider.type')" prop="type">
+          <el-select v-model="form.type" style="width: 100%">
             <el-option label="@ai-sdk/openai-compatible" value="openai" />
             <el-option label="@ai-sdk/anthropic" value="anthropic" />
           </el-select>
@@ -86,25 +86,25 @@ const formRef = ref()
 
 const form = reactive({
   name: '',
-  api_type: 'openai',
+  type: 'openai',
   base_url: '',
   api_key: ''
 })
 
 const rules = computed(() => ({
   name: [{ required: true, message: 'Required', trigger: 'blur' }],
-  api_type: [{ required: true, message: 'Required', trigger: 'change' }],
+  type: [{ required: true, message: 'Required', trigger: 'change' }],
   base_url: [{ required: true, message: 'Required', trigger: 'blur' }],
   api_key: editingId.value ? [] : [{ required: true, message: 'Required', trigger: 'blur' }]
 }))
 
-const apiTypeLabels: Record<string, string> = {
+const typeLabels: Record<string, string> = {
   openai: '@ai-sdk/openai-compatible',
   anthropic: '@ai-sdk/anthropic'
 }
 
-function formatApiType(type: string) {
-  return apiTypeLabels[type] || type
+function formatType(type: string) {
+  return typeLabels[type] || type
 }
 
 onMounted(() => {
@@ -127,7 +127,7 @@ function handleSelectionChange(selection: any[]) {
 
 async function showDialog(id?: number) {
   editingId.value = id || null
-  Object.assign(form, { name: '', api_type: 'openai', base_url: '', api_key: '' })
+  Object.assign(form, { name: '', type: 'openai', base_url: '', api_key: '' })
   dialogVisible.value = true
   
   if (id) {
@@ -138,7 +138,7 @@ async function showDialog(id?: number) {
       if (provider) {
         Object.assign(form, {
           name: provider.name || '',
-          api_type: provider.api_type || 'openai',
+          type: provider.type || 'openai',
           base_url: provider.base_url || '',
           api_key: ''
         })

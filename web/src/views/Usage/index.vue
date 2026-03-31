@@ -81,9 +81,9 @@
             <span>{{ row.model }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('usage.providerModel') || '厂家/模型'" width="280">
+        <el-table-column :label="t('usage.providerModel') || '类型/厂家/模型'" width="280">
           <template #default="{ row }">
-            <el-tag size="small" type="info">{{ row.provider_name }}/{{ row.actual_model }}</el-tag>
+            <el-tag size="small" type="info">{{ row.provider_type }}/{{ row.provider_name }}/{{ row.actual_model_name }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="total_tokens" :label="'Tokens'" width="100">

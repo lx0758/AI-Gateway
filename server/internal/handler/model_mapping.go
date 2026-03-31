@@ -29,7 +29,7 @@ type updateModelMappingRequest struct {
 type providerBasicResponse struct {
 	ID      uint   `json:"id"`
 	Name    string `json:"name"`
-	APIType string `json:"api_type"`
+	Type string `json:"type"`
 }
 
 type modelMappingResponse struct {
@@ -73,7 +73,7 @@ func (h *ModelMappingHandler) List(c *gin.Context) {
 			item.Provider = &providerBasicResponse{
 				ID:      m.Provider.ID,
 				Name:    m.Provider.Name,
-				APIType: m.Provider.APIType,
+				Type: m.Provider.Type,
 			}
 		}
 		result = append(result, item)
@@ -125,7 +125,7 @@ func (h *ModelMappingHandler) Create(c *gin.Context) {
 		providerResp = &providerBasicResponse{
 			ID:      mapping.Provider.ID,
 			Name:    mapping.Provider.Name,
-			APIType: mapping.Provider.APIType,
+			Type: mapping.Provider.Type,
 		}
 	}
 
@@ -204,7 +204,7 @@ func (h *ModelMappingHandler) Update(c *gin.Context) {
 		providerResp = &providerBasicResponse{
 			ID:      mapping.Provider.ID,
 			Name:    mapping.Provider.Name,
-			APIType: mapping.Provider.APIType,
+			Type: mapping.Provider.Type,
 		}
 	}
 

@@ -64,7 +64,7 @@ export default {
   },
   provider: {
     name: 'Provider Name',
-    apiType: 'API Type',
+    type: 'API Type',
     baseUrl: 'Base URL',
     apiKey: 'API Key',
     apiKeyPlaceholder: 'Leave empty to keep current key',
@@ -113,7 +113,7 @@ export default {
     keyStats: 'Key Stats',
     keyName: 'Key Name',
     callCount: 'Calls',
-    providerModel: 'Provider/Model',
+    providerModel: 'Type/Provider/Model',
     source: 'Source',
     key: 'Key',
     latency: 'Latency',

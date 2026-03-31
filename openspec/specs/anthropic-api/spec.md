@@ -72,7 +72,7 @@ SSE 事件序列：
 1. 从请求 body 中提取 `model` 字段
 2. 通过 `ModelRouter.Route(model)` 解析模型别名
 3. 获取 `ProviderModel` 和 `Provider` 信息
-4. 根据 `Provider.APIType` 选择对应的 Manufacturer
+4. 根据 `Provider.Type` 选择对应的 Provider
 
 ### 权限检查
 

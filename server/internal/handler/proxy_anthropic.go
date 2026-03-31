@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -43,6 +44,7 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 	}
 
 	KeyID, _ := c.Get("key_id")
+	KeyName, _ := c.Get("key_name")
 	if keyID, ok := KeyID.(uint); ok {
 		var permissionCount int64
 		model.DB.Model(&model.KeyModel{}).Where("key_id = ?", keyID).Count(&permissionCount)
@@ -68,15 +70,15 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 		return
 	}
 
-	mfr := h.factory.Create(result.Provider)
-	if mfr == nil {
+	provider := h.factory.Create(result.Provider)
+	if provider == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "provider not found"})
 		return
 	}
 
 	start := time.Now()
-	tokens, err := mfr.ExecuteAnthropicRequest(c, result.ProviderModel)
-	latency := time.Since(start).Milliseconds()
+	tokens, err := provider.ExecuteAnthropicRequest(c, result.ProviderModel)
+	latencyMs := time.Since(start).Milliseconds()
 
 	status := "success"
 	errorMsg := ""
@@ -86,16 +88,18 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 
-	usageLog := model.UsageLog{
-		Source:      "anthropic",
-		KeyID:       KeyID.(uint),
-		Model:       req.Model,
-		ProviderID:  result.Provider.ID,
-		ActualModel: result.ProviderModel.ModelID,
-		TotalTokens: int64(tokens),
-		LatencyMs:   latency,
-		Status:      status,
-		ErrorMsg:    errorMsg,
-	}
+	usageLog := NewUsageLog(
+		"anthropic",
+		KeyID.(uint),
+		KeyName.(string),
+		req.Model,
+		result,
+		tokens,
+		int(latencyMs),
+		status,
+		errorMsg,
+	)
 	model.DB.Create(&usageLog)
+
+	log.Println(usageLog.String())
 }

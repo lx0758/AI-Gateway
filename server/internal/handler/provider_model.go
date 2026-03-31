@@ -218,13 +218,13 @@ func (h *ProviderModelHandler) Sync(c *gin.Context) {
 		return
 	}
 
-	mfr := providerPkg.NewFactory().Create(&provider)
-	if mfr == nil {
+	providerImpl := providerPkg.NewFactory().Create(&provider)
+	if providerImpl == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported provider type"})
 		return
 	}
 
-	models, err := mfr.SyncModels(&provider)
+	models, err := providerImpl.SyncModels(&provider)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -258,7 +258,7 @@ func (h *ProviderModelHandler) Sync(c *gin.Context) {
 	model.DB.Model(&provider).Update("last_sync_at", &now)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("%s models synced", mfr.Name()),
+		"message": fmt.Sprintf("%s models synced", providerImpl.Name()),
 		"added":   added,
 		"updated": updated,
 		"total":   len(models),

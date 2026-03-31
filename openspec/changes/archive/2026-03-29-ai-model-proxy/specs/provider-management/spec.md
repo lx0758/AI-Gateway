@@ -5,11 +5,11 @@
 The system SHALL allow creating new provider configurations via API and Web UI.
 
 #### Scenario: Create provider with required fields
-- **WHEN** admin submits provider form with name, api_type, base_url, and api_key
+- **WHEN** admin submits provider form with name, type, base_url, and api_key
 - **THEN** system creates provider record and stores encrypted api_key
 
 #### Scenario: Validate provider type
-- **WHEN** admin selects api_type
+- **WHEN** admin selects type
 - **THEN** system accepts only "openai" or "anthropic" values
 
 ### Requirement: List providers

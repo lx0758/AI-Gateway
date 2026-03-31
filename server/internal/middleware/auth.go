@@ -82,8 +82,9 @@ func RequireAPIKey() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("key_id", apiKey.ID)
 		c.Set("api_key", &apiKey)
+		c.Set("key_id", apiKey.ID)
+		c.Set("key_name", apiKey.Name)
 		c.Next()
 	}
 }
@@ -110,8 +111,9 @@ func RequireAPIKeyForAnthropic() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("key_id", apiKey.ID)
 		c.Set("api_key", &apiKey)
+		c.Set("key_id", apiKey.ID)
+		c.Set("key_name", apiKey.Name)
 		c.Next()
 	}
 }

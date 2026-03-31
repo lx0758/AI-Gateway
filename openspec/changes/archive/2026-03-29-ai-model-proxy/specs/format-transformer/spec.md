@@ -49,5 +49,5 @@ The system SHALL convert streaming SSE events between formats in real-time.
 The system SHALL pass through requests to OpenAI-compatible providers without transformation.
 
 #### Scenario: Direct passthrough
-- **WHEN** provider has `api_type` of "openai"
+- **WHEN** provider has `type` of "openai"
 - **THEN** system forwards request as-is without format conversion

@@ -66,7 +66,7 @@
 - [x] 8.3 Implement Anthropic to OpenAI response transformer
 - [x] 8.4 Implement Anthropic to OpenAI SSE stream transformer
 - [x] 8.5 Implement pass-through transformer for OpenAI-compatible providers
-- [x] 8.6 Add transformer factory based on provider api_type
+- [x] 8.6 Add transformer factory based on provider type
 
 ## 9. Provider Adapters
 

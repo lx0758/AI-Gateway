@@ -6,7 +6,7 @@ The system SHALL populate the edit form with existing provider data.
 
 #### Scenario: Edit dialog shows current data
 - **WHEN** admin clicks edit on an existing provider
-- **THEN** system loads the provider's name, api_type, base_url into the edit form
+- **THEN** system loads the provider's name, type, base_url into the edit form
 
 #### Scenario: API key field shows placeholder
 - **WHEN** admin opens edit dialog for a provider

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -24,20 +25,19 @@ type User struct {
 }
 
 type Provider struct {
-	ID           uint   `gorm:"primaryKey"`
-	Name         string `gorm:"uniqueIndex"`
-	APIType      string
-	BaseURL      string
-	APIKey       string
-	APIKeyMasked string `gorm:"-"`
-	Enabled      bool   `gorm:"default:true"`
-	Priority     int    `gorm:"default:0"`
-	Config       string `gorm:"type:text"`
-	LastSyncAt   *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	DeletedAt    gorm.DeletedAt
-	Models       []ProviderModel
+	ID         uint   `gorm:"primaryKey"`
+	Name       string `gorm:"uniqueIndex"`
+	Type       string
+	BaseURL    string
+	APIKey     string
+	Enabled    bool   `gorm:"default:true"`
+	Priority   int    `gorm:"default:0"`
+	Config     string `gorm:"type:text"`
+	LastSyncAt *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	DeletedAt  gorm.DeletedAt
+	Models     []ProviderModel
 }
 
 type ProviderModel struct {
@@ -92,17 +92,27 @@ type KeyModel struct {
 }
 
 type UsageLog struct {
-	ID          uint `gorm:"primaryKey"`
-	Source      string
-	KeyID       uint `gorm:"index"`
-	Model       string
-	ProviderID  uint `gorm:"index"`
-	ActualModel string
-	TotalTokens int64 `gorm:"default:0"`
-	LatencyMs   int64 `gorm:"default:0"`
-	Status      string
-	ErrorMsg    string    `gorm:"type:text"`
-	CreatedAt   time.Time `gorm:"index"`
+	ID              uint `gorm:"primaryKey"`
+	Source          string
+	KeyID           uint `gorm:"index"`
+	KeyName         string
+	Model           string
+	ProviderType    string
+	ProviderID      uint `gorm:"index"`
+	ProviderName    string
+	ActualModelID   string `gorm:"index"`
+	ActualModelName string
+	TotalTokens     int `gorm:"default:0"`
+	LatencyMs       int `gorm:"default:0"`
+	Status          string
+	ErrorMsg        string    `gorm:"type:text"`
+	CreatedAt       time.Time `gorm:"index"`
+}
+
+func (u *UsageLog) String() string {
+	return fmt.Sprintf("[%s] %s calling model %s, provider:(%s/%s/%s), tokens:%d, time:%dms, status:%s",
+		u.Source, u.KeyName, u.Model, u.ProviderType, u.ProviderName, u.ActualModelName, u.TotalTokens, u.LatencyMs, u.Status,
+	)
 }
 
 func InitDB(dbPath string) error {

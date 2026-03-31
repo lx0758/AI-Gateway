@@ -129,9 +129,9 @@ curl -X POST http://localhost:18080/api/v1/providers \
   -b "session=your-session-cookie" \
   -d '{
     "name": "OpenAI",
-    "api_type": "openai",
-    "api_key": "sk-xxx",
-    "base_url": "https://api.openai.com/v1"
+    "type": "openai",
+    "base_url": "https://api.openai.com/v1"，
+    "api_key": "sk-xxx"
   }'
 ```
 

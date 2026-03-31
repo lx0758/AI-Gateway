@@ -16,12 +16,14 @@ import (
 )
 
 type anthropicUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 }
 
 func (u anthropicUsage) total() int {
-	return u.InputTokens + u.OutputTokens
+	return u.InputTokens + u.OutputTokens + u.CacheCreationInputTokens + u.CacheReadInputTokens
 }
 
 type AnthropicProvider struct {
@@ -34,6 +36,10 @@ func NewAnthropicProvider(cfg *Config) *AnthropicProvider {
 
 func (m *AnthropicProvider) Name() string {
 	return m.cfg.ProviderName
+}
+
+func (m *AnthropicProvider) Type() string {
+	return m.cfg.ProviderType
 }
 
 func (m *AnthropicProvider) SyncModels(provider *model.Provider) ([]model.ProviderModel, error) {
@@ -501,8 +507,6 @@ func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("chatcmpl-%s", m.generateID())
 	tokens := 0
-	inputTokens := 0
-	outputTokens := 0
 	created := time.Now().Unix()
 	contentBuffer := ""
 	toolCallsBuffer := make(map[int]map[string]interface{})
@@ -543,15 +547,21 @@ func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer
 
 		switch event.Type {
 		case "message_start":
-			if msg, ok := event.Message["usage"].(map[string]interface{}); ok {
-				if it, ok := msg["input_tokens"].(float64); ok {
-					inputTokens = int(it)
-				}
-				if it, ok := msg["output_tokens"].(float64); ok {
-					outputTokens = int(it)
-				}
-				tokens += inputTokens + outputTokens
-			}
+			//if msg, ok := event.Message["usage"].(map[string]interface{}); ok {
+			//	if it, ok := msg["input_tokens"].(float64); ok {
+			//		inputTokens = int(it)
+			//	}
+			//	if it, ok := msg["output_tokens"].(float64); ok {
+			//		outputTokens = int(it)
+			//	}
+			//	if it, ok := msg["cache_creation_input_tokens"].(float64); ok {
+			//		cacheCreationInputTokens = int(it)
+			//	}
+			//	if it, ok := msg["cache_read_input_tokens"].(float64); ok {
+			//		cacheReadInputTokens = int(it)
+			//	}
+			//	tokens += inputTokens + outputTokens + cacheCreationInputTokens + cacheReadInputTokens
+			//}
 
 		case "content_block_start":
 			if event.ContentBlock != nil {
@@ -670,8 +680,6 @@ func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer
 			// No action needed
 
 		case "message_delta":
-			inputTokens += event.Usage.InputTokens
-			outputTokens += event.Usage.OutputTokens
 			tokens += event.Usage.total()
 			finishReason := "stop"
 			if stopReason, ok := event.Delta["stop_reason"].(string); ok {
@@ -697,9 +705,15 @@ func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer
 					},
 				},
 				"usage": map[string]interface{}{
-					"prompt_tokens":     inputTokens,
-					"completion_tokens": outputTokens,
-					"total_tokens":      tokens,
+					"prompt_tokens":     event.Usage.CacheCreationInputTokens + event.Usage.InputTokens,
+					"completion_tokens": event.Usage.OutputTokens,
+					"total_tokens":      event.Usage.total(),
+					"prompt_tokens_details": map[string]interface{}{
+						"cached_tokens": event.Usage.CacheReadInputTokens,
+					},
+					"completion_tokens_details": map[string]interface{}{
+						"reasoning_tokens": event.Usage.CacheReadInputTokens,
+					},
 				},
 			})
 
@@ -829,23 +843,17 @@ func (m *AnthropicProvider) copyAnthropicStreaming(dst io.Writer, src io.Reader)
 		if !strings.HasPrefix(line, "data: ") {
 			continue
 		}
-
 		data := strings.TrimPrefix(line, "data: ")
 
 		var event struct {
-			Type    string `json:"type"`
-			Message struct {
-				Usage anthropicUsage `json:"usage"`
-			} `json:"message"`
+			Type  string         `json:"type"`
 			Usage anthropicUsage `json:"usage"`
 		}
 
 		if err := json.Unmarshal([]byte(data), &event); err == nil {
 			switch event.Type {
-			case "message_start":
-				tokens += event.Message.Usage.total()
 			case "message_delta":
-				tokens += event.Usage.total()
+				tokens = event.Usage.total()
 			}
 		}
 	}

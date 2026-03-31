@@ -616,3 +616,186 @@ type mockFlusher struct {
 }
 
 func (m *mockFlusher) Flush() {}
+
+const anthropic_stream_1 = `
+event: message_start
+data: {"type": "message_start", "message": {"id": "msg_202603312157426c43542335a446c4", "type": "message", "role": "assistant", "model": "glm-5", "content": [], "stop_reason": null, "stop_sequence": null, "usage": {"input_tokens": 0, "output_tokens": 0}}}
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_start
+data: {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "好的"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "，"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "我来"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "执行"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "一个"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "简单的"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "命令"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "："}}
+
+event: content_block_stop
+data: {"type": "content_block_stop", "index": 0}
+
+event: content_block_start
+data: {"type": "content_block_start", "index": 1, "content_block": {"type": "tool_use", "id": "call_9cd06da089d2481291d99317", "name": "bash", "input": {}}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": "{\"command\":\"echo \\\"Hello, World!\\\"\",\"description\":\"Print Hello World message\"}"}}
+
+event: content_block_stop
+data: {"type": "content_block_stop", "index": 1}
+
+event: message_delta
+data: {"type": "message_delta", "delta": {"stop_reason": "tool_use", "stop_sequence": null}, "usage": {"input_tokens": 8167, "output_tokens": 32, "cache_read_input_tokens": 2816, "server_tool_use": {"web_search_requests": 0}, "service_tier": "standard"}}
+
+event: message_stop
+data: {"type": "message_stop"}
+
+`
+
+const anthropic_stream_2 = `
+event: message_start
+data: {"type": "message_start", "message": {"id": "msg_20260331215745f372afac73dd4e9a", "type": "message", "role": "assistant", "model": "glm-5", "content": [], "stop_reason": null, "stop_sequence": null, "usage": {"input_tokens": 0, "output_tokens": 0}}}
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_start
+data: {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "执行"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "成功"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "！"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "输"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "出了"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " \""}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Hello"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": ","}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " World"}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "!\""}}
+
+event: content_block_delta
+data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "。"}}
+
+event: content_block_stop
+data: {"type": "content_block_stop", "index": 0}
+
+event: message_delta
+data: {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": null}, "usage": {"input_tokens": 79, "output_tokens": 12, "cache_read_input_tokens": 10944, "server_tool_use": {"web_search_requests": 0}, "service_tier": "standard"}}
+
+event: message_stop
+data: {"type": "message_stop"}
+
+`
+
+const anthropic_stream_3 = `
+event: message_start
+data: {"type":"message_start","message":{"id":"061b09e000a972a9716f209001a3a452","type":"message","role":"assistant","content":[],"model":"MiniMax-M2.5","stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":2707,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"service_tier":"standard"}}
+
+event: ping
+data: {"type":"ping"}
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"用户要求我执行一个工具试试。我可以尝试使用一些简单的工具来展示功能。让我先检查一下工作目录中有什么文件，然后尝试使用工具。\n\n让我先列出当前目录的文件。\n"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"44adca74917efbeb5fa2f28646e270693c1bebe4867747843b0a1330c3527642"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0}
+
+event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"call_function_sy2faeqracl4_1","name":"glob","input":{}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":""}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"pattern\": \"*\"}"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":1}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"input_tokens":9195,"output_tokens":64,"cache_creation_input_tokens":0,"cache_read_input_tokens":1792}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+`
+
+const anthropic_stream_4 = `
+event: message_start
+data: {"type":"message_start","message":{"id":"061b09e53b545c6c28cc8f0fd9e89dbe","type":"message","role":"assistant","content":[],"model":"MiniMax-M2.5","stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":2731,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"service_tier":"standard"}}
+
+event: ping
+data: {"type":"ping"}
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"用户想让我执行一个工具试试。我刚才已经执行了glob工具来列出当前目录的文件。这是一个测试，看看工具是否能正常工作。\n\n结果显示当前目录下有一个文件：opencode.exe。\n"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"1fd3434c085735fd2039eadc7dd5dcd1f2987c5f7ec45038a9fc4bd3cebdf8c2"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0}
+
+event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"\n\n已执行工具测试。当前目录下有一个文件 `opencode.exe`。"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":1}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":94,"output_tokens":52,"cache_creation_input_tokens":0,"cache_read_input_tokens":10944}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+`

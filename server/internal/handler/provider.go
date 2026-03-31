@@ -14,7 +14,7 @@ type ProviderHandler struct{}
 
 type createProviderRequest struct {
 	Name     string `json:"name" binding:"required"`
-	APIType  string `json:"api_type" binding:"required,oneof=openai anthropic"`
+	Type     string `json:"type" binding:"required,oneof=openai anthropic"`
 	BaseURL  string `json:"base_url" binding:"required"`
 	APIKey   string `json:"api_key" binding:"required"`
 	Priority int    `json:"priority"`
@@ -22,7 +22,7 @@ type createProviderRequest struct {
 
 type updateProviderRequest struct {
 	Name     string `json:"name"`
-	APIType  string `json:"api_type" binding:"omitempty,oneof=openai anthropic"`
+	Type     string `json:"type" binding:"omitempty,oneof=openai anthropic"`
 	BaseURL  string `json:"base_url"`
 	APIKey   string `json:"api_key" binding:"omitempty"`
 	Enabled  *bool  `json:"enabled"`
@@ -32,7 +32,7 @@ type updateProviderRequest struct {
 type providerResponse struct {
 	ID           uint                    `json:"id"`
 	Name         string                  `json:"name"`
-	APIType      string                  `json:"api_type"`
+	Type      string                     `json:"type"`
 	BaseURL      string                  `json:"base_url"`
 	APIKeyMasked string                  `json:"api_key_masked"`
 	Enabled      bool                    `json:"enabled"`
@@ -62,7 +62,7 @@ func (h *ProviderHandler) List(c *gin.Context) {
 		result[i] = providerResponse{
 			ID:           p.ID,
 			Name:         p.Name,
-			APIType:      p.APIType,
+			Type:      p.Type,
 			BaseURL:      p.BaseURL,
 			APIKeyMasked: maskAPIKey(p.APIKey),
 			Enabled:      p.Enabled,
@@ -96,7 +96,7 @@ func (h *ProviderHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"provider": providerResponse{
 		ID:           provider.ID,
 		Name:         provider.Name,
-		APIType:      provider.APIType,
+		Type:      provider.Type,
 		BaseURL:      provider.BaseURL,
 		APIKeyMasked: maskAPIKey(provider.APIKey),
 		Enabled:      provider.Enabled,
@@ -115,7 +115,7 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 
 	provider := model.Provider{
 		Name:     req.Name,
-		APIType:  req.APIType,
+		Type:     req.Type,
 		BaseURL:  strings.TrimSuffix(req.BaseURL, "/"),
 		APIKey:   req.APIKey,
 		Enabled:  true,
@@ -130,7 +130,7 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"provider": providerResponse{
 		ID:           provider.ID,
 		Name:         provider.Name,
-		APIType:      provider.APIType,
+		Type:      provider.Type,
 		BaseURL:      provider.BaseURL,
 		APIKeyMasked: maskAPIKey(provider.APIKey),
 		Enabled:      provider.Enabled,
@@ -162,8 +162,8 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 	if req.Name != "" {
 		updates["name"] = req.Name
 	}
-	if req.APIType != "" {
-		updates["api_type"] = req.APIType
+	if req.Type != "" {
+		updates["type"] = req.Type
 	}
 	if req.BaseURL != "" {
 		updates["base_url"] = strings.TrimSuffix(req.BaseURL, "/")
@@ -193,7 +193,7 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"provider": providerResponse{
 		ID:           provider.ID,
 		Name:         provider.Name,
-		APIType:      provider.APIType,
+		Type:      provider.Type,
 		BaseURL:      provider.BaseURL,
 		APIKeyMasked: maskAPIKey(provider.APIKey),
 		Enabled:      provider.Enabled,

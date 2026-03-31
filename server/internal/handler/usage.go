@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"ai-proxy/internal/model"
+	"ai-proxy/internal/router"
 )
 
 type UsageHandler struct{}
@@ -79,68 +80,52 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 	})
 }
 
+type logsResponse struct {
+	ID              uint      `json:"id"`
+	Source          string    `json:"source"`
+	KeyID           uint      `json:"key_id"`
+	KeyName         string    `json:"key_name"`
+	Model           string    `json:"model"`
+	ProviderType    string    `json:"provider_type"`
+	ProviderID      uint      `json:"provider_id"`
+	ProviderName    string    `json:"provider_name"`
+	ActualModelID   string    `json:"actual_model_id"`
+	ActualModelName string    `json:"actual_model_name"`
+	TotalTokens     int64     `json:"total_tokens"`
+	LatencyMs       int64     `json:"latency_ms"`
+	Status          string    `json:"status"`
+	ErrorMsg        string    `json:"error_msg"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
 func (h *UsageHandler) Logs(c *gin.Context) {
 	startDate := c.DefaultQuery("start_date", time.Now().AddDate(0, 0, -1).Format("2006-01-02"))
 	endDate := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
-	KeyID := c.Query("key_id")
-	modelName := c.Query("model")
+	paramKey := c.Query("key")
+	paramModel := c.Query("model")
 
-	var logs []struct {
-		ID           uint      `json:"id"`
-		Source       string    `json:"source"`
-		KeyID        uint      `json:"key_id"`
-		KeyName      string    `json:"key_name"`
-		Model        string    `json:"model"`
-		ProviderID   uint      `json:"provider_id"`
-		ProviderName string    `json:"provider_name"`
-		ActualModel  string    `json:"actual_model"`
-		TotalTokens  int64     `json:"total_tokens"`
-		LatencyMs    int64     `json:"latency_ms"`
-		Status       string    `json:"status"`
-		ErrorMsg     string    `json:"error_msg"`
-		CreatedAt    time.Time `json:"created_at"`
-	}
-
-	query := `
-		SELECT 
-			ul.id,
-			ul.source,
-			ul.key_id,
-			COALESCE(k.name, 'Unknown') as key_name,
-			ul.model,
-			ul.provider_id,
-			COALESCE(p.name, 'Unknown') as provider_name,
-			ul.actual_model,
-			ul.total_tokens,
-			ul.latency_ms,
-			ul.status,
-			ul.error_msg,
-			ul.created_at
-		FROM usage_logs ul
-		LEFT JOIN keys k ON ul.key_id = k.id
-		LEFT JOIN providers p ON ul.provider_id = p.id
-		WHERE ul.created_at >= ? AND ul.created_at <= ?
-	`
+	query := "SELECT * FROM usage_logs WHERE created_at >= ? AND created_at <= ?"
 	args := []interface{}{startDate, endDate + " 23:59:59"}
 
-	if KeyID != "" {
-		query += " AND ul.key_id = ?"
-		args = append(args, KeyID)
+	if paramKey != "" {
+		query += " AND key_id = ?"
+		args = append(args, paramKey)
 	}
 
-	if modelName != "" {
-		query += " AND ul.model = ?"
-		args = append(args, modelName)
+	if paramModel != "" {
+		query += " AND model = ?"
+		args = append(args, paramModel)
 	}
 
-	query += " ORDER BY ul.created_at DESC LIMIT 1000"
+	query += " ORDER BY created_at DESC LIMIT 1000"
 
-	if err := model.DB.Raw(query, args...).Scan(&logs).Error; err != nil {
+	var logsResponse []logsResponse
+	if err := model.DB.Raw(query, args...).Scan(&logsResponse).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"logs": logs})
+	c.JSON(http.StatusOK, gin.H{"logs": logsResponse})
 }
 
 func (h *UsageHandler) Dashboard(c *gin.Context) {
@@ -256,4 +241,26 @@ func (h *UsageHandler) KeyStats(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"keyStats": keyStats,
 	})
+}
+
+func NewUsageLog(source string, keyID uint, keyName, modelName string, result *router.RouteResult, tokens int, latencyMs int, status string, errorMsg string) *model.UsageLog {
+	actualModelName := result.ProviderModel.DisplayName
+	if actualModelName == "" {
+		actualModelName = result.ProviderModel.ModelID
+	}
+	return &model.UsageLog{
+		Source:          source,
+		KeyID:           keyID,
+		KeyName:         keyName,
+		Model:           modelName,
+		ProviderType:    result.Provider.Type,
+		ProviderID:      result.Provider.ID,
+		ProviderName:    result.Provider.Name,
+		ActualModelID:   result.ProviderModel.ModelID,
+		ActualModelName: actualModelName,
+		TotalTokens:     tokens,
+		LatencyMs:       latencyMs,
+		Status:          status,
+		ErrorMsg:        errorMsg,
+	}
 }

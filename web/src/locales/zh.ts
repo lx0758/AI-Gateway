@@ -64,7 +64,7 @@ export default {
   },
   provider: {
     name: '厂商名称',
-    apiType: 'API 类型',
+    type: 'API 类型',
     baseUrl: '接口地址',
     apiKey: 'API 密钥',
     apiKeyPlaceholder: '留空则保持当前密钥不变',
@@ -113,7 +113,7 @@ export default {
     keyStats: 'Key 统计',
     keyName: 'Key 名称',
     callCount: '调用次数',
-    providerModel: '厂商/模型',
+    providerModel: '类型/厂商/模型',
     source: '来源',
     key: 'Key',
     latency: '耗时',
