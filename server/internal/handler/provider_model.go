@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-proxy/internal/manufacturer"
 	"ai-proxy/internal/model"
+	providerPkg "ai-proxy/internal/provider"
 )
 
 type ProviderModelHandler struct{}
@@ -175,7 +175,7 @@ func (h *ProviderModelHandler) Sync(c *gin.Context) {
 		return
 	}
 
-	mfr := manufacturer.NewFactory().Create(&provider)
+	mfr := providerPkg.NewFactory().Create(&provider)
 	if mfr == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported provider type"})
 		return

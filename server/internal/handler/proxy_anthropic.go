@@ -9,19 +9,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-proxy/internal/manufacturer"
 	"ai-proxy/internal/model"
+	"ai-proxy/internal/provider"
 	"ai-proxy/internal/router"
 )
 
 type AnthropicProxyHandler struct {
-	factory *manufacturer.Factory
+	factory *provider.Factory
 	router  *router.ModelRouter
 }
 
 func NewAnthropicProxyHandler() *AnthropicProxyHandler {
 	return &AnthropicProxyHandler{
-		factory: manufacturer.NewFactory(),
+		factory: provider.NewFactory(),
 		router:  router.NewModelRouter(),
 	}
 }
@@ -70,11 +70,11 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 
 	mfr := h.factory.Create(result.Provider)
 	if mfr == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "manufacturer not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "provider not found"})
 		return
 	}
 
-	tokens, err := mfr.ExecuteAnthropicRequest(c, result.ProviderModel);
+	tokens, err := mfr.ExecuteAnthropicRequest(c, result.ProviderModel)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

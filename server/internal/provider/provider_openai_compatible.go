@@ -1,4 +1,4 @@
-package manufacturer
+package provider
 
 import (
 	"bufio"
@@ -31,19 +31,19 @@ func (u openAIUsage) total() int {
 	return u.TotalTokens + u.CompletionTokensDetails.ReasoningTokens
 }
 
-type OpenAICompatibleManufacturer struct {
+type OpenAICompatibleProvider struct {
 	cfg *Config
 }
 
-func NewOpenAICompatibleManufacturer(cfg *Config) *OpenAICompatibleManufacturer {
-	return &OpenAICompatibleManufacturer{cfg: cfg}
+func NewOpenAICompatibleProvider(cfg *Config) *OpenAICompatibleProvider {
+	return &OpenAICompatibleProvider{cfg: cfg}
 }
 
-func (m *OpenAICompatibleManufacturer) Name() string {
+func (m *OpenAICompatibleProvider) Name() string {
 	return m.cfg.ProviderName
 }
 
-func (m *OpenAICompatibleManufacturer) SyncModels(provider *model.Provider) ([]model.ProviderModel, error) {
+func (m *OpenAICompatibleProvider) SyncModels(provider *model.Provider) ([]model.ProviderModel, error) {
 	baseURL := provider.BaseURL
 	if baseURL == "" {
 		return nil, fmt.Errorf("OpenAI compatible base URL is required")
@@ -95,7 +95,7 @@ func (m *OpenAICompatibleManufacturer) SyncModels(provider *model.Provider) ([]m
 	return models, nil
 }
 
-func (m *OpenAICompatibleManufacturer) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
+func (m *OpenAICompatibleProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		return 0, err
@@ -145,7 +145,7 @@ func (m *OpenAICompatibleManufacturer) ExecuteOpenAIRequest(c *gin.Context, pm *
 	return tokens, nil
 }
 
-func (m *OpenAICompatibleManufacturer) copyOpenAIStreaming(dst io.Writer, src io.Reader) int {
+func (m *OpenAICompatibleProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader) int {
 	reader := bufio.NewReader(src)
 	tokens := 0
 
@@ -187,7 +187,7 @@ func (m *OpenAICompatibleManufacturer) copyOpenAIStreaming(dst io.Writer, src io
 	return tokens
 }
 
-func (m *OpenAICompatibleManufacturer) copyOpenAIResponse(dst io.Writer, src io.Reader) int {
+func (m *OpenAICompatibleProvider) copyOpenAIResponse(dst io.Writer, src io.Reader) int {
 	body, err := io.ReadAll(src)
 	if err != nil {
 		return 0
@@ -208,7 +208,7 @@ func (m *OpenAICompatibleManufacturer) copyOpenAIResponse(dst io.Writer, src io.
 	return tokens
 }
 
-func (m *OpenAICompatibleManufacturer) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
+func (m *OpenAICompatibleProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		return 0, err
@@ -316,7 +316,7 @@ func (m *OpenAICompatibleManufacturer) ExecuteAnthropicRequest(c *gin.Context, p
 	return tokens, nil
 }
 
-func (m *OpenAICompatibleManufacturer) extractSystemContent(system interface{}) string {
+func (m *OpenAICompatibleProvider) extractSystemContent(system interface{}) string {
 	if system == nil {
 		return ""
 	}
@@ -348,7 +348,7 @@ func (m *OpenAICompatibleManufacturer) extractSystemContent(system interface{}) 
 	return ""
 }
 
-func (m *OpenAICompatibleManufacturer) convertAnthropicMessageToOpenAI(msg map[string]interface{}) map[string]interface{} {
+func (m *OpenAICompatibleProvider) convertAnthropicMessageToOpenAI(msg map[string]interface{}) map[string]interface{} {
 	role, _ := msg["role"].(string)
 	content := msg["content"]
 
@@ -443,7 +443,7 @@ func (m *OpenAICompatibleManufacturer) convertAnthropicMessageToOpenAI(msg map[s
 	return result
 }
 
-func (m *OpenAICompatibleManufacturer) convertAnthropicToolResultToOpenAI(blockMap map[string]interface{}) map[string]interface{} {
+func (m *OpenAICompatibleProvider) convertAnthropicToolResultToOpenAI(blockMap map[string]interface{}) map[string]interface{} {
 	toolUseID, _ := blockMap["tool_use_id"].(string)
 	result := map[string]interface{}{
 		"role":         "tool",
@@ -478,7 +478,7 @@ func (m *OpenAICompatibleManufacturer) convertAnthropicToolResultToOpenAI(blockM
 	return result
 }
 
-func (m *OpenAICompatibleManufacturer) convertAnthropicToolToOpenAI(tool map[string]interface{}) map[string]interface{} {
+func (m *OpenAICompatibleProvider) convertAnthropicToolToOpenAI(tool map[string]interface{}) map[string]interface{} {
 	result := map[string]interface{}{
 		"type": "function",
 		"function": map[string]interface{}{
@@ -492,7 +492,7 @@ func (m *OpenAICompatibleManufacturer) convertAnthropicToolToOpenAI(tool map[str
 	return result
 }
 
-func (m *OpenAICompatibleManufacturer) convertOpenAIResponseToAnthropic(openAIResp []byte) ([]byte, int, error) {
+func (m *OpenAICompatibleProvider) convertOpenAIResponseToAnthropic(openAIResp []byte) ([]byte, int, error) {
 	var openAI struct {
 		ID      string `json:"id"`
 		Model   string `json:"model"`
@@ -577,13 +577,13 @@ func (m *OpenAICompatibleManufacturer) convertOpenAIResponseToAnthropic(openAIRe
 	return result, tokens, nil
 }
 
-func (m *OpenAICompatibleManufacturer) isStreaming(resp *http.Response) bool {
+func (m *OpenAICompatibleProvider) isStreaming(resp *http.Response) bool {
 	contentType := resp.Header.Get("Content-Type")
 	return len(resp.Header["Transfer-Encoding"]) > 0 ||
 		(len(contentType) > 0 && len(contentType) >= 17 && contentType[:17] == "text/event-stream")
 }
 
-func (m *OpenAICompatibleManufacturer) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, model string) int {
+func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, model string) int {
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("msg_%s", m.generateID())
 	sentMessageStart := false
@@ -824,7 +824,7 @@ func (m *OpenAICompatibleManufacturer) streamOpenAIToAnthropic(src io.Reader, ds
 	return tokens
 }
 
-func (m *OpenAICompatibleManufacturer) writeAnthropicSSE(w io.Writer, eventType string, data interface{}) {
+func (m *OpenAICompatibleProvider) writeAnthropicSSE(w io.Writer, eventType string, data interface{}) {
 	dataBytes, _ := json.Marshal(data)
 	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, string(dataBytes))
 	if flusher, ok := w.(http.Flusher); ok {
@@ -832,7 +832,7 @@ func (m *OpenAICompatibleManufacturer) writeAnthropicSSE(w io.Writer, eventType 
 	}
 }
 
-func (m *OpenAICompatibleManufacturer) generateID() string {
+func (m *OpenAICompatibleProvider) generateID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, 24)
 	for i := range b {

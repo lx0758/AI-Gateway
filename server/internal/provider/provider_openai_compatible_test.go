@@ -1,4 +1,4 @@
-package manufacturer
+package provider
 
 import (
 	"bytes"
@@ -63,7 +63,7 @@ func TestOpenAIUsage_Total(t *testing.T) {
 }
 
 func TestCopyOpenAIStreaming_TokenCounting(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	openAISSE := `data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"}}]}
 
@@ -81,7 +81,7 @@ data: [DONE]
 }
 
 func TestCopyOpenAIStreaming_WithReasoning(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	openAISSE := `data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"}}]}
 
@@ -99,7 +99,7 @@ data: [DONE]
 }
 
 func TestCopyOpenAIResponse_TokenCounting(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	openAIResp := map[string]interface{}{
 		"id":      "chatcmpl-xxx",
@@ -133,7 +133,7 @@ func TestCopyOpenAIResponse_TokenCounting(t *testing.T) {
 }
 
 func TestExtractSystemContent(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	tests := []struct {
 		name     string
@@ -176,7 +176,7 @@ func TestExtractSystemContent(t *testing.T) {
 }
 
 func TestConvertAnthropicMessageToOpenAI_Text(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	anthropicMsg := map[string]interface{}{
 		"role":    "user",
@@ -195,7 +195,7 @@ func TestConvertAnthropicMessageToOpenAI_Text(t *testing.T) {
 }
 
 func TestConvertAnthropicMessageToOpenAI_Blocks(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	anthropicMsg := map[string]interface{}{
 		"role": "user",
@@ -236,7 +236,7 @@ func TestConvertAnthropicMessageToOpenAI_Blocks(t *testing.T) {
 }
 
 func TestConvertAnthropicMessageToOpenAI_ToolUse(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	anthropicMsg := map[string]interface{}{
 		"role": "assistant",
@@ -277,7 +277,7 @@ func TestConvertAnthropicMessageToOpenAI_ToolUse(t *testing.T) {
 }
 
 func TestConvertAnthropicToolResultToOpenAI(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	anthropicBlock := map[string]interface{}{
 		"type":        "tool_result",
@@ -301,7 +301,7 @@ func TestConvertAnthropicToolResultToOpenAI(t *testing.T) {
 }
 
 func TestConvertAnthropicToolToOpenAI(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	anthropicTool := map[string]interface{}{
 		"name":        "get_weather",
@@ -335,7 +335,7 @@ func TestConvertAnthropicToolToOpenAI(t *testing.T) {
 }
 
 func TestConvertOpenAIResponseToAnthropic(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	openAIResp := map[string]interface{}{
 		"id":      "chatcmpl-xxx",
@@ -389,7 +389,7 @@ func TestConvertOpenAIResponseToAnthropic(t *testing.T) {
 }
 
 func TestConvertOpenAIResponseToAnthropic_ToolCalls(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	openAIResp := map[string]interface{}{
 		"id":    "chatcmpl-xxx",
@@ -452,7 +452,7 @@ func TestConvertOpenAIResponseToAnthropic_ToolCalls(t *testing.T) {
 }
 
 func TestStreamOpenAIToAnthropic_Text(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	openAISSE := `data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"}}]}
 
@@ -484,7 +484,7 @@ data: [DONE]
 }
 
 func TestStreamOpenAIToAnthropic_Thinking(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	openAISSE := `data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"Let me think..."}}]}
 
@@ -510,7 +510,7 @@ data: [DONE]
 }
 
 func TestStreamOpenAIToAnthropic_ToolCalls(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	openAISSE := `data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_xxx","type":"function","function":{"name":"get_weather","arguments":"{\"loc"}}]}}]}
 
@@ -544,7 +544,7 @@ data: [DONE]
 }
 
 func TestCopyOpenAIStreaming_WithReasoningTokens(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	// Test case: usage contains reasoning_tokens
 	openAISSE := `data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"}}]}
@@ -564,7 +564,7 @@ data: [DONE]
 }
 
 func TestCopyOpenAIStreaming_WithCachedTokens(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	// Test case: usage contains cached_tokens
 	openAISSE := `data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"}}]}
@@ -584,7 +584,7 @@ data: [DONE]
 }
 
 func TestCopyOpenAIResponse_WithReasoningTokens(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	openAIResp := map[string]interface{}{
 		"id":      "chatcmpl-xxx",
@@ -622,7 +622,7 @@ func TestCopyOpenAIResponse_WithReasoningTokens(t *testing.T) {
 }
 
 func TestStreamOpenAIToAnthropic_WithReasoningTokens(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	// Test case: usage contains reasoning_tokens in final chunk
 	openAISSE := `data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"}}]}
@@ -649,7 +649,7 @@ data: [DONE]
 }
 
 func TestStreamOpenAIToAnthropic_ThinkingAndText(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	// Test case: thinking followed by text content
 	openAISSE := `data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"Let me think..."}}]}
@@ -693,7 +693,7 @@ data: [DONE]
 }
 
 func TestStreamOpenAIToAnthropic_UsageWithReasoning(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	// Test case: verify output_tokens calculation with reasoning_tokens
 	openAISSE := `data: {"id":"chatcmpl-xxx","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"Thinking..."}}]}
@@ -722,7 +722,7 @@ data: [DONE]
 }
 
 func TestConvertOpenAIResponseToAnthropic_WithReasoningContent(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	// Test case: OpenAI response with reasoning_content (some providers add this)
 	openAIResp := map[string]interface{}{
@@ -778,7 +778,7 @@ func TestConvertOpenAIResponseToAnthropic_WithReasoningContent(t *testing.T) {
 }
 
 func TestConvertOpenAIResponseToAnthropic_EmptyContent(t *testing.T) {
-	m := &OpenAICompatibleManufacturer{cfg: &Config{}}
+	m := &OpenAICompatibleProvider{cfg: &Config{}}
 
 	// Test case: OpenAI response with empty content (tool calls only)
 	openAIResp := map[string]interface{}{

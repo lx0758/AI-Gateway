@@ -1,4 +1,4 @@
-package manufacturer
+package provider
 
 import (
 	"bytes"
@@ -53,7 +53,7 @@ func TestAnthropicUsage_Total(t *testing.T) {
 }
 
 func TestCopyAnthropicStreaming_TokenCounting(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	anthropicSSE := `event: message_start
 data: {"type":"message_start","message":{"id":"msg_xxx","type":"message","role":"assistant","usage":{"input_tokens":100,"output_tokens":0}}}
@@ -84,7 +84,7 @@ data: {"type":"message_stop"}
 }
 
 func TestStreamAnthropicToOpenAI_TokenCounting(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	anthropicSSE := `event: message_start
 data: {"type":"message_start","message":{"id":"msg_xxx","type":"message","role":"assistant","usage":{"input_tokens":100,"output_tokens":0}}}
@@ -115,7 +115,7 @@ data: {"type":"message_stop"}
 }
 
 func TestStreamAnthropicToOpenAI_ToolCalls(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	anthropicSSE := `event: message_start
 data: {"type":"message_start","message":{"id":"msg_xxx","type":"message","role":"assistant","usage":{"input_tokens":100,"output_tokens":0}}}
@@ -166,7 +166,7 @@ data: {"type":"message_stop"}
 }
 
 func TestStreamAnthropicToOpenAI_Thinking(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	anthropicSSE := `event: message_start
 data: {"type":"message_start","message":{"id":"msg_xxx","type":"message","role":"assistant","usage":{"input_tokens":100,"output_tokens":0}}}
@@ -215,7 +215,7 @@ data: {"type":"message_stop"}
 }
 
 func TestStreamAnthropicToOpenAI_Usage(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	anthropicSSE := `event: message_start
 data: {"type":"message_start","message":{"id":"msg_xxx","type":"message","role":"assistant","usage":{"input_tokens":100,"output_tokens":0}}}
@@ -255,7 +255,7 @@ data: {"type":"message_stop"}
 }
 
 func TestStreamAnthropicToOpenAI_UsageWithOutputTokensAtStart(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	// Test case: message_start contains output_tokens (e.g., for cached thinking)
 	anthropicSSE := `event: message_start
@@ -297,7 +297,7 @@ data: {"type":"message_stop"}
 }
 
 func TestStreamAnthropicToOpenAI_UsageWithCacheTokens(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	// Test case: message_delta contains additional input_tokens (e.g., cache read tokens)
 	anthropicSSE := `event: message_start
@@ -339,7 +339,7 @@ data: {"type":"message_stop"}
 }
 
 func TestConvertAnthropicResponseToOpenAI_WithThinking(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	anthropicResp := map[string]interface{}{
 		"id":    "msg_xxx",
@@ -391,7 +391,7 @@ func TestConvertAnthropicResponseToOpenAI_WithThinking(t *testing.T) {
 }
 
 func TestCopyAnthropicStreaming_WithOutputTokensAtStart(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	// Test case: message_start contains output_tokens
 	anthropicSSE := `event: message_start
@@ -423,7 +423,7 @@ data: {"type":"message_stop"}
 }
 
 func TestConvertAnthropicResponseToOpenAI(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	anthropicResp := map[string]interface{}{
 		"id":    "msg_xxx",
@@ -472,7 +472,7 @@ func TestConvertAnthropicResponseToOpenAI(t *testing.T) {
 }
 
 func TestConvertAnthropicResponseToOpenAI_ToolUse(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	anthropicResp := map[string]interface{}{
 		"id":    "msg_xxx",
@@ -536,7 +536,7 @@ func TestConvertAnthropicResponseToOpenAI_ToolUse(t *testing.T) {
 }
 
 func TestConvertOpenAIToolResultToAnthropic(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	openAIMsg := map[string]interface{}{
 		"role":         "tool",
@@ -570,7 +570,7 @@ func TestConvertOpenAIToolResultToAnthropic(t *testing.T) {
 }
 
 func TestParseDataURL(t *testing.T) {
-	m := &AnthropicManufacturer{cfg: &Config{}}
+	m := &AnthropicProvider{cfg: &Config{}}
 
 	tests := []struct {
 		name        string

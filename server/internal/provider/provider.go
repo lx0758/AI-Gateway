@@ -1,4 +1,4 @@
-package manufacturer
+package provider
 
 import (
 	"github.com/gin-gonic/gin"
@@ -6,7 +6,7 @@ import (
 	"ai-proxy/internal/model"
 )
 
-type Manufacturer interface {
+type Provider interface {
 	Name() string
 	SyncModels(provider *model.Provider) ([]model.ProviderModel, error)
 	ExecuteOpenAIRequest(ctx *gin.Context, model *model.ProviderModel) (int, error)

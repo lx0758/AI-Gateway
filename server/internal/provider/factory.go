@@ -1,4 +1,4 @@
-package manufacturer
+package provider
 
 import (
 	"ai-proxy/internal/model"
@@ -22,7 +22,7 @@ func NewFactory() *Factory {
 	return &Factory{}
 }
 
-func (f *Factory) Create(provider *model.Provider) Manufacturer {
+func (f *Factory) Create(provider *model.Provider) Provider {
 	cfg := &Config{
 		ProviderName: provider.Name,
 		ProviderType: provider.APIType,
@@ -32,9 +32,9 @@ func (f *Factory) Create(provider *model.Provider) Manufacturer {
 
 	switch provider.APIType {
 	case ProviderTypeOpenAI:
-		return NewOpenAICompatibleManufacturer(cfg)
+		return NewOpenAICompatibleProvider(cfg)
 	case ProviderTypeAnthropic:
-		return NewAnthropicManufacturer(cfg)
+		return NewAnthropicProvider(cfg)
 	default:
 		return nil
 	}

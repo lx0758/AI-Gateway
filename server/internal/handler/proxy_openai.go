@@ -9,19 +9,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-proxy/internal/manufacturer"
 	"ai-proxy/internal/model"
+	"ai-proxy/internal/provider"
 	"ai-proxy/internal/router"
 )
 
 type ProxyHandler struct {
-	factory *manufacturer.Factory
+	factory *provider.Factory
 	router  *router.ModelRouter
 }
 
 func NewProxyHandler() *ProxyHandler {
 	return &ProxyHandler{
-		factory: manufacturer.NewFactory(),
+		factory: provider.NewFactory(),
 		router:  router.NewModelRouter(),
 	}
 }
@@ -70,7 +70,7 @@ func (h *ProxyHandler) ChatCompletions(c *gin.Context) {
 
 	mfr := h.factory.Create(result.Provider)
 	if mfr == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "manufacturer not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "provider not found"})
 		return
 	}
 

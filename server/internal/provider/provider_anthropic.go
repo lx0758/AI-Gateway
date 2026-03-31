@@ -1,4 +1,4 @@
-package manufacturer
+package provider
 
 import (
 	"bufio"
@@ -24,19 +24,19 @@ func (u anthropicUsage) total() int {
 	return u.InputTokens + u.OutputTokens
 }
 
-type AnthropicManufacturer struct {
+type AnthropicProvider struct {
 	cfg *Config
 }
 
-func NewAnthropicManufacturer(cfg *Config) *AnthropicManufacturer {
-	return &AnthropicManufacturer{cfg: cfg}
+func NewAnthropicProvider(cfg *Config) *AnthropicProvider {
+	return &AnthropicProvider{cfg: cfg}
 }
 
-func (m *AnthropicManufacturer) Name() string {
+func (m *AnthropicProvider) Name() string {
 	return m.cfg.ProviderName
 }
 
-func (m *AnthropicManufacturer) SyncModels(provider *model.Provider) ([]model.ProviderModel, error) {
+func (m *AnthropicProvider) SyncModels(provider *model.Provider) ([]model.ProviderModel, error) {
 	baseURL := provider.BaseURL
 	if baseURL == "" {
 		return nil, fmt.Errorf("Anthropic base URL is required")
@@ -113,7 +113,7 @@ func (m *AnthropicManufacturer) SyncModels(provider *model.Provider) ([]model.Pr
 	return models, nil
 }
 
-func (m *AnthropicManufacturer) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
+func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		return 0, err
@@ -181,7 +181,7 @@ func (m *AnthropicManufacturer) ExecuteOpenAIRequest(c *gin.Context, pm *model.P
 	return tokens, nil
 }
 
-func (m *AnthropicManufacturer) convertOpenAIRequestToAnthropic(openAIReq struct {
+func (m *AnthropicProvider) convertOpenAIRequestToAnthropic(openAIReq struct {
 	Model     string                   `json:"model"`
 	MaxTokens int                      `json:"max_tokens"`
 	Messages  []map[string]interface{} `json:"messages"`
@@ -227,7 +227,7 @@ func (m *AnthropicManufacturer) convertOpenAIRequestToAnthropic(openAIReq struct
 	return anthropicReq
 }
 
-func (m *AnthropicManufacturer) extractSystemContent(content interface{}) string {
+func (m *AnthropicProvider) extractSystemContent(content interface{}) string {
 	switch v := content.(type) {
 	case string:
 		return v
@@ -249,7 +249,7 @@ func (m *AnthropicManufacturer) extractSystemContent(content interface{}) string
 	return ""
 }
 
-func (m *AnthropicManufacturer) convertOpenAIMessageToAnthropic(msg map[string]interface{}) map[string]interface{} {
+func (m *AnthropicProvider) convertOpenAIMessageToAnthropic(msg map[string]interface{}) map[string]interface{} {
 	role, _ := msg["role"].(string)
 	content := msg["content"]
 
@@ -337,7 +337,7 @@ func (m *AnthropicManufacturer) convertOpenAIMessageToAnthropic(msg map[string]i
 	return result
 }
 
-func (m *AnthropicManufacturer) convertOpenAIToolResultToAnthropic(msg map[string]interface{}) map[string]interface{} {
+func (m *AnthropicProvider) convertOpenAIToolResultToAnthropic(msg map[string]interface{}) map[string]interface{} {
 	toolCallID, _ := msg["tool_call_id"].(string)
 	content := msg["content"]
 
@@ -361,7 +361,7 @@ func (m *AnthropicManufacturer) convertOpenAIToolResultToAnthropic(msg map[strin
 	}
 }
 
-func (m *AnthropicManufacturer) convertOpenAIToolToAnthropic(tool map[string]interface{}) map[string]interface{} {
+func (m *AnthropicProvider) convertOpenAIToolToAnthropic(tool map[string]interface{}) map[string]interface{} {
 	result := map[string]interface{}{
 		"name": tool["name"],
 	}
@@ -382,7 +382,7 @@ func (m *AnthropicManufacturer) convertOpenAIToolToAnthropic(tool map[string]int
 	return result
 }
 
-func (m *AnthropicManufacturer) parseDataURL(url string) (mediaType, data string) {
+func (m *AnthropicProvider) parseDataURL(url string) (mediaType, data string) {
 	if !strings.HasPrefix(url, "data:") {
 		return "", ""
 	}
@@ -399,7 +399,7 @@ func (m *AnthropicManufacturer) parseDataURL(url string) (mediaType, data string
 	return mediaType, data
 }
 
-func (m *AnthropicManufacturer) convertAnthropicResponseToOpenAI(anthropicResp []byte, model string) ([]byte, int, error) {
+func (m *AnthropicProvider) convertAnthropicResponseToOpenAI(anthropicResp []byte, model string) ([]byte, int, error) {
 	var anthropic struct {
 		ID         string                   `json:"id"`
 		Type       string                   `json:"type"`
@@ -497,7 +497,7 @@ func (m *AnthropicManufacturer) convertAnthropicResponseToOpenAI(anthropicResp [
 	return result, tokens, nil
 }
 
-func (m *AnthropicManufacturer) streamAnthropicToOpenAI(src io.Reader, dst io.Writer, model string) int {
+func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer, model string) int {
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("chatcmpl-%s", m.generateID())
 	tokens := 0
@@ -714,7 +714,7 @@ func (m *AnthropicManufacturer) streamAnthropicToOpenAI(src io.Reader, dst io.Wr
 	return tokens
 }
 
-func (m *AnthropicManufacturer) writeOpenAISSE(w io.Writer, data interface{}) {
+func (m *AnthropicProvider) writeOpenAISSE(w io.Writer, data interface{}) {
 	dataBytes, _ := json.Marshal(data)
 	fmt.Fprintf(w, "data: %s\n\n", string(dataBytes))
 	if flusher, ok := w.(http.Flusher); ok {
@@ -722,7 +722,7 @@ func (m *AnthropicManufacturer) writeOpenAISSE(w io.Writer, data interface{}) {
 	}
 }
 
-func (m *AnthropicManufacturer) generateID() string {
+func (m *AnthropicProvider) generateID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, 24)
 	for i := range b {
@@ -731,13 +731,13 @@ func (m *AnthropicManufacturer) generateID() string {
 	return string(b)
 }
 
-func (m *AnthropicManufacturer) isStreaming(resp *http.Response) bool {
+func (m *AnthropicProvider) isStreaming(resp *http.Response) bool {
 	contentType := resp.Header.Get("Content-Type")
 	return len(resp.Header["Transfer-Encoding"]) > 0 ||
 		(len(contentType) > 0 && len(contentType) >= 17 && contentType[:17] == "text/event-stream")
 }
 
-func (m *AnthropicManufacturer) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
+func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		return 0, err
@@ -788,7 +788,7 @@ func (m *AnthropicManufacturer) ExecuteAnthropicRequest(c *gin.Context, pm *mode
 	return tokens, nil
 }
 
-func (m *AnthropicManufacturer) copyAnthropicResponse(dst io.Writer, src io.Reader) int {
+func (m *AnthropicProvider) copyAnthropicResponse(dst io.Writer, src io.Reader) int {
 	body, err := io.ReadAll(src)
 	if err != nil {
 		return 0
@@ -808,7 +808,7 @@ func (m *AnthropicManufacturer) copyAnthropicResponse(dst io.Writer, src io.Read
 	return 0
 }
 
-func (m *AnthropicManufacturer) copyAnthropicStreaming(dst io.Writer, src io.Reader) int {
+func (m *AnthropicProvider) copyAnthropicStreaming(dst io.Writer, src io.Reader) int {
 	reader := bufio.NewReader(src)
 	tokens := 0
 
