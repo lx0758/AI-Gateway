@@ -34,9 +34,9 @@
     <el-card class="key-stats-card" v-if="keyStats.length">
       <template #header>{{ t('usage.keyStats') || 'Key 统计' }}</template>
        <el-table :data="keyStats" stripe size="small">
-        <el-table-column prop="key_name" :label="t('usage.keyName') || 'Key 名称'" width="120" />
-        <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" width="100" />
-        <el-table-column prop="tokens" :label="'Tokens'" width="100">
+        <el-table-column prop="key_name" :label="t('usage.keyName') || 'Key 名称'" />
+        <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
+        <el-table-column prop="tokens" :label="'Tokens'">
           <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
         </el-table-column>
         <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
@@ -48,14 +48,14 @@
     <el-card class="model-stats-card" v-if="stats.modelStats?.length">
       <template #header>{{ t('usage.modelStats') || '模型统计' }}</template>
       <el-table :data="stats.modelStats" stripe size="small">
-        <el-table-column prop="model" :label="t('usage.model') || '映射模型'" width="120" />
-        <el-table-column prop="actual_model" :label="t('usage.providerModel') || '厂家/模型'" width="280" >
+        <el-table-column prop="model" :label="t('usage.model') || '映射模型'" width="200" />
+        <el-table-column prop="actual_model" :label="t('usage.providerModel') || '厂家/模型'" width="300" >
           <template #default="{ row }">
             <el-tag size="small" type="info">{{ row.provider_name }}/{{ row.actual_model }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" width="100" />
-        <el-table-column prop="tokens" :label="'Tokens'" width="100">
+        <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
+        <el-table-column prop="tokens" :label="'Tokens'">
           <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
         </el-table-column>
         <el-table-column :label="t('usage.avgLatency') || '平均耗时'">

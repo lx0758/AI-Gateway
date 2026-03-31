@@ -82,12 +82,6 @@ func RequireAPIKey() gin.HandlerFunc {
 			return
 		}
 
-		if apiKey.Quota > 0 && apiKey.UsedQuota >= apiKey.Quota {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "quota exceeded"})
-			c.Abort()
-			return
-		}
-
 		c.Set("key_id", apiKey.ID)
 		c.Set("api_key", &apiKey)
 		c.Next()
@@ -112,12 +106,6 @@ func RequireAPIKeyForAnthropic() gin.HandlerFunc {
 
 		if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "API key expired"})
-			c.Abort()
-			return
-		}
-
-		if apiKey.Quota > 0 && apiKey.UsedQuota >= apiKey.Quota {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "quota exceeded"})
 			c.Abort()
 			return
 		}

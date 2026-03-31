@@ -12,8 +12,8 @@
       </template>
       <el-table :data="keys" stripe v-loading="loading" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="name" :label="t('apiKey.name')" />
-        <el-table-column prop="key" :label="t('apiKey.key')" />
+        <el-table-column prop="name" :label="t('apiKey.name')" width="180" />
+        <el-table-column prop="key" :label="t('apiKey.key')" width="240" />
         <el-table-column :label="t('apiKey.allowedModels')">
           <template #default="{ row }">
             <template v-if="row.models && row.models.length > 0">
@@ -25,19 +25,7 @@
             <span v-else style="color: #999">{{ t('apiKey.allModels') }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="'Tokens'" width="100">
-          <template #default="{ row }">{{ formatTokens(row.total_tokens) }}</template>
-        </el-table-column>
-        <el-table-column :label="t('usage.avgLatency') || '平均耗时'" width="100">
-          <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
-        </el-table-column>
-        <el-table-column :label="t('apiKey.usedQuota')">
-          <template #default="{ row }">
-            <div>{{ row.used_quota }} / {{ row.quota || '∞' }}</div>
-            <div v-if="row.used_count" style="font-size: 12px; color: #999;">{{ row.used_count }} calls</div>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('common.status')">
+        <el-table-column :label="t('common.status')" width="150">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>

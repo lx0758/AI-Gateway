@@ -31,7 +31,7 @@ func InitDB(dbPath string) error {
 		return err
 	}
 
-	return migrateAllowedModels()
+	return nil
 }
 
 func autoMigrate() error {

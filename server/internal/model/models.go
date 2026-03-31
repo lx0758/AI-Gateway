@@ -71,11 +71,7 @@ type Key struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`
 	Key           string         `gorm:"uniqueIndex;size:64;not null" json:"key"`
 	Name          string         `gorm:"size:128" json:"name"`
-	AllowedModels string         `gorm:"type:text" json:"allowed_models"`
-	RateLimit     int            `gorm:"default:0" json:"rate_limit"`
-	Quota         int64          `gorm:"default:0" json:"quota"`
-	UsedQuota     int64          `gorm:"default:0" json:"used_quota"`
-	UsedCount     int64          `gorm:"default:0" json:"used_count"`
+	AllowedModels string         `gorm:"-" json:"allowed_models"`
 	ExpiresAt     *time.Time     `json:"expires_at"`
 	Enabled       bool           `gorm:"default:true" json:"enabled"`
 	CreatedAt     time.Time      `json:"created_at"`

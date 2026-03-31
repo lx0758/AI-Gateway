@@ -18,15 +18,11 @@ type APIKeyHandler struct{}
 type CreateAPIKeyRequest struct {
 	Name          string     `json:"name"`
 	AllowedModels []string   `json:"allowed_models"`
-	RateLimit     int        `json:"rate_limit"`
-	Quota         int64      `json:"quota"`
 	ExpiresAt     *time.Time `json:"expires_at"`
 }
 
 type UpdateAPIKeyRequest struct {
 	Name      *string    `json:"name"`
-	RateLimit *int       `json:"rate_limit"`
-	Quota     *int64     `json:"quota"`
 	ExpiresAt *time.Time `json:"expires_at"`
 	Enabled   *bool      `json:"enabled"`
 }
@@ -49,18 +45,13 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 	}
 
 	type KeyWithStats struct {
-		ID          uint             `json:"id"`
-		Key         string           `json:"key"`
-		Name        string           `json:"name"`
-		Enabled     bool             `json:"enabled"`
-		Quota       int64            `json:"quota"`
-		UsedQuota   int64            `json:"used_quota"`
-		UsedCount   int64            `json:"used_count"`
-		Models      []model.KeyModel `json:"models,omitempty"`
-		TotalTokens int64            `json:"total_tokens"`
-		AvgLatency  float64          `json:"avg_latency"`
-		ExpiresAt   *time.Time       `json:"expires_at"`
-		CreatedAt   time.Time        `json:"created_at"`
+		ID        uint             `json:"id"`
+		Key       string           `json:"key"`
+		Name      string           `json:"name"`
+		Enabled   bool             `json:"enabled"`
+		Models    []model.KeyModel `json:"models,omitempty"`
+		ExpiresAt *time.Time       `json:"expires_at"`
+		CreatedAt time.Time        `json:"created_at"`
 	}
 
 	result := make([]KeyWithStats, len(keys))
@@ -75,28 +66,9 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 			Key:       maskedKey,
 			Name:      k.Name,
 			Enabled:   k.Enabled,
-			Quota:     k.Quota,
-			UsedQuota: k.UsedQuota,
-			UsedCount: k.UsedCount,
 			Models:    k.Models,
 			ExpiresAt: k.ExpiresAt,
 			CreatedAt: k.CreatedAt,
-		}
-
-		var stats struct {
-			TotalTokens int64
-			AvgLatency  float64
-			CallCount   int64
-		}
-		model.DB.Model(&model.UsageLog{}).
-			Where("key_id = ?", k.ID).
-			Select("COALESCE(SUM(total_tokens), 0) as total_tokens, COALESCE(AVG(latency_ms), 0) as avg_latency, COUNT(*) as call_count").
-			Scan(&stats)
-
-		result[i].TotalTokens = stats.TotalTokens
-		result[i].AvgLatency = stats.AvgLatency
-		if stats.CallCount > 0 {
-			result[i].UsedCount = stats.CallCount
 		}
 	}
 
@@ -113,8 +85,6 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 	key := model.Key{
 		Key:       generateAPIKey(),
 		Name:      req.Name,
-		RateLimit: req.RateLimit,
-		Quota:     req.Quota,
 		ExpiresAt: req.ExpiresAt,
 		Enabled:   true,
 	}
@@ -182,12 +152,6 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	updates := map[string]interface{}{}
 	if req.Name != nil {
 		updates["name"] = *req.Name
-	}
-	if req.RateLimit != nil {
-		updates["rate_limit"] = *req.RateLimit
-	}
-	if req.Quota != nil {
-		updates["quota"] = *req.Quota
 	}
 	if req.ExpiresAt != nil {
 		updates["expires_at"] = *req.ExpiresAt
