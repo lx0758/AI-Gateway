@@ -341,22 +341,23 @@ func (m *AnthropicManufacturer) convertOpenAIToolResultToAnthropic(msg map[strin
 	toolCallID, _ := msg["tool_call_id"].(string)
 	content := msg["content"]
 
-	var contentBlocks []map[string]interface{}
+	var toolResultContent string
 	switch v := content.(type) {
 	case string:
-		contentBlocks = []map[string]interface{}{
-			{"type": "text", "text": v},
-		}
+		toolResultContent = v
 	default:
-		contentBlocks = []map[string]interface{}{
-			{"type": "text", "text": fmt.Sprintf("%v", v)},
-		}
+		toolResultContent = fmt.Sprintf("%v", v)
 	}
 
 	return map[string]interface{}{
-		"role":        "user",
-		"tool_use_id": toolCallID,
-		"content":     contentBlocks,
+		"role": "user",
+		"content": []map[string]interface{}{
+			{
+				"type":        "tool_result",
+				"tool_use_id": toolCallID,
+				"content":     toolResultContent,
+			},
+		},
 	}
 }
 
@@ -415,6 +416,7 @@ func (m *AnthropicManufacturer) convertAnthropicResponseToOpenAI(anthropicResp [
 	tokens := anthropic.Usage.total()
 
 	textContent := ""
+	reasoningContent := ""
 	var toolCalls []map[string]interface{}
 
 	for _, block := range anthropic.Content {
@@ -424,13 +426,23 @@ func (m *AnthropicManufacturer) convertAnthropicResponseToOpenAI(anthropicResp [
 			if text, ok := block["text"].(string); ok {
 				textContent = text
 			}
+		case "thinking":
+			if thinking, ok := block["thinking"].(string); ok {
+				reasoningContent = thinking
+			}
 		case "tool_use":
+			var argsStr string
+			if input := block["input"]; input != nil {
+				if inputBytes, err := json.Marshal(input); err == nil {
+					argsStr = string(inputBytes)
+				}
+			}
 			toolCalls = append(toolCalls, map[string]interface{}{
 				"id":   block["id"],
 				"type": "function",
 				"function": map[string]interface{}{
 					"name":      block["name"],
-					"arguments": block["input"],
+					"arguments": argsStr,
 				},
 			})
 		}
@@ -451,6 +463,9 @@ func (m *AnthropicManufacturer) convertAnthropicResponseToOpenAI(anthropicResp [
 	message := map[string]interface{}{
 		"role":    "assistant",
 		"content": textContent,
+	}
+	if reasoningContent != "" {
+		message["reasoning_content"] = reasoningContent
 	}
 	if len(toolCalls) > 0 {
 		message["tool_calls"] = toolCalls
@@ -486,12 +501,11 @@ func (m *AnthropicManufacturer) streamAnthropicToOpenAI(src io.Reader, dst io.Wr
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("chatcmpl-%s", m.generateID())
 	tokens := 0
+	inputTokens := 0
+	outputTokens := 0
 	created := time.Now().Unix()
-
-	var inputTokens, outputTokens int
 	contentBuffer := ""
 	toolCallsBuffer := make(map[int]map[string]interface{})
-	currentToolIndex := -1
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -506,15 +520,12 @@ func (m *AnthropicManufacturer) streamAnthropicToOpenAI(src io.Reader, dst io.Wr
 		if line == "" {
 			continue
 		}
-
 		if strings.HasPrefix(line, "event: ") {
 			continue
 		}
-
 		if !strings.HasPrefix(line, "data: ") {
 			continue
 		}
-
 		data := strings.TrimPrefix(line, "data: ")
 
 		var event struct {
@@ -524,7 +535,6 @@ func (m *AnthropicManufacturer) streamAnthropicToOpenAI(src io.Reader, dst io.Wr
 			Delta        map[string]interface{} `json:"delta"`
 			Message      map[string]interface{} `json:"message"`
 			Usage        anthropicUsage         `json:"usage"`
-			StopReason   string                 `json:"stop_reason"`
 		}
 
 		if err := json.Unmarshal([]byte(data), &event); err != nil {
@@ -537,15 +547,16 @@ func (m *AnthropicManufacturer) streamAnthropicToOpenAI(src io.Reader, dst io.Wr
 				if it, ok := msg["input_tokens"].(float64); ok {
 					inputTokens = int(it)
 				}
+				if it, ok := msg["output_tokens"].(float64); ok {
+					outputTokens = int(it)
+				}
+				tokens += inputTokens + outputTokens
 			}
-			tokens = inputTokens + outputTokens
 
 		case "content_block_start":
 			if event.ContentBlock != nil {
 				blockType, _ := event.ContentBlock["type"].(string)
 				switch blockType {
-				case "text":
-					currentToolIndex = -1
 				case "tool_use":
 					toolID, _ := event.ContentBlock["id"].(string)
 					toolName, _ := event.ContentBlock["name"].(string)
@@ -558,9 +569,30 @@ func (m *AnthropicManufacturer) streamAnthropicToOpenAI(src io.Reader, dst io.Wr
 							"arguments": "",
 						},
 					}
-					currentToolIndex = event.Index
-				case "thinking":
-					currentToolIndex = -1
+					m.writeOpenAISSE(dst, map[string]interface{}{
+						"id":      messageID,
+						"object":  "chat.completion.chunk",
+						"created": created,
+						"model":   model,
+						"choices": []map[string]interface{}{
+							{
+								"index": 0,
+								"delta": map[string]interface{}{
+									"tool_calls": []map[string]interface{}{
+										{
+											"index": event.Index,
+											"id":    toolID,
+											"type":  "function",
+											"function": map[string]interface{}{
+												"name":      toolName,
+												"arguments": "",
+											},
+										},
+									},
+								},
+							},
+						},
+					})
 				}
 			}
 
@@ -581,6 +613,23 @@ func (m *AnthropicManufacturer) streamAnthropicToOpenAI(src io.Reader, dst io.Wr
 									"index": 0,
 									"delta": map[string]interface{}{
 										"content": text,
+									},
+								},
+							},
+						})
+					}
+				case "thinking_delta":
+					if thinking, ok := event.Delta["thinking"].(string); ok {
+						m.writeOpenAISSE(dst, map[string]interface{}{
+							"id":      messageID,
+							"object":  "chat.completion.chunk",
+							"created": created,
+							"model":   model,
+							"choices": []map[string]interface{}{
+								{
+									"index": 0,
+									"delta": map[string]interface{}{
+										"reasoning_content": thinking,
 									},
 								},
 							},
@@ -618,44 +667,22 @@ func (m *AnthropicManufacturer) streamAnthropicToOpenAI(src io.Reader, dst io.Wr
 			}
 
 		case "content_block_stop":
-			if currentToolIndex >= 0 {
-				if tool, exists := toolCallsBuffer[currentToolIndex]; exists {
-					m.writeOpenAISSE(dst, map[string]interface{}{
-						"id":      messageID,
-						"object":  "chat.completion.chunk",
-						"created": created,
-						"model":   model,
-						"choices": []map[string]interface{}{
-							{
-								"index": 0,
-								"delta": map[string]interface{}{
-									"tool_calls": []map[string]interface{}{
-										{
-											"index":    currentToolIndex,
-											"id":       tool["id"],
-											"type":     "function",
-											"function": tool["function"],
-										},
-									},
-								},
-							},
-						},
-					})
-				}
-			}
-			currentToolIndex = -1
+			// No action needed
 
 		case "message_delta":
-			outputTokens = event.Usage.OutputTokens
-			tokens = inputTokens + outputTokens
+			inputTokens += event.Usage.InputTokens
+			outputTokens += event.Usage.OutputTokens
+			tokens += event.Usage.total()
 			finishReason := "stop"
-			switch event.StopReason {
-			case "end_turn":
-				finishReason = "stop"
-			case "max_tokens":
-				finishReason = "length"
-			case "tool_use":
-				finishReason = "tool_calls"
+			if stopReason, ok := event.Delta["stop_reason"].(string); ok {
+				switch stopReason {
+				case "end_turn":
+					finishReason = "stop"
+				case "max_tokens":
+					finishReason = "length"
+				case "tool_use":
+					finishReason = "tool_calls"
+				}
 			}
 			m.writeOpenAISSE(dst, map[string]interface{}{
 				"id":      messageID,
@@ -668,6 +695,11 @@ func (m *AnthropicManufacturer) streamAnthropicToOpenAI(src io.Reader, dst io.Wr
 						"delta":         map[string]interface{}{},
 						"finish_reason": finishReason,
 					},
+				},
+				"usage": map[string]interface{}{
+					"prompt_tokens":     inputTokens,
+					"completion_tokens": outputTokens,
+					"total_tokens":      tokens,
 				},
 			})
 
@@ -778,7 +810,7 @@ func (m *AnthropicManufacturer) copyAnthropicResponse(dst io.Writer, src io.Read
 
 func (m *AnthropicManufacturer) copyAnthropicStreaming(dst io.Writer, src io.Reader) int {
 	reader := bufio.NewReader(src)
-	var usage anthropicUsage
+	tokens := 0
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -788,37 +820,37 @@ func (m *AnthropicManufacturer) copyAnthropicStreaming(dst io.Writer, src io.Rea
 			}
 			continue
 		}
-
-		fmt.Fprint(dst, line)
+		fmt.Fprintln(dst, line)
 
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
 
-		if strings.HasPrefix(line, "data: ") {
-			data := strings.TrimPrefix(line, "data: ")
+		data := strings.TrimPrefix(line, "data: ")
 
-			var event struct {
-				Type    string `json:"type"`
-				Message struct {
-					Usage anthropicUsage `json:"usage"`
-				} `json:"message"`
+		var event struct {
+			Type    string `json:"type"`
+			Message struct {
 				Usage anthropicUsage `json:"usage"`
-			}
+			} `json:"message"`
+			Usage anthropicUsage `json:"usage"`
+		}
 
-			if err := json.Unmarshal([]byte(data), &event); err == nil {
-				switch event.Type {
-				case "message_start":
-					usage.InputTokens = event.Message.Usage.InputTokens
-				case "message_delta":
-					usage.OutputTokens = event.Usage.OutputTokens
-				}
+		if err := json.Unmarshal([]byte(data), &event); err == nil {
+			switch event.Type {
+			case "message_start":
+				tokens += event.Message.Usage.total()
+			case "message_delta":
+				tokens += event.Usage.total()
 			}
 		}
 	}
 	if flusher, ok := dst.(http.Flusher); ok {
 		flusher.Flush()
 	}
-	return usage.total()
+	return tokens
 }
