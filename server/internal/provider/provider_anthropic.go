@@ -58,7 +58,7 @@ func (m *AnthropicProvider) SyncModels(provider *model.Provider) ([]model.Provid
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Anthropic API error: %s", string(body))
+		return nil, fmt.Errorf("%s", string(body))
 	}
 
 	var result struct {
@@ -157,7 +157,7 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
-		return 0, fmt.Errorf("Anthropic API error: %s", string(respBody))
+		return 0, fmt.Errorf("%s", string(respBody))
 	}
 
 	tokens := 0
@@ -772,7 +772,7 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
-		return 0, fmt.Errorf("Anthropic API error: %s", string(respBody))
+		return 0, fmt.Errorf("%s", string(respBody))
 	}
 
 	tokens := 0

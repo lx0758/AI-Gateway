@@ -14,8 +14,8 @@ import (
 
 type ProviderModelHandler struct{}
 
-type CreateProviderModelRequest struct {
-	ModelID        string  `json:"model_id" binding:"required"`
+type createProviderModelRequest struct {
+	ModelID        string  `json:"model_id"`
 	DisplayName    string  `json:"display_name"`
 	OwnedBy        string  `json:"owned_by"`
 	ContextWindow  int     `json:"context_window"`
@@ -27,8 +27,46 @@ type CreateProviderModelRequest struct {
 	SupportsStream bool    `json:"supports_stream"`
 }
 
+type providerModelResponse struct {
+	ID             uint    `json:"id"`
+	ProviderID     uint    `json:"provider_id"`
+	ModelID        string  `json:"model_id"`
+	DisplayName    string  `json:"display_name"`
+	OwnedBy        string  `json:"owned_by"`
+	ContextWindow  int     `json:"context_window"`
+	MaxOutput      int     `json:"max_output"`
+	InputPrice     float64 `json:"input_price"`
+	OutputPrice    float64 `json:"output_price"`
+	SupportsVision bool    `json:"supports_vision"`
+	SupportsTools  bool    `json:"supports_tools"`
+	SupportsStream bool    `json:"supports_stream"`
+	IsAvailable    bool    `json:"is_available"`
+	Source         string  `json:"source"`
+	CreatedAt      string  `json:"created_at"`
+}
+
 func NewProviderModelHandler() *ProviderModelHandler {
 	return &ProviderModelHandler{}
+}
+
+func toProviderModelResponse(m model.ProviderModel) providerModelResponse {
+	return providerModelResponse{
+		ID:             m.ID,
+		ProviderID:     m.ProviderID,
+		ModelID:        m.ModelID,
+		DisplayName:    m.DisplayName,
+		OwnedBy:        m.OwnedBy,
+		ContextWindow:  m.ContextWindow,
+		MaxOutput:      m.MaxOutput,
+		InputPrice:     m.InputPrice,
+		OutputPrice:    m.OutputPrice,
+		SupportsVision: m.SupportsVision,
+		SupportsTools:  m.SupportsTools,
+		SupportsStream: m.SupportsStream,
+		IsAvailable:    m.IsAvailable,
+		Source:         m.Source,
+		CreatedAt:      m.CreatedAt.Format("2006-01-02 15:04:05"),
+	}
 }
 
 func (h *ProviderModelHandler) List(c *gin.Context) {
@@ -50,7 +88,12 @@ func (h *ProviderModelHandler) List(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"models": models})
+	result := make([]providerModelResponse, len(models))
+	for i, m := range models {
+		result[i] = toProviderModelResponse(m)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"models": result})
 }
 
 func (h *ProviderModelHandler) Create(c *gin.Context) {
@@ -60,7 +103,7 @@ func (h *ProviderModelHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var req CreateProviderModelRequest
+	var req createProviderModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -87,7 +130,7 @@ func (h *ProviderModelHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"model": pm})
+	c.JSON(http.StatusCreated, gin.H{"model": toProviderModelResponse(pm)})
 }
 
 func (h *ProviderModelHandler) Update(c *gin.Context) {
@@ -109,7 +152,7 @@ func (h *ProviderModelHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req CreateProviderModelRequest
+	var req createProviderModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -132,7 +175,7 @@ func (h *ProviderModelHandler) Update(c *gin.Context) {
 	}
 
 	model.DB.First(&pm, pm.ID)
-	c.JSON(http.StatusOK, gin.H{"model": pm})
+	c.JSON(http.StatusOK, gin.H{"model": toProviderModelResponse(pm)})
 }
 
 func (h *ProviderModelHandler) Delete(c *gin.Context) {

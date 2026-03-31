@@ -3,7 +3,6 @@ package handler
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,16 +14,40 @@ import (
 
 type APIKeyHandler struct{}
 
-type CreateAPIKeyRequest struct {
-	Name          string     `json:"name"`
-	AllowedModels []string   `json:"allowed_models"`
-	ExpiresAt     *time.Time `json:"expires_at"`
+type createAPIKeyRequest struct {
+	Name          string   `json:"name" binding:"required"`
+	Quota         int      `json:"quota"`
+	RateLimit     int      `json:"rate_limit"`
+	AllowedModels []string `json:"allowed_models"`
+	ExpiresAt     *string  `json:"expires_at"`
 }
 
-type UpdateAPIKeyRequest struct {
-	Name      *string    `json:"name"`
-	ExpiresAt *time.Time `json:"expires_at"`
-	Enabled   *bool      `json:"enabled"`
+type updateAPIKeyRequest struct {
+	Name      *string `json:"name"`
+	Quota     *int    `json:"quota"`
+	RateLimit *int    `json:"rate_limit"`
+	ExpiresAt *string `json:"expires_at"`
+	Enabled   *bool   `json:"enabled"`
+}
+
+type keyModelResponse struct {
+	ID         uint   `json:"id"`
+	ModelAlias string `json:"model_alias"`
+}
+
+type apiKeyResponse struct {
+	ID        uint               `json:"id"`
+	Key       string             `json:"key"`
+	Name      string             `json:"name"`
+	Enabled   bool               `json:"enabled"`
+	ExpiresAt *time.Time         `json:"expires_at"`
+	CreatedAt time.Time          `json:"created_at"`
+	Models    []keyModelResponse `json:"models,omitempty"`
+}
+
+type apiKeyCreateResponse struct {
+	Key    apiKeyResponse `json:"key"`
+	RawKey string         `json:"raw_key"`
 }
 
 func NewAPIKeyHandler() *APIKeyHandler {
@@ -44,31 +67,29 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 		return
 	}
 
-	type KeyWithStats struct {
-		ID        uint             `json:"id"`
-		Key       string           `json:"key"`
-		Name      string           `json:"name"`
-		Enabled   bool             `json:"enabled"`
-		Models    []model.KeyModel `json:"models,omitempty"`
-		ExpiresAt *time.Time       `json:"expires_at"`
-		CreatedAt time.Time        `json:"created_at"`
-	}
-
-	result := make([]KeyWithStats, len(keys))
+	result := make([]apiKeyResponse, len(keys))
 	for i, k := range keys {
 		maskedKey := k.Key
 		if len(maskedKey) > 8 {
 			maskedKey = maskedKey[:8] + "****" + maskedKey[len(maskedKey)-4:]
 		}
 
-		result[i] = KeyWithStats{
+		models := make([]keyModelResponse, len(k.Models))
+		for j, m := range k.Models {
+			models[j] = keyModelResponse{
+				ID:         m.ID,
+				ModelAlias: m.ModelAlias,
+			}
+		}
+
+		result[i] = apiKeyResponse{
 			ID:        k.ID,
 			Key:       maskedKey,
 			Name:      k.Name,
 			Enabled:   k.Enabled,
-			Models:    k.Models,
 			ExpiresAt: k.ExpiresAt,
 			CreatedAt: k.CreatedAt,
+			Models:    models,
 		}
 	}
 
@@ -76,22 +97,25 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 }
 
 func (h *APIKeyHandler) Create(c *gin.Context) {
-	var req CreateAPIKeyRequest
+	var req createAPIKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	var expiresAt *time.Time
+	if req.ExpiresAt != nil {
+		t, err := time.Parse("2006-01-02 15:04:05", *req.ExpiresAt)
+		if err == nil {
+			expiresAt = &t
+		}
+	}
+
 	key := model.Key{
 		Key:       generateAPIKey(),
 		Name:      req.Name,
-		ExpiresAt: req.ExpiresAt,
+		ExpiresAt: expiresAt,
 		Enabled:   true,
-	}
-
-	if len(req.AllowedModels) > 0 {
-		allowedBytes, _ := json.Marshal(req.AllowedModels)
-		key.AllowedModels = string(allowedBytes)
 	}
 
 	if err := model.DB.Create(&key).Error; err != nil {
@@ -107,8 +131,26 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		model.DB.Create(&akm)
 	}
 
+	model.DB.Preload("Models").First(&key, key.ID)
+
+	models := make([]keyModelResponse, len(key.Models))
+	for j, m := range key.Models {
+		models[j] = keyModelResponse{
+			ID:         m.ID,
+			ModelAlias: m.ModelAlias,
+		}
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
-		"key":     key,
+		"key": apiKeyResponse{
+			ID:        key.ID,
+			Key:       key.Key,
+			Name:      key.Name,
+			Enabled:   key.Enabled,
+			ExpiresAt: key.ExpiresAt,
+			CreatedAt: key.CreatedAt,
+			Models:    models,
+		},
 		"raw_key": key.Key,
 	})
 }
@@ -143,7 +185,7 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req UpdateAPIKeyRequest
+	var req updateAPIKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -154,7 +196,9 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		updates["name"] = *req.Name
 	}
 	if req.ExpiresAt != nil {
-		updates["expires_at"] = *req.ExpiresAt
+		if t, err := time.Parse("2006-01-02 15:04:05", *req.ExpiresAt); err == nil {
+			updates["expires_at"] = t
+		}
 	}
 	if req.Enabled != nil {
 		updates["enabled"] = *req.Enabled
@@ -168,7 +212,24 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	}
 
 	model.DB.Preload("Models").First(&key, id)
-	c.JSON(http.StatusOK, gin.H{"key": key})
+
+	models := make([]keyModelResponse, len(key.Models))
+	for j, m := range key.Models {
+		models[j] = keyModelResponse{
+			ID:         m.ID,
+			ModelAlias: m.ModelAlias,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"key": apiKeyResponse{
+		ID:        key.ID,
+		Key:       key.Key,
+		Name:      key.Name,
+		Enabled:   key.Enabled,
+		ExpiresAt: key.ExpiresAt,
+		CreatedAt: key.CreatedAt,
+		Models:    models,
+	}})
 }
 
 func (h *APIKeyHandler) AddModel(c *gin.Context) {
@@ -179,7 +240,7 @@ func (h *APIKeyHandler) AddModel(c *gin.Context) {
 	}
 
 	var req struct {
-		ModelAlias string `json:"model_alias" binding:"required"`
+		ModelAlias string `binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -201,7 +262,10 @@ func (h *APIKeyHandler) AddModel(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"model": akm})
+	c.JSON(http.StatusCreated, gin.H{"model": keyModelResponse{
+		ID:         akm.ID,
+		ModelAlias: akm.ModelAlias,
+	}})
 }
 
 func (h *APIKeyHandler) RemoveModel(c *gin.Context) {
@@ -238,5 +302,13 @@ func (h *APIKeyHandler) ListModels(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"models": models})
+	result := make([]keyModelResponse, len(models))
+	for i, m := range models {
+		result[i] = keyModelResponse{
+			ID:         m.ID,
+			ModelAlias: m.ModelAlias,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"models": result})
 }

@@ -12,7 +12,7 @@ import (
 
 type ProviderHandler struct{}
 
-type CreateProviderRequest struct {
+type createProviderRequest struct {
 	Name     string `json:"name" binding:"required"`
 	APIType  string `json:"api_type" binding:"required,oneof=openai anthropic"`
 	BaseURL  string `json:"base_url" binding:"required"`
@@ -20,13 +20,25 @@ type CreateProviderRequest struct {
 	Priority int    `json:"priority"`
 }
 
-type UpdateProviderRequest struct {
+type updateProviderRequest struct {
 	Name     string `json:"name"`
 	APIType  string `json:"api_type" binding:"omitempty,oneof=openai anthropic"`
 	BaseURL  string `json:"base_url"`
-	APIKey   string `json:"api_key"`
+	APIKey   string `json:"api_key" binding:"omitempty"`
 	Enabled  *bool  `json:"enabled"`
 	Priority *int   `json:"priority"`
+}
+
+type providerResponse struct {
+	ID           uint                    `json:"id"`
+	Name         string                  `json:"name"`
+	APIType      string                  `json:"api_type"`
+	BaseURL      string                  `json:"base_url"`
+	APIKeyMasked string                  `json:"api_key_masked"`
+	Enabled      bool                    `json:"enabled"`
+	Priority     int                     `json:"priority"`
+	Models       []providerModelResponse `json:"models,omitempty"`
+	CreatedAt    string                  `json:"created_at"`
 }
 
 func NewProviderHandler() *ProviderHandler {
@@ -40,11 +52,27 @@ func (h *ProviderHandler) List(c *gin.Context) {
 		return
 	}
 
-	for i := range providers {
-		providers[i].APIKeyMasked = maskAPIKey(providers[i].APIKey)
+	result := make([]providerResponse, len(providers))
+	for i, p := range providers {
+		models := make([]providerModelResponse, len(p.Models))
+		for j, m := range p.Models {
+			models[j] = toProviderModelResponse(m)
+		}
+
+		result[i] = providerResponse{
+			ID:           p.ID,
+			Name:         p.Name,
+			APIType:      p.APIType,
+			BaseURL:      p.BaseURL,
+			APIKeyMasked: maskAPIKey(p.APIKey),
+			Enabled:      p.Enabled,
+			Priority:     p.Priority,
+			Models:       models,
+			CreatedAt:    p.CreatedAt.Format("2006-01-02 15:04:05"),
+		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"providers": providers})
+	c.JSON(http.StatusOK, gin.H{"providers": result})
 }
 
 func (h *ProviderHandler) Get(c *gin.Context) {
@@ -60,12 +88,26 @@ func (h *ProviderHandler) Get(c *gin.Context) {
 		return
 	}
 
-	provider.APIKeyMasked = maskAPIKey(provider.APIKey)
-	c.JSON(http.StatusOK, gin.H{"provider": provider})
+	models := make([]providerModelResponse, len(provider.Models))
+	for j, m := range provider.Models {
+		models[j] = toProviderModelResponse(m)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"provider": providerResponse{
+		ID:           provider.ID,
+		Name:         provider.Name,
+		APIType:      provider.APIType,
+		BaseURL:      provider.BaseURL,
+		APIKeyMasked: maskAPIKey(provider.APIKey),
+		Enabled:      provider.Enabled,
+		Priority:     provider.Priority,
+		Models:       models,
+		CreatedAt:    provider.CreatedAt.Format("2006-01-02 15:04:05"),
+	}})
 }
 
 func (h *ProviderHandler) Create(c *gin.Context) {
-	var req CreateProviderRequest
+	var req createProviderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -85,8 +127,16 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 		return
 	}
 
-	provider.APIKeyMasked = maskAPIKey(provider.APIKey)
-	c.JSON(http.StatusCreated, gin.H{"provider": provider})
+	c.JSON(http.StatusCreated, gin.H{"provider": providerResponse{
+		ID:           provider.ID,
+		Name:         provider.Name,
+		APIType:      provider.APIType,
+		BaseURL:      provider.BaseURL,
+		APIKeyMasked: maskAPIKey(provider.APIKey),
+		Enabled:      provider.Enabled,
+		Priority:     provider.Priority,
+		CreatedAt:    provider.CreatedAt.Format("2006-01-02 15:04:05"),
+	}})
 }
 
 func (h *ProviderHandler) Update(c *gin.Context) {
@@ -102,7 +152,7 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req UpdateProviderRequest
+	var req updateProviderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -133,9 +183,24 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 		return
 	}
 
-	model.DB.First(&provider, id)
-	provider.APIKeyMasked = maskAPIKey(provider.APIKey)
-	c.JSON(http.StatusOK, gin.H{"provider": provider})
+	model.DB.Preload("Models").First(&provider, id)
+
+	models := make([]providerModelResponse, len(provider.Models))
+	for j, m := range provider.Models {
+		models[j] = toProviderModelResponse(m)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"provider": providerResponse{
+		ID:           provider.ID,
+		Name:         provider.Name,
+		APIType:      provider.APIType,
+		BaseURL:      provider.BaseURL,
+		APIKeyMasked: maskAPIKey(provider.APIKey),
+		Enabled:      provider.Enabled,
+		Priority:     provider.Priority,
+		Models:       models,
+		CreatedAt:    provider.CreatedAt.Format("2006-01-02 15:04:05"),
+	}})
 }
 
 func (h *ProviderHandler) Delete(c *gin.Context) {

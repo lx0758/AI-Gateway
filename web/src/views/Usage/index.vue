@@ -23,7 +23,7 @@
           <el-statistic :title="t('usage.successRate')" :value="stats.successRate?.toFixed(1)" suffix="%" />
         </el-col>
         <el-col :span="6">
-          <el-statistic :title="t('usage.totalTokens') || '总 Tokens'" :value="stats.totalTokens" />
+          <el-statistic :title="t('usage.totalTokens') || '总 Tokens'" :value="formatTokens(stats.totalTokens)" />
         </el-col>
         <el-col :span="6">
           <el-statistic :title="t('usage.avgLatency') || '平均耗时'" :value="formatLatency(stats.avgLatency)" />

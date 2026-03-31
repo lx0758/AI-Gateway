@@ -1,9 +1,9 @@
 package model
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -11,6 +11,99 @@ import (
 )
 
 var DB *gorm.DB
+
+type User struct {
+	ID           uint   `gorm:"primaryKey"`
+	Username     string `gorm:"uniqueIndex"`
+	PasswordHash string
+	Role         string `gorm:"default:admin"`
+	Enabled      bool   `gorm:"default:true"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    gorm.DeletedAt
+}
+
+type Provider struct {
+	ID           uint   `gorm:"primaryKey"`
+	Name         string `gorm:"uniqueIndex"`
+	APIType      string
+	BaseURL      string
+	APIKey       string
+	APIKeyMasked string `gorm:"-"`
+	Enabled      bool   `gorm:"default:true"`
+	Priority     int    `gorm:"default:0"`
+	Config       string `gorm:"type:text"`
+	LastSyncAt   *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    gorm.DeletedAt
+	Models       []ProviderModel
+}
+
+type ProviderModel struct {
+	ID             uint `gorm:"primaryKey"`
+	ProviderID     uint `gorm:"index"`
+	ModelID        string
+	DisplayName    string
+	OwnedBy        string
+	ContextWindow  int     `gorm:"default:0"`
+	MaxOutput      int     `gorm:"default:0"`
+	InputPrice     float64 `gorm:"default:0"`
+	OutputPrice    float64 `gorm:"default:0"`
+	SupportsVision bool    `gorm:"default:false"`
+	SupportsTools  bool    `gorm:"default:true"`
+	SupportsStream bool    `gorm:"default:true"`
+	Metadata       string  `gorm:"type:text"`
+	IsAvailable    bool    `gorm:"default:true"`
+	Source         string  `gorm:"default:sync"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      gorm.DeletedAt
+}
+
+type ModelMapping struct {
+	ID                uint   `gorm:"primaryKey"`
+	Alias             string `gorm:"index"`
+	ProviderID        uint   `gorm:"index"`
+	ProviderModelName string
+	Enabled           bool `gorm:"default:true"`
+	Weight            int  `gorm:"default:1"`
+	CreatedAt         time.Time
+	DeletedAt         gorm.DeletedAt
+	Provider          *Provider
+}
+
+type Key struct {
+	ID        uint   `gorm:"primaryKey"`
+	Key       string `gorm:"uniqueIndex"`
+	Name      string
+	Enabled   bool `gorm:"default:true"`
+	ExpiresAt *time.Time
+	CreatedAt time.Time
+	DeletedAt gorm.DeletedAt
+	Models    []KeyModel
+}
+
+type KeyModel struct {
+	ID         uint `gorm:"primaryKey"`
+	KeyID      uint `gorm:"index"`
+	ModelAlias string
+	CreatedAt  time.Time
+}
+
+type UsageLog struct {
+	ID          uint `gorm:"primaryKey"`
+	Source      string
+	KeyID       uint `gorm:"index"`
+	Model       string
+	ProviderID  uint `gorm:"index"`
+	ActualModel string
+	TotalTokens int64 `gorm:"default:0"`
+	LatencyMs   int64 `gorm:"default:0"`
+	Status      string
+	ErrorMsg    string    `gorm:"type:text"`
+	CreatedAt   time.Time `gorm:"index"`
+}
 
 func InitDB(dbPath string) error {
 	dir := filepath.Dir(dbPath)
@@ -44,41 +137,6 @@ func autoMigrate() error {
 		&KeyModel{},
 		&UsageLog{},
 	)
-}
-
-func migrateAllowedModels() error {
-	var keys []Key
-	if err := DB.Where("allowed_models != ? AND allowed_models != ''", "[]").Find(&keys).Error; err != nil {
-		return err
-	}
-
-	for _, key := range keys {
-		if key.AllowedModels == "" {
-			continue
-		}
-
-		var models []string
-		if err := json.Unmarshal([]byte(key.AllowedModels), &models); err != nil {
-			continue
-		}
-
-		for _, alias := range models {
-			var existing KeyModel
-			if err := DB.Where("key_id = ? AND model_alias = ?", key.ID, alias).First(&existing).Error; err == nil {
-				continue
-			}
-
-			akm := KeyModel{
-				KeyID:      key.ID,
-				ModelAlias: alias,
-			}
-			DB.Create(&akm)
-		}
-
-		DB.Model(&key).Update("allowed_models", "[]")
-	}
-
-	return nil
 }
 
 func GetDB() *gorm.DB {

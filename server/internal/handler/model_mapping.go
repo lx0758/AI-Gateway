@@ -11,19 +11,35 @@ import (
 
 type ModelMappingHandler struct{}
 
-type CreateModelMappingRequest struct {
-	Alias             string `json:"alias" binding:"required"`
-	ProviderID        uint   `json:"provider_id" binding:"required"`
-	ProviderModelName string `json:"provider_model_name" binding:"required"`
+type createModelMappingRequest struct {
+	Alias             string `json:"alias"`
+	ProviderID        uint   `json:"provider_id"`
+	ProviderModelName string `json:"provider_model_name"`
 	Weight            int    `json:"weight"`
 }
 
-type UpdateModelMappingRequest struct {
+type updateModelMappingRequest struct {
 	Alias             *string `json:"alias"`
 	ProviderID        *uint   `json:"provider_id"`
 	ProviderModelName *string `json:"provider_model_name"`
 	Weight            *int    `json:"weight"`
 	Enabled           *bool   `json:"enabled"`
+}
+
+type providerBasicResponse struct {
+	ID      uint   `json:"id"`
+	Name    string `json:"name"`
+	APIType string `json:"api_type"`
+}
+
+type modelMappingResponse struct {
+	ID                uint                   `json:"id"`
+	Alias             string                 `json:"alias"`
+	ProviderID        uint                   `json:"provider_id"`
+	ProviderModelName string                 `json:"provider_model_name"`
+	Enabled           bool                   `json:"enabled"`
+	Weight            int                    `json:"weight"`
+	Provider          *providerBasicResponse `json:"provider,omitempty"`
 }
 
 func NewModelMappingHandler() *ModelMappingHandler {
@@ -43,19 +59,9 @@ func (h *ModelMappingHandler) List(c *gin.Context) {
 		return
 	}
 
-	type MappingResponse struct {
-		ID                uint   `json:"id"`
-		Alias             string `json:"alias"`
-		ProviderID        uint   `json:"provider_id"`
-		ProviderModelName string `json:"provider_model_name"`
-		Enabled           bool   `json:"enabled"`
-		Weight            int    `json:"weight"`
-		Provider          any    `json:"provider,omitempty"`
-	}
-
-	var response []MappingResponse
+	result := make([]modelMappingResponse, 0, len(mappings))
 	for _, m := range mappings {
-		item := MappingResponse{
+		item := modelMappingResponse{
 			ID:                m.ID,
 			Alias:             m.Alias,
 			ProviderID:        m.ProviderID,
@@ -64,16 +70,20 @@ func (h *ModelMappingHandler) List(c *gin.Context) {
 			Weight:            m.Weight,
 		}
 		if m.Provider != nil {
-			item.Provider = m.Provider
+			item.Provider = &providerBasicResponse{
+				ID:      m.Provider.ID,
+				Name:    m.Provider.Name,
+				APIType: m.Provider.APIType,
+			}
 		}
-		response = append(response, item)
+		result = append(result, item)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"mappings": response})
+	c.JSON(http.StatusOK, gin.H{"mappings": result})
 }
 
 func (h *ModelMappingHandler) Create(c *gin.Context) {
-	var req CreateModelMappingRequest
+	var req createModelMappingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -109,7 +119,25 @@ func (h *ModelMappingHandler) Create(c *gin.Context) {
 	}
 
 	model.DB.Preload("Provider").First(&mapping, mapping.ID)
-	c.JSON(http.StatusCreated, gin.H{"mapping": mapping})
+
+	var providerResp *providerBasicResponse
+	if mapping.Provider != nil {
+		providerResp = &providerBasicResponse{
+			ID:      mapping.Provider.ID,
+			Name:    mapping.Provider.Name,
+			APIType: mapping.Provider.APIType,
+		}
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"mapping": modelMappingResponse{
+		ID:                mapping.ID,
+		Alias:             mapping.Alias,
+		ProviderID:        mapping.ProviderID,
+		ProviderModelName: mapping.ProviderModelName,
+		Enabled:           mapping.Enabled,
+		Weight:            mapping.Weight,
+		Provider:          providerResp,
+	}})
 }
 
 func (h *ModelMappingHandler) Update(c *gin.Context) {
@@ -125,7 +153,7 @@ func (h *ModelMappingHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req UpdateModelMappingRequest
+	var req updateModelMappingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -170,7 +198,25 @@ func (h *ModelMappingHandler) Update(c *gin.Context) {
 	}
 
 	model.DB.Preload("Provider").First(&mapping, id)
-	c.JSON(http.StatusOK, gin.H{"mapping": mapping})
+
+	var providerResp *providerBasicResponse
+	if mapping.Provider != nil {
+		providerResp = &providerBasicResponse{
+			ID:      mapping.Provider.ID,
+			Name:    mapping.Provider.Name,
+			APIType: mapping.Provider.APIType,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"mapping": modelMappingResponse{
+		ID:                mapping.ID,
+		Alias:             mapping.Alias,
+		ProviderID:        mapping.ProviderID,
+		ProviderModelName: mapping.ProviderModelName,
+		Enabled:           mapping.Enabled,
+		Weight:            mapping.Weight,
+		Provider:          providerResp,
+	}})
 }
 
 func (h *ModelMappingHandler) Delete(c *gin.Context) {
