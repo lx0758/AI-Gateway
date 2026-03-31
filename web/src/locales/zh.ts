@@ -26,7 +26,11 @@ export default {
     description: '描述',
     yes: '是',
     no: '否',
-    to: '至'
+    to: '至',
+    required: '此项为必填',
+    createdAt: '创建时间',
+    updatedAt: '更新时间',
+    batchDelete: '批量删除'
   },
   login: {
     title: 'AI 代理',
@@ -66,7 +70,15 @@ export default {
     editProvider: '编辑厂商',
     lastSync: '最后同步',
     modelId: '模型 ID',
-    contextWindow: '上下文窗口'
+    contextWindow: '上下文窗口',
+    source: '来源',
+    maxOutput: '最大输出',
+    supportsVision: '支持视觉',
+    supportsTools: '支持工具',
+    supportsStream: '支持流式',
+    addModel: '添加模型',
+    inputPrice: '输入价格',
+    outputPrice: '输出价格'
   },
   apiKey: {
     name: '密钥名称',

@@ -26,7 +26,11 @@ export default {
     description: 'Description',
     yes: 'Yes',
     no: 'No',
-    to: 'To'
+    to: 'To',
+    required: 'Required',
+    createdAt: 'Created At',
+    updatedAt: 'Updated At',
+    batchDelete: 'Batch Delete'
   },
   login: {
     title: 'AI Proxy',
@@ -66,7 +70,15 @@ export default {
     editProvider: 'Edit Provider',
     lastSync: 'Last Sync',
     modelId: 'Model ID',
-    contextWindow: 'Context Window'
+    contextWindow: 'Context Window',
+    source: 'Source',
+    maxOutput: 'Max Output',
+    supportsVision: 'Supports Vision',
+    supportsTools: 'Supports Tools',
+    supportsStream: 'Supports Stream',
+    addModel: 'Add Model',
+    inputPrice: 'Input Price',
+    outputPrice: 'Output Price'
   },
   apiKey: {
     name: 'Key Name',

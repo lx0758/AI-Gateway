@@ -4,12 +4,14 @@
       <template #header>
         <div class="card-header">
           <span>{{ t('menu.providers') }}</span>
-          <el-button type="primary" @click="showDialog()">
-            {{ t('provider.addProvider') }}
-          </el-button>
+          <div class="header-actions">
+            <el-button type="danger" @click="handleBatchDelete" :disabled="selectedIds.length === 0">{{ t('common.batchDelete') }} ({{ selectedIds.length }})</el-button>
+            <el-button type="primary" @click="showDialog()">{{ t('provider.addProvider') }}</el-button>
+          </div>
         </div>
       </template>
-      <el-table :data="providers" stripe v-loading="loading">
+      <el-table :data="providers" stripe v-loading="loading" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" />
         <el-table-column prop="name" :label="t('provider.name')" />
         <el-table-column prop="api_type" :label="t('provider.apiType')">
           <template #default="{ row }">
@@ -24,9 +26,7 @@
         </el-table-column>
         <el-table-column :label="t('common.status')">
           <template #default="{ row }">
-            <el-tag :type="row.enabled ? 'success' : 'info'">
-              {{ row.enabled ? t('common.enabled') : t('common.disabled') }}
-            </el-tag>
+            <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
         </el-table-column>
         <el-table-column :label="t('common.action')" width="250">
@@ -76,6 +76,7 @@ const { t } = useI18n()
 const router = useRouter()
 
 const providers = ref<any[]>([])
+const selectedIds = ref<number[]>([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 const dialogLoading = ref(false)
@@ -118,6 +119,10 @@ async function fetchProviders() {
   } finally {
     loading.value = false
   }
+}
+
+function handleSelectionChange(selection: any[]) {
+  selectedIds.value = selection.map(item => item.id)
 }
 
 async function showDialog(id?: number) {
@@ -175,6 +180,23 @@ async function handleDelete(id: number) {
   fetchProviders()
 }
 
+async function handleBatchDelete() {
+  if (selectedIds.value.length === 0) return
+  await ElMessageBox.confirm(t('common.confirm') + ` (${selectedIds.value.length} items)`, t('common.batchDelete'), { type: 'warning' })
+  try {
+    await Promise.all(selectedIds.value.map(id => api.delete(`/providers/${id}`)))
+    ElMessage.success(t('common.success'))
+    selectedIds.value = []
+    fetchProviders()
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.error || t('common.error'))
+  }
+}
+
+async function toggleEnabled(row: any) {
+  await api.put(`/providers/${row.id}`, { enabled: row.enabled })
+}
+
 function goDetail(id: number) {
   router.push(`/providers/${id}`)
 }
@@ -189,5 +211,10 @@ function goDetail(id: number) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
 }
 </style>

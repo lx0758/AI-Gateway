@@ -7,7 +7,6 @@ import (
 type RouteResult struct {
 	Provider      *model.Provider
 	ProviderModel *model.ProviderModel
-	ActualModel   string
 }
 
 type ModelRouter struct{}
@@ -18,7 +17,7 @@ func NewModelRouter() *ModelRouter {
 
 func (r *ModelRouter) Route(alias string) (*RouteResult, error) {
 	var mappings []model.ModelMapping
-	if err := model.DB.Preload("Provider").Preload("ProviderModel").
+	if err := model.DB.Preload("Provider").
 		Where("alias = ? AND enabled = ?", alias, true).
 		Order("weight DESC").
 		Find(&mappings).Error; err != nil {
@@ -30,14 +29,18 @@ func (r *ModelRouter) Route(alias string) (*RouteResult, error) {
 	}
 
 	for _, m := range mappings {
-		if !m.Provider.Enabled || !m.ProviderModel.IsAvailable {
+		if !m.Provider.Enabled {
+			continue
+		}
+
+		var pm model.ProviderModel
+		if err := model.DB.Where("provider_id = ? AND model_id = ? AND is_available = ?", m.ProviderID, m.ProviderModelName, true).First(&pm).Error; err != nil {
 			continue
 		}
 
 		return &RouteResult{
 			Provider:      m.Provider,
-			ProviderModel: m.ProviderModel,
-			ActualModel:   m.ProviderModel.ModelID,
+			ProviderModel: &pm,
 		}, nil
 	}
 

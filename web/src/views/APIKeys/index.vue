@@ -4,10 +4,14 @@
       <template #header>
         <div class="card-header">
           <span>{{ t('menu.apiKeys') }}</span>
-          <el-button type="primary" @click="showDialog()">{{ t('apiKey.createKey') }}</el-button>
+          <div class="header-actions">
+            <el-button type="danger" @click="handleBatchDelete" :disabled="selectedIds.length === 0">{{ t('common.batchDelete') }} ({{ selectedIds.length }})</el-button>
+            <el-button type="primary" @click="showDialog()">{{ t('apiKey.createKey') }}</el-button>
+          </div>
         </div>
       </template>
-      <el-table :data="keys" stripe v-loading="loading">
+      <el-table :data="keys" stripe v-loading="loading" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" />
         <el-table-column prop="name" :label="t('apiKey.name')" />
         <el-table-column prop="key" :label="t('apiKey.key')" />
         <el-table-column :label="t('apiKey.allowedModels')">
@@ -29,20 +33,19 @@
         </el-table-column>
         <el-table-column :label="t('common.status')">
           <template #default="{ row }">
-            <el-tag :type="row.enabled ? 'success' : 'info'">
-              {{ row.enabled ? t('common.enabled') : t('common.disabled') }}
-            </el-tag>
+            <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="100">
+        <el-table-column :label="t('common.action')" width="150">
           <template #default="{ row }">
+            <el-button link type="primary" @click="showDialog(row)">{{ t('common.edit') }}</el-button>
             <el-button link type="danger" @click="handleDelete(row.id)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="t('apiKey.createKey')">
+    <el-dialog v-model="dialogVisible" :title="editingId ? t('common.edit') : t('apiKey.createKey')">
       <el-form :model="form" ref="formRef" label-width="auto">
         <el-form-item :label="t('apiKey.name')">
           <el-input v-model="form.name" />
@@ -86,10 +89,12 @@ const { t } = useI18n()
 
 const keys = ref<any[]>([])
 const availableModels = ref<any[]>([])
+const selectedIds = ref<number[]>([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 const keyDialogVisible = ref(false)
 const newKey = ref('')
+const editingId = ref<number | null>(null)
 const formRef = ref()
 
 const form = reactive({
@@ -130,21 +135,44 @@ async function fetchAvailableModels() {
   }
 }
 
-function showDialog() {
-  Object.assign(form, { name: '', quota: 0, rate_limit: 0, allowed_models: [] })
+function handleSelectionChange(selection: any[]) {
+  selectedIds.value = selection.map(item => item.id)
+}
+
+function showDialog(key?: any) {
+  editingId.value = key?.id || null
+  if (key) {
+    Object.assign(form, {
+      name: key.name || '',
+      quota: key.quota || 0,
+      rate_limit: key.rate_limit || 0,
+      allowed_models: key.models?.map((m: any) => m.model_alias) || []
+    })
+  } else {
+    Object.assign(form, { name: '', quota: 0, rate_limit: 0, allowed_models: [] })
+  }
   dialogVisible.value = true
 }
 
 async function handleSubmit() {
   try {
-    const res = await api.post('/api-keys', form)
-    newKey.value = res.data.raw_key
-    dialogVisible.value = false
-    keyDialogVisible.value = true
+    if (editingId.value) {
+      await api.put(`/api-keys/${editingId.value}`, form)
+      dialogVisible.value = false
+    } else {
+      const res = await api.post('/api-keys', form)
+      newKey.value = res.data.raw_key
+      dialogVisible.value = false
+      keyDialogVisible.value = true
+    }
     fetchKeys()
   } catch (e: any) {
     ElMessage.error(e.response?.data?.error || t('common.error'))
   }
+}
+
+async function toggleEnabled(row: any) {
+  await api.put(`/api-keys/${row.id}`, { enabled: row.enabled })
 }
 
 function copyKey() {
@@ -158,9 +186,23 @@ async function handleDelete(id: number) {
   ElMessage.success(t('common.success'))
   fetchKeys()
 }
+
+async function handleBatchDelete() {
+  if (selectedIds.value.length === 0) return
+  await ElMessageBox.confirm(t('common.confirm') + ` (${selectedIds.value.length} items)`, t('common.batchDelete'), { type: 'warning' })
+  try {
+    await Promise.all(selectedIds.value.map(id => api.delete(`/api-keys/${id}`)))
+    ElMessage.success(t('common.success'))
+    selectedIds.value = []
+    fetchKeys()
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.error || t('common.error'))
+  }
+}
 </script>
 
 <style scoped>
 .api-keys-page { padding: 20px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
+.header-actions { display: flex; gap: 10px; }
 </style>

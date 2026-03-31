@@ -86,15 +86,12 @@ func (h *ProxyHandler) ChatCompletions(c *gin.Context) {
 
 func (h *ProxyHandler) ListModels(c *gin.Context) {
 	var mappings []model.ModelMapping
-	model.DB.Preload("ProviderModel").Find(&mappings)
+	model.DB.Preload("Provider").Find(&mappings)
 
 	modelMap := make(map[string]bool)
 	var models []map[string]interface{}
 
 	for _, m := range mappings {
-		if m.ProviderModel == nil {
-			continue
-		}
 		if _, exists := modelMap[m.Alias]; !exists {
 			modelMap[m.Alias] = true
 			models = append(models, map[string]interface{}{
@@ -115,7 +112,7 @@ func (h *ProxyHandler) GetModel(c *gin.Context) {
 	modelID := c.Param("id")
 
 	var mapping model.ModelMapping
-	if err := model.DB.Preload("ProviderModel").Where("alias = ?", modelID).First(&mapping).Error; err != nil {
+	if err := model.DB.Where("alias = ?", modelID).First(&mapping).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}

@@ -4,16 +4,20 @@
       <template #header>
         <div class="card-header">
           <span>{{ t('menu.models') }}</span>
-          <el-button type="primary" @click="showDialog()">{{ t('common.create') }}</el-button>
+          <div class="header-actions">
+            <el-button type="danger" @click="handleBatchDelete" :disabled="selectedIds.length === 0">{{ t('common.batchDelete') }} ({{ selectedIds.length }})</el-button>
+            <el-button type="primary" @click="showDialog()">{{ t('common.create') }}</el-button>
+          </div>
         </div>
       </template>
-      <el-table :data="mappings" stripe v-loading="loading">
+      <el-table :data="mappings" stripe v-loading="loading" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="50" />
         <el-table-column prop="alias" :label="t('modelMapping.alias')" />
         <el-table-column :label="t('provider.name')">
           <template #default="{ row }">{{ row.provider?.name }}</template>
         </el-table-column>
         <el-table-column :label="t('modelMapping.actualModel')">
-          <template #default="{ row }">{{ row.provider_model?.model_id }}</template>
+          <template #default="{ row }">{{ row.provider_model_name }}</template>
         </el-table-column>
         <el-table-column prop="weight" :label="t('modelMapping.weight')" />
         <el-table-column :label="t('common.status')">
@@ -40,9 +44,9 @@
             <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('modelMapping.model')" prop="provider_model_id">
-          <el-select v-model="form.provider_model_id" style="width: 100%" filterable :placeholder="form.provider_id ? '' : t('provider.name')">
-            <el-option v-for="m in providerModels" :key="m.id" :label="m.model_id" :value="m.id" />
+        <el-form-item :label="t('modelMapping.model')" prop="provider_model_name">
+          <el-select v-model="form.provider_model_name" style="width: 100%" filterable :placeholder="form.provider_id ? '' : t('provider.name')">
+            <el-option v-for="m in providerModels" :key="m.model_id" :label="m.model_id" :value="m.model_id" />
           </el-select>
         </el-form-item>
         <el-form-item :label="t('modelMapping.weight')">
@@ -68,6 +72,7 @@ const { t } = useI18n()
 const mappings = ref<any[]>([])
 const providers = ref<any[]>([])
 const providerModels = ref<any[]>([])
+const selectedIds = ref<number[]>([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 const dialogLoading = ref(false)
@@ -77,14 +82,14 @@ const formRef = ref()
 const form = reactive({
   alias: '',
   provider_id: null as number | null,
-  provider_model_id: null as number | null,
+  provider_model_name: '',
   weight: 1
 })
 
 const rules = {
-  alias: [{ required: true, message: () => t('modelMapping.required'), trigger: 'blur' }],
-  provider_id: [{ required: true, message: () => t('modelMapping.required'), trigger: 'change' }],
-  provider_model_id: [{ required: true, message: () => t('modelMapping.required'), trigger: 'change' }]
+  alias: [{ required: true, message: () => t('common.required'), trigger: 'blur' }],
+  provider_id: [{ required: true, message: () => t('common.required'), trigger: 'change' }],
+  provider_model_name: [{ required: true, message: () => t('common.required'), trigger: 'change' }]
 }
 
 onMounted(() => {
@@ -113,9 +118,13 @@ async function loadProviderModels() {
   providerModels.value = res.data.models || []
 }
 
+function handleSelectionChange(selection: any[]) {
+  selectedIds.value = selection.map(item => item.id)
+}
+
 async function showDialog(id?: number) {
   editingId.value = id || null
-  Object.assign(form, { alias: '', provider_id: null, provider_model_id: null, weight: 1 })
+  Object.assign(form, { alias: '', provider_id: null, provider_model_name: '', weight: 1 })
   providerModels.value = []
   dialogVisible.value = true
 
@@ -127,7 +136,7 @@ async function showDialog(id?: number) {
       if (mapping) {
         form.alias = mapping.alias
         form.provider_id = mapping.provider_id
-        form.provider_model_id = mapping.provider_model_id
+        form.provider_model_name = mapping.provider_model_name
         form.weight = mapping.weight
         await loadProviderModels()
       }
@@ -149,7 +158,7 @@ async function handleSubmit() {
       await api.put(`/model-mappings/${editingId.value}`, {
         alias: form.alias,
         provider_id: form.provider_id,
-        provider_model_id: form.provider_model_id,
+        provider_model_name: form.provider_model_name,
         weight: form.weight
       })
     } else {
@@ -173,9 +182,23 @@ async function handleDelete(id: number) {
   ElMessage.success(t('common.success'))
   fetchMappings()
 }
+
+async function handleBatchDelete() {
+  if (selectedIds.value.length === 0) return
+  await ElMessageBox.confirm(t('common.confirm') + ` (${selectedIds.value.length} items)`, t('common.batchDelete'), { type: 'warning' })
+  try {
+    await Promise.all(selectedIds.value.map(id => api.delete(`/model-mappings/${id}`)))
+    ElMessage.success(t('common.success'))
+    selectedIds.value = []
+    fetchMappings()
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.error || t('common.error'))
+  }
+}
 </script>
 
 <style scoped>
 .models-page { padding: 20px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
+.header-actions { display: flex; gap: 10px; }
 </style>

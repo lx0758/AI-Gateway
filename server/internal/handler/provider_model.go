@@ -148,7 +148,13 @@ func (h *ProviderModelHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	if err := model.DB.Where("id = ? AND provider_id = ?", modelID, providerID).Delete(&model.ProviderModel{}).Error; err != nil {
+	var pm model.ProviderModel
+	if err := model.DB.Where("id = ? AND provider_id = ?", modelID, providerID).First(&pm).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
+		return
+	}
+
+	if err := model.DB.Delete(&pm).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

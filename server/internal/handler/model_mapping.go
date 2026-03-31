@@ -12,18 +12,18 @@ import (
 type ModelMappingHandler struct{}
 
 type CreateModelMappingRequest struct {
-	Alias           string `json:"alias" binding:"required"`
-	ProviderID      uint   `json:"provider_id" binding:"required"`
-	ProviderModelID uint   `json:"provider_model_id" binding:"required"`
-	Weight          int    `json:"weight"`
+	Alias             string `json:"alias" binding:"required"`
+	ProviderID        uint   `json:"provider_id" binding:"required"`
+	ProviderModelName string `json:"provider_model_name" binding:"required"`
+	Weight            int    `json:"weight"`
 }
 
 type UpdateModelMappingRequest struct {
-	Alias           *string `json:"alias"`
-	ProviderID      *uint   `json:"provider_id"`
-	ProviderModelID *uint   `json:"provider_model_id"`
-	Weight          *int    `json:"weight"`
-	Enabled         *bool   `json:"enabled"`
+	Alias             *string `json:"alias"`
+	ProviderID        *uint   `json:"provider_id"`
+	ProviderModelName *string `json:"provider_model_name"`
+	Weight            *int    `json:"weight"`
+	Enabled           *bool   `json:"enabled"`
 }
 
 func NewModelMappingHandler() *ModelMappingHandler {
@@ -32,7 +32,7 @@ func NewModelMappingHandler() *ModelMappingHandler {
 
 func (h *ModelMappingHandler) List(c *gin.Context) {
 	var mappings []model.ModelMapping
-	query := model.DB.Preload("Provider").Preload("ProviderModel")
+	query := model.DB.Preload("Provider")
 
 	if alias := c.Query("alias"); alias != "" {
 		query = query.Where("alias = ?", alias)
@@ -43,7 +43,33 @@ func (h *ModelMappingHandler) List(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"mappings": mappings})
+	type MappingResponse struct {
+		ID                uint   `json:"id"`
+		Alias             string `json:"alias"`
+		ProviderID        uint   `json:"provider_id"`
+		ProviderModelName string `json:"provider_model_name"`
+		Enabled           bool   `json:"enabled"`
+		Weight            int    `json:"weight"`
+		Provider          any    `json:"provider,omitempty"`
+	}
+
+	var response []MappingResponse
+	for _, m := range mappings {
+		item := MappingResponse{
+			ID:                m.ID,
+			Alias:             m.Alias,
+			ProviderID:        m.ProviderID,
+			ProviderModelName: m.ProviderModelName,
+			Enabled:           m.Enabled,
+			Weight:            m.Weight,
+		}
+		if m.Provider != nil {
+			item.Provider = m.Provider
+		}
+		response = append(response, item)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"mappings": response})
 }
 
 func (h *ModelMappingHandler) Create(c *gin.Context) {
@@ -60,17 +86,17 @@ func (h *ModelMappingHandler) Create(c *gin.Context) {
 	}
 
 	var pm model.ProviderModel
-	if err := model.DB.Where("id = ? AND provider_id = ?", req.ProviderModelID, req.ProviderID).First(&pm).Error; err != nil {
+	if err := model.DB.Where("provider_id = ? AND model_id = ?", req.ProviderID, req.ProviderModelName).First(&pm).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "provider model not found"})
 		return
 	}
 
 	mapping := model.ModelMapping{
-		Alias:           req.Alias,
-		ProviderID:      req.ProviderID,
-		ProviderModelID: req.ProviderModelID,
-		Enabled:         true,
-		Weight:          req.Weight,
+		Alias:             req.Alias,
+		ProviderID:        req.ProviderID,
+		ProviderModelName: req.ProviderModelName,
+		Enabled:           true,
+		Weight:            req.Weight,
 	}
 
 	if mapping.Weight == 0 {
@@ -82,7 +108,7 @@ func (h *ModelMappingHandler) Create(c *gin.Context) {
 		return
 	}
 
-	model.DB.Preload("Provider").Preload("ProviderModel").First(&mapping, mapping.ID)
+	model.DB.Preload("Provider").First(&mapping, mapping.ID)
 	c.JSON(http.StatusCreated, gin.H{"mapping": mapping})
 }
 
@@ -117,17 +143,17 @@ func (h *ModelMappingHandler) Update(c *gin.Context) {
 		}
 		updates["provider_id"] = *req.ProviderID
 	}
-	if req.ProviderModelID != nil {
+	if req.ProviderModelName != nil {
 		providerID := mapping.ProviderID
 		if req.ProviderID != nil {
 			providerID = *req.ProviderID
 		}
 		var pm model.ProviderModel
-		if err := model.DB.Where("id = ? AND provider_id = ?", *req.ProviderModelID, providerID).First(&pm).Error; err != nil {
+		if err := model.DB.Where("provider_id = ? AND model_id = ?", providerID, *req.ProviderModelName).First(&pm).Error; err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "provider model not found"})
 			return
 		}
-		updates["provider_model_id"] = *req.ProviderModelID
+		updates["provider_model_name"] = *req.ProviderModelName
 	}
 	if req.Weight != nil {
 		updates["weight"] = *req.Weight
@@ -143,7 +169,7 @@ func (h *ModelMappingHandler) Update(c *gin.Context) {
 		}
 	}
 
-	model.DB.Preload("Provider").Preload("ProviderModel").First(&mapping, id)
+	model.DB.Preload("Provider").First(&mapping, id)
 	c.JSON(http.StatusOK, gin.H{"mapping": mapping})
 }
 

@@ -45,7 +45,7 @@ type ProviderModel struct {
 	InputPrice     float64        `gorm:"default:0" json:"input_price"`
 	OutputPrice    float64        `gorm:"default:0" json:"output_price"`
 	SupportsVision bool           `gorm:"default:false" json:"supports_vision"`
-	SupportsTools  bool           `gorm:"default:false" json:"supports_tools"`
+	SupportsTools  bool           `gorm:"default:true" json:"supports_tools"`
 	SupportsStream bool           `gorm:"default:true" json:"supports_stream"`
 	Metadata       string         `gorm:"type:text" json:"metadata"`
 	IsAvailable    bool           `gorm:"default:true" json:"is_available"`
@@ -56,16 +56,15 @@ type ProviderModel struct {
 }
 
 type ModelMapping struct {
-	ID              uint           `gorm:"primaryKey" json:"id"`
-	Alias           string         `gorm:"index;size:128;not null" json:"alias"`
-	ProviderID      uint           `gorm:"index;not null" json:"provider_id"`
-	ProviderModelID uint           `gorm:"index;not null" json:"provider_model_id"`
-	Enabled         bool           `gorm:"default:true" json:"enabled"`
-	Weight          int            `gorm:"default:1" json:"weight"`
-	CreatedAt       time.Time      `json:"created_at"`
-	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
-	Provider        *Provider      `gorm:"foreignKey:ProviderID" json:"provider,omitempty"`
-	ProviderModel   *ProviderModel `gorm:"foreignKey:ProviderModelID" json:"provider_model,omitempty"`
+	ID                uint           `gorm:"primaryKey" json:"id"`
+	Alias             string         `gorm:"index;size:128;not null" json:"alias"`
+	ProviderID        uint           `gorm:"index;not null" json:"provider_id"`
+	ProviderModelName string         `gorm:"index;size:128;not null" json:"provider_model_name"`
+	Enabled           bool           `gorm:"default:true" json:"enabled"`
+	Weight            int            `gorm:"default:1" json:"weight"`
+	CreatedAt         time.Time      `json:"created_at"`
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
+	Provider          *Provider      `gorm:"foreignKey:ProviderID" json:"provider,omitempty"`
 }
 
 type APIKey struct {
