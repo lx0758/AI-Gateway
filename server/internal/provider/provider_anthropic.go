@@ -125,6 +125,7 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 		return 0, err
 	}
 
+	recordBody("O2A", "raw", body)
 	var openAIReq struct {
 		Model     string                   `json:"model"`
 		MaxTokens int                      `json:"max_tokens"`
@@ -144,6 +145,7 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 		return 0, err
 	}
 
+	recordBody("O2A", "converted", anthropicBody)
 	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/messages", bytes.NewReader(anthropicBody))
 	if err != nil {
 		return 0, err
@@ -163,6 +165,7 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		recordError("O2A", resp.StatusCode, respBody)
 		return 0, fmt.Errorf("%s", string(respBody))
 	}
 
@@ -196,6 +199,22 @@ func (m *AnthropicProvider) convertOpenAIRequestToAnthropic(openAIReq struct {
 }) map[string]interface{} {
 	var systemContent string
 	anthropicMessages := make([]map[string]interface{}, 0)
+	var pendingToolResults []map[string]interface{}
+
+	flushPendingToolResults := func() {
+		if len(pendingToolResults) == 0 {
+			return
+		}
+		content := make([]map[string]interface{}, 0, len(pendingToolResults))
+		for _, tr := range pendingToolResults {
+			content = append(content, tr)
+		}
+		anthropicMessages = append(anthropicMessages, map[string]interface{}{
+			"role":    "user",
+			"content": content,
+		})
+		pendingToolResults = pendingToolResults[:0]
+	}
 
 	for _, msg := range openAIReq.Messages {
 		role, _ := msg["role"].(string)
@@ -203,11 +222,16 @@ func (m *AnthropicProvider) convertOpenAIRequestToAnthropic(openAIReq struct {
 		case "system":
 			systemContent = m.extractSystemContent(msg["content"])
 		case "tool":
-			anthropicMessages = append(anthropicMessages, m.convertOpenAIToolResultToAnthropic(msg))
+			pendingToolResults = append(pendingToolResults, m.convertOpenAIToolResultToAnthropic(msg))
+		case "assistant":
+			flushPendingToolResults()
+			anthropicMessages = append(anthropicMessages, m.convertOpenAIMessageToAnthropic(msg))
 		default:
+			flushPendingToolResults()
 			anthropicMessages = append(anthropicMessages, m.convertOpenAIMessageToAnthropic(msg))
 		}
 	}
+	flushPendingToolResults()
 
 	anthropicReq := map[string]interface{}{
 		"model":      openAIReq.Model,
@@ -356,14 +380,9 @@ func (m *AnthropicProvider) convertOpenAIToolResultToAnthropic(msg map[string]in
 	}
 
 	return map[string]interface{}{
-		"role": "user",
-		"content": []map[string]interface{}{
-			{
-				"type":        "tool_result",
-				"tool_use_id": toolCallID,
-				"content":     toolResultContent,
-			},
-		},
+		"type":        "tool_result",
+		"tool_use_id": toolCallID,
+		"content":     toolResultContent,
 	}
 }
 
@@ -504,6 +523,7 @@ func (m *AnthropicProvider) convertAnthropicResponseToOpenAI(anthropicResp []byt
 }
 
 func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer, model string) int {
+	src, dst = recordStream("O2A", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("chatcmpl-%s", m.generateID())
 	tokens := 0
@@ -524,13 +544,14 @@ func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer
 		if line == "" {
 			continue
 		}
-		if strings.HasPrefix(line, "event: ") {
+		if strings.HasPrefix(line, "event:") {
 			continue
 		}
-		if !strings.HasPrefix(line, "data: ") {
+		if !strings.HasPrefix(line, "data:") {
 			continue
 		}
-		data := strings.TrimPrefix(line, "data: ")
+		data := strings.TrimPrefix(line, "data:")
+		data = strings.TrimSpace(data)
 
 		var event struct {
 			Type         string                 `json:"type"`
@@ -767,6 +788,7 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 		return 0, err
 	}
 
+	recordBody("A2A", "raw", body)
 	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/messages", bytes.NewReader(body))
 	if err != nil {
 		return 0, err
@@ -786,6 +808,7 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		recordError("A2A", resp.StatusCode, respBody)
 		return 0, fmt.Errorf("%s", string(respBody))
 	}
 
@@ -823,6 +846,7 @@ func (m *AnthropicProvider) copyAnthropicResponse(dst io.Writer, src io.Reader) 
 }
 
 func (m *AnthropicProvider) copyAnthropicStreaming(dst io.Writer, src io.Reader) int {
+	src, dst = recordStream("O2A", src, dst)
 	reader := bufio.NewReader(src)
 	tokens := 0
 

@@ -115,6 +115,7 @@ func (m *OpenAICompatibleProvider) ExecuteOpenAIRequest(c *gin.Context, pm *mode
 		return 0, err
 	}
 
+	recordBody("O2O", "raw", body)
 	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return 0, err
@@ -133,6 +134,7 @@ func (m *OpenAICompatibleProvider) ExecuteOpenAIRequest(c *gin.Context, pm *mode
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		recordError("O2O", resp.StatusCode, respBody)
 		return 0, fmt.Errorf("%s", string(respBody))
 	}
 
@@ -150,6 +152,7 @@ func (m *OpenAICompatibleProvider) ExecuteOpenAIRequest(c *gin.Context, pm *mode
 }
 
 func (m *OpenAICompatibleProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader) int {
+	src, dst = recordStream("O2O", src, dst)
 	reader := bufio.NewReader(src)
 	tokens := 0
 
@@ -218,6 +221,7 @@ func (m *OpenAICompatibleProvider) ExecuteAnthropicRequest(c *gin.Context, pm *m
 		return 0, err
 	}
 
+	recordBody("A2O", "raw", body)
 	var anthropicReq struct {
 		Model         string          `json:"model"`
 		MaxTokens     int             `json:"max_tokens"`
@@ -246,8 +250,8 @@ func (m *OpenAICompatibleProvider) ExecuteAnthropicRequest(c *gin.Context, pm *m
 		})
 	}
 	for _, msg := range anthropicMessages {
-		openAIMsg := m.convertAnthropicMessageToOpenAI(msg)
-		openAIMessages = append(openAIMessages, openAIMsg)
+		openAIMsgs := m.convertAnthropicMessageToOpenAI(msg)
+		openAIMessages = append(openAIMessages, openAIMsgs...)
 	}
 
 	openAIReq := map[string]interface{}{
@@ -277,6 +281,7 @@ func (m *OpenAICompatibleProvider) ExecuteAnthropicRequest(c *gin.Context, pm *m
 		return 0, err
 	}
 
+	recordBody("A2O", "converted", openAIBody)
 	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/chat/completions", bytes.NewReader(openAIBody))
 	if err != nil {
 		return 0, err
@@ -295,6 +300,7 @@ func (m *OpenAICompatibleProvider) ExecuteAnthropicRequest(c *gin.Context, pm *m
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		recordError("A2O", resp.StatusCode, respBody)
 		return 0, fmt.Errorf("%s", string(respBody))
 	}
 
@@ -352,7 +358,7 @@ func (m *OpenAICompatibleProvider) extractSystemContent(system interface{}) stri
 	return ""
 }
 
-func (m *OpenAICompatibleProvider) convertAnthropicMessageToOpenAI(msg map[string]interface{}) map[string]interface{} {
+func (m *OpenAICompatibleProvider) convertAnthropicMessageToOpenAI(msg map[string]interface{}) []map[string]interface{} {
 	role, _ := msg["role"].(string)
 	content := msg["content"]
 
@@ -363,10 +369,12 @@ func (m *OpenAICompatibleProvider) convertAnthropicMessageToOpenAI(msg map[strin
 	switch v := content.(type) {
 	case string:
 		result["content"] = v
+		return []map[string]interface{}{result}
 	case []interface{}:
 		textParts := make([]string, 0)
 		imageParts := make([]map[string]interface{}, 0)
 		toolCalls := make([]map[string]interface{}, 0)
+		toolResults := make([]map[string]interface{}, 0)
 
 		for _, block := range v {
 			if blockMap, ok := block.(map[string]interface{}); ok {
@@ -410,7 +418,7 @@ func (m *OpenAICompatibleProvider) convertAnthropicMessageToOpenAI(msg map[strin
 						},
 					})
 				case "tool_result":
-					return m.convertAnthropicToolResultToOpenAI(blockMap)
+					toolResults = append(toolResults, m.convertAnthropicToolResultToOpenAI(blockMap))
 				}
 			}
 		}
@@ -425,6 +433,8 @@ func (m *OpenAICompatibleProvider) convertAnthropicMessageToOpenAI(msg map[strin
 			} else {
 				result["content"] = nil
 			}
+		} else if len(toolResults) > 0 && len(textParts) == 0 && len(imageParts) == 0 {
+			return toolResults
 		} else if len(imageParts) > 0 {
 			var contentParts []map[string]interface{}
 			for _, t := range textParts {
@@ -441,10 +451,14 @@ func (m *OpenAICompatibleProvider) convertAnthropicMessageToOpenAI(msg map[strin
 				result["content"] = result["content"].(string) + "\n" + textParts[i]
 			}
 		}
+
+		messages := []map[string]interface{}{result}
+		messages = append(messages, toolResults...)
+		return messages
 	default:
 		result["content"] = v
+		return []map[string]interface{}{result}
 	}
-	return result
 }
 
 func (m *OpenAICompatibleProvider) convertAnthropicToolResultToOpenAI(blockMap map[string]interface{}) map[string]interface{} {
@@ -587,15 +601,23 @@ func (m *OpenAICompatibleProvider) isStreaming(resp *http.Response) bool {
 		(len(contentType) > 0 && len(contentType) >= 17 && contentType[:17] == "text/event-stream")
 }
 
+type toolCallState struct {
+	id        string
+	name      string
+	blockIdx  int
+	startSent bool
+}
+
 func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, model string) int {
+	src, dst = recordStream("A2O", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("msg_%s", m.generateID())
 	sentMessageStart := false
-	contentBlockIndex := 0
-	toolIndexToContentBlock := make(map[int]int)
+	preBlockCount := 0
 	inThinkingBlock := false
 	inTextBlock := false
 	tokens := 0
+	toolCallStates := make(map[int]*toolCallState)
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -610,10 +632,11 @@ func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io
 		if line == "" {
 			continue
 		}
-		if !strings.HasPrefix(line, "data: ") {
+		if !strings.HasPrefix(line, "data:") {
 			continue
 		}
-		data := strings.TrimPrefix(line, "data: ")
+		data := strings.TrimPrefix(line, "data:")
+		data = strings.TrimSpace(data)
 
 		if data == "[DONE]" {
 			break
@@ -666,24 +689,24 @@ func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io
 					if inTextBlock {
 						m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
 							"type":  "content_block_stop",
-							"index": contentBlockIndex,
+							"index": preBlockCount,
 						})
-						contentBlockIndex++
+						preBlockCount++
+						inTextBlock = false
 					}
 					m.writeAnthropicSSE(dst, "content_block_start", map[string]interface{}{
 						"type":  "content_block_start",
-						"index": contentBlockIndex,
+						"index": preBlockCount,
 						"content_block": map[string]interface{}{
 							"type":     "thinking",
 							"thinking": "",
 						},
 					})
 					inThinkingBlock = true
-					inTextBlock = false
 				}
 				m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
 					"type":  "content_block_delta",
-					"index": contentBlockIndex,
+					"index": preBlockCount,
 					"delta": map[string]interface{}{
 						"type":     "thinking_delta",
 						"thinking": reasoning,
@@ -696,15 +719,15 @@ func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io
 				if inThinkingBlock {
 					m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
 						"type":  "content_block_stop",
-						"index": contentBlockIndex,
+						"index": preBlockCount,
 					})
-					contentBlockIndex++
+					preBlockCount++
 					inThinkingBlock = false
 				}
 				if !inTextBlock {
 					m.writeAnthropicSSE(dst, "content_block_start", map[string]interface{}{
 						"type":  "content_block_start",
-						"index": contentBlockIndex,
+						"index": preBlockCount,
 						"content_block": map[string]interface{}{
 							"type": "text",
 							"text": "",
@@ -714,7 +737,7 @@ func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io
 				}
 				m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
 					"type":  "content_block_delta",
-					"index": contentBlockIndex,
+					"index": preBlockCount,
 					"delta": map[string]interface{}{
 						"type": "text_delta",
 						"text": content,
@@ -723,79 +746,94 @@ func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io
 			}
 
 			if toolCalls, ok := delta["tool_calls"].([]interface{}); ok {
+				if inThinkingBlock || inTextBlock {
+					m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
+						"type":  "content_block_stop",
+						"index": preBlockCount,
+					})
+					preBlockCount++
+					inThinkingBlock = false
+					inTextBlock = false
+				}
+
 				for _, tc := range toolCalls {
 					tcMap, ok := tc.(map[string]interface{})
 					if !ok {
 						continue
 					}
 
-					toolID, _ := tcMap["id"].(string)
-					toolIndex := -1
+					toolIndex := 0
 					if idx, ok := tcMap["index"].(float64); ok {
 						toolIndex = int(idx)
 					}
 
+					toolID, _ := tcMap["id"].(string)
 					fn, hasFn := tcMap["function"].(map[string]interface{})
-					var args string
+					name := ""
+					args := ""
 					if hasFn {
+						name, _ = fn["name"].(string)
 						args, _ = fn["arguments"].(string)
 					}
 
-					if toolID != "" {
-						if inThinkingBlock || inTextBlock {
-							m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
-								"type":  "content_block_stop",
-								"index": contentBlockIndex,
-							})
-							contentBlockIndex++
-							inThinkingBlock = false
-							inTextBlock = false
+					state, exists := toolCallStates[toolIndex]
+					if !exists {
+						if toolID == "" {
+							continue
 						}
-
-						name := ""
-						if hasFn {
-							name, _ = fn["name"].(string)
+						state = &toolCallState{
+							id:        toolID,
+							name:      name,
+							blockIdx:  preBlockCount + toolIndex,
+							startSent: false,
 						}
+						toolCallStates[toolIndex] = state
+					}
 
-						toolIndexToContentBlock[toolIndex] = contentBlockIndex
-
+					if !state.startSent {
 						m.writeAnthropicSSE(dst, "content_block_start", map[string]interface{}{
 							"type":  "content_block_start",
-							"index": contentBlockIndex,
+							"index": state.blockIdx,
 							"content_block": map[string]interface{}{
 								"type":  "tool_use",
-								"id":    toolID,
-								"name":  name,
+								"id":    state.id,
+								"name":  state.name,
 								"input": json.RawMessage("{}"),
 							},
 						})
+						state.startSent = true
+					}
 
-						if args != "" {
-							m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
-								"type":  "content_block_delta",
-								"index": contentBlockIndex,
-								"delta": map[string]interface{}{
-									"type":         "input_json_delta",
-									"partial_json": args,
-								},
-							})
-						}
-					} else if toolIndex >= 0 {
-						if cbIdx, exists := toolIndexToContentBlock[toolIndex]; exists && args != "" {
-							m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
-								"type":  "content_block_delta",
-								"index": cbIdx,
-								"delta": map[string]interface{}{
-									"type":         "input_json_delta",
-									"partial_json": args,
-								},
-							})
-						}
+					if args != "" {
+						m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
+							"type":  "content_block_delta",
+							"index": state.blockIdx,
+							"delta": map[string]interface{}{
+								"type":         "input_json_delta",
+								"partial_json": args,
+							},
+						})
 					}
 				}
 			}
 
 			if choice.FinishReason != "" {
+				if inThinkingBlock || inTextBlock {
+					m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
+						"type":  "content_block_stop",
+						"index": preBlockCount,
+					})
+				}
+
+				for _, state := range toolCallStates {
+					if state.startSent {
+						m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
+							"type":  "content_block_stop",
+							"index": state.blockIdx,
+						})
+					}
+				}
+
 				stopReason := "end_turn"
 				switch choice.FinishReason {
 				case "stop":
@@ -806,10 +844,6 @@ func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io
 					stopReason = "tool_use"
 				}
 
-				m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
-					"type":  "content_block_stop",
-					"index": contentBlockIndex,
-				})
 				m.writeAnthropicSSE(dst, "message_delta", map[string]interface{}{
 					"type": "message_delta",
 					"delta": map[string]interface{}{
