@@ -30,7 +30,8 @@ export default {
     required: 'Required',
     createdAt: 'Created At',
     updatedAt: 'Updated At',
-    batchDelete: 'Batch Delete'
+    batchDelete: 'Batch Delete',
+    copied: 'Copied'
   },
   login: {
     title: 'AI Proxy',
@@ -43,7 +44,7 @@ export default {
   menu: {
     dashboard: 'Dashboard',
     providers: 'Providers',
-    models: 'Model Mappings',
+    aliases: 'Model Aliases',
     keys: 'API Keys',
     usage: 'Usage Statistics',
     settings: 'Settings'
@@ -77,6 +78,7 @@ export default {
     lastSync: 'Last Sync',
     modelId: 'Model ID',
     contextWindow: 'Context Window',
+    price: 'Price',
     source: 'Source',
     maxOutput: 'Max Output',
     supportsVision: 'Supports Vision',
@@ -137,5 +139,15 @@ export default {
     weight: 'Weight',
     model: 'Model',
     required: 'Required'
+  },
+  modelAlias: {
+    create: 'New Alias',
+    createAlias: 'Create Alias',
+    editAlias: 'Edit Alias',
+    name: 'Name',
+    mappings: 'mappings',
+    addMapping: 'Add Mapping',
+    editMapping: 'Edit Mapping',
+    providerType: 'Provider Type'
   }
 }

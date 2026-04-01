@@ -61,16 +61,40 @@ type ProviderModel struct {
 	DeletedAt      gorm.DeletedAt
 }
 
-type ModelMapping struct {
-	ID                uint   `gorm:"primaryKey"`
-	Alias             string `gorm:"index"`
-	ProviderID        uint   `gorm:"index"`
+type Alias struct {
+	ID        uint   `gorm:"primaryKey;tableName:aliases"`
+	Name      string `gorm:"uniqueIndex;column:name"`
+	Enabled   bool   `gorm:"default:true"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt
+	Mappings  []AliasMapping `gorm:"foreignKey:AliasID;constraint:OnDelete:CASCADE"`
+}
+
+type AliasMapping struct {
+	ID                uint `gorm:"primaryKey;tableName:alias_mappings"`
+	AliasID           uint `gorm:"index"`
+	ProviderID        uint `gorm:"index"`
 	ProviderModelName string
-	Enabled           bool `gorm:"default:true"`
 	Weight            int  `gorm:"default:1"`
+	Enabled           bool `gorm:"default:true"`
 	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	DeletedAt         gorm.DeletedAt
-	Provider          *Provider
+	Provider          *Provider `gorm:"foreignKey:ProviderID"`
+}
+
+type Mapping struct {
+	ID                uint `gorm:"primaryKey;tableName:mappings"`
+	AliasID           uint `gorm:"index"`
+	ProviderID        uint `gorm:"index"`
+	ProviderModelName string
+	Weight            int  `gorm:"default:1"`
+	Enabled           bool `gorm:"default:true"`
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         gorm.DeletedAt
+	Provider          *Provider `gorm:"foreignKey:ProviderID"`
 }
 
 type Key struct {
@@ -142,7 +166,8 @@ func autoMigrate() error {
 		&User{},
 		&Provider{},
 		&ProviderModel{},
-		&ModelMapping{},
+		&Alias{},
+		&AliasMapping{},
 		&Key{},
 		&KeyModel{},
 		&UsageLog{},

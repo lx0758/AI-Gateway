@@ -20,9 +20,9 @@
             <el-icon><Connection /></el-icon>
             <template #title>{{ t('menu.providers') }}</template>
           </el-menu-item>
-          <el-menu-item index="/models">
+          <el-menu-item index="/aliases">
             <el-icon><Grid /></el-icon>
-            <template #title>{{ t('menu.models') }}</template>
+            <template #title>{{ t('menu.aliases') }}</template>
           </el-menu-item>
           <el-menu-item index="/keys">
             <el-icon><Key /></el-icon>

@@ -166,7 +166,12 @@
         </el-table-column>
         <el-table-column prop="error_msg" :label="t('usage.error') || '错误信息'" show-overflow-tooltip>
           <template #default="{ row }">
-            <span v-if="row.error_msg" class="error-text">{{ row.error_msg }}</span>
+            <div v-if="row.error_msg" class="error-cell">
+              <span class="error-text">{{ row.error_msg }}</span>
+              <el-button link type="primary" size="small" @click="copyError(row.error_msg)" style="margin-left: 4px">
+                <el-icon><CopyDocument /></el-icon>
+              </el-button>
+            </div>
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -178,6 +183,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
+import { CopyDocument } from '@element-plus/icons-vue'
 import api from '@/api'
 import { formatDateTime, formatLatency, formatTokens } from '@/utils/format'
 
@@ -286,6 +293,14 @@ async function fetchLogs() {
     loading.value = false
   }
 }
+
+function copyError(errorMsg: string) {
+  navigator.clipboard.writeText(errorMsg).then(() => {
+    ElMessage.success(t('common.copied') || 'Copied')
+  }).catch(() => {
+    ElMessage.error(t('common.error') || 'Error')
+  })
+}
 </script>
 
 <style scoped>
@@ -298,6 +313,7 @@ async function fetchLogs() {
 .provider-stats-card { margin-top: 20px; }
 .provider-model-stats-card { margin-top: 20px; }
 .logs-card { margin-top: 20px; }
+.error-cell { display: flex; align-items: center; }
 .error-text { 
   color: var(--el-color-danger); 
   font-size: 12px;

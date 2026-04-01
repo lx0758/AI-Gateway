@@ -12,20 +12,20 @@
       </template>
       <el-table :data="providers" stripe v-loading="loading" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="name" :label="t('provider.name')" width="180" />
-        <el-table-column :label="t('provider.apiStyles')" width="250">
+        <el-table-column prop="name" :label="t('provider.name')" width="220" />
+        <el-table-column :label="t('provider.apiStyles')">
           <template #default="{ row }">
             <el-tag v-if="row.openai_base_url" type="success" style="margin-right: 4px">OpenAI</el-tag>
             <el-tag v-if="row.anthropic_base_url" type="primary">Anthropic</el-tag>
             <span v-if="!row.openai_base_url && !row.anthropic_base_url">-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('provider.models')" width="80">
+        <el-table-column :label="t('provider.models')" width="120">
           <template #default="{ row }">
             {{ row.models?.length || 0 }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="100">
+        <el-table-column :label="t('common.status')" width="120">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
@@ -110,7 +110,7 @@ async function fetchProviders() {
   loading.value = true
   try {
     const res = await api.get('/providers')
-    providers.value = res.data.providers || []
+    providers.value = (res.data.providers || []).sort((a: any, b: any) => a.name.localeCompare(b.name))
   } finally {
     loading.value = false
   }

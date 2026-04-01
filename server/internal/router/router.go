@@ -25,10 +25,15 @@ func NewModelRouter() *ModelRouter {
 	return &ModelRouter{}
 }
 
-func (r *ModelRouter) Route(alias string) ([]RouteResult, error) {
-	var mappings []model.ModelMapping
+func (r *ModelRouter) Route(name string) ([]RouteResult, error) {
+	var alias model.Alias
+	if err := model.DB.Where("name = ? AND enabled = ?", name, true).First(&alias).Error; err != nil {
+		return nil, nil
+	}
+
+	var mappings []model.AliasMapping
 	if err := model.DB.Preload("Provider").
-		Where("alias = ? AND enabled = ?", alias, true).
+		Where("alias_id = ? AND enabled = ?", alias.ID, true).
 		Order("weight DESC").
 		Find(&mappings).Error; err != nil {
 		return nil, err

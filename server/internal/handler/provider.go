@@ -233,9 +233,9 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 	}
 
 	var mappingCount int64
-	model.DB.Model(&model.ModelMapping{}).Where("provider_id = ?", id).Count(&mappingCount)
+	model.DB.Model(&model.AliasMapping{}).Where("provider_id = ?", id).Count(&mappingCount)
 	if mappingCount > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "provider has existing model mappings, remove them first"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "provider has existing mappings, remove them first"})
 		return
 	}
 

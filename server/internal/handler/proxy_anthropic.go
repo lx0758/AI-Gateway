@@ -87,9 +87,37 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 }
 
 func (h *AnthropicProxyHandler) ListModels(c *gin.Context) {
-	c.JSON(http.StatusNotFound, gin.H{"error": "api not implemented"})
+	var aliases []model.Alias
+	model.DB.Find(&aliases)
+
+	var models []map[string]interface{}
+
+	for _, a := range aliases {
+		models = append(models, map[string]interface{}{
+			"id":           a.Name,
+			"type":         "model",
+			"display_name": a.Name,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":     models,
+		"has_more": false,
+	})
 }
 
 func (h *AnthropicProxyHandler) GetModel(c *gin.Context) {
-	c.JSON(http.StatusNotFound, gin.H{"error": "api not implemented"})
+	modelID := c.Param("id")
+
+	var alias model.Alias
+	if err := model.DB.Where("name = ?", modelID).First(&alias).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "model not found"}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":           alias.Name,
+		"type":         "model",
+		"display_name": alias.Name,
+	})
 }

@@ -30,7 +30,8 @@ export default {
     required: '此项为必填',
     createdAt: '创建时间',
     updatedAt: '更新时间',
-    batchDelete: '批量删除'
+    batchDelete: '批量删除',
+    copied: '已复制'
   },
   login: {
     title: 'AI 代理',
@@ -43,7 +44,7 @@ export default {
   menu: {
     dashboard: '仪表盘',
     providers: '厂商管理',
-    models: '模型映射',
+    aliases: '模型别名',
     keys: 'API 密钥',
     usage: '用量统计',
     settings: '系统设置'
@@ -77,6 +78,7 @@ export default {
     lastSync: '最后同步',
     modelId: '模型 ID',
     contextWindow: '上下文窗口',
+    price: '单价',
     source: '来源',
     maxOutput: '最大输出',
     supportsVision: '支持视觉',
@@ -137,5 +139,15 @@ export default {
     weight: '权重',
     model: '模型',
     required: '此项为必填'
+  },
+  modelAlias: {
+    create: '新建别名',
+    createAlias: '创建别名',
+    editAlias: '编辑别名',
+    name: '别名',
+    mappings: '个映射',
+    addMapping: '添加映射',
+    editMapping: '编辑映射',
+    providerType: '厂商类型'
   }
 }

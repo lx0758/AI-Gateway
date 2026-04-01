@@ -88,21 +88,17 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 }
 
 func (h *OpenAIProxyHandler) ListModels(c *gin.Context) {
-	var mappings []model.ModelMapping
-	model.DB.Preload("Provider").Find(&mappings)
+	var aliases []model.Alias
+	model.DB.Find(&aliases)
 
-	modelMap := make(map[string]bool)
 	var models []map[string]interface{}
 
-	for _, m := range mappings {
-		if _, exists := modelMap[m.Alias]; !exists {
-			modelMap[m.Alias] = true
-			models = append(models, map[string]interface{}{
-				"id":       m.Alias,
-				"object":   "model",
-				"owned_by": "ai-proxy",
-			})
-		}
+	for _, a := range aliases {
+		models = append(models, map[string]interface{}{
+			"id":       a.Name,
+			"object":   "model",
+			"owned_by": "ai-proxy",
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -114,14 +110,14 @@ func (h *OpenAIProxyHandler) ListModels(c *gin.Context) {
 func (h *OpenAIProxyHandler) GetModel(c *gin.Context) {
 	modelID := c.Param("id")
 
-	var mapping model.ModelMapping
-	if err := model.DB.Where("alias = ?", modelID).First(&mapping).Error; err != nil {
+	var alias model.Alias
+	if err := model.DB.Where("name = ?", modelID).First(&alias).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":       mapping.Alias,
+		"id":       alias.Name,
 		"object":   "model",
 		"owned_by": "ai-proxy",
 	})

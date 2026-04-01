@@ -108,15 +108,8 @@ async function fetchKeys() {
 
 async function fetchAvailableModels() {
   try {
-    const res = await api.get('/model-mappings')
-    const seen = new Set<string>()
-    availableModels.value = (res.data.mappings || [])
-      .filter((m: any) => {
-        if (seen.has(m.alias)) return false
-        seen.add(m.alias)
-        return true
-      })
-      .map((m: any) => ({ alias: m.alias }))
+    const res = await api.get('/aliases')
+    availableModels.value = (res.data.aliases || []).map((a: any) => ({ alias: a.alias }))
   } catch (e) {
     console.error(e)
   }

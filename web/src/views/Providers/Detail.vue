@@ -30,9 +30,18 @@
       <template #header>{{ t('provider.models') }}</template>
       <el-table :data="models" stripe @row-click="showModelDetail" @selection-change="handleSelectionChange" class="clickable-table">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="model_id" :label="t('provider.modelId')" />
+        <el-table-column prop="model_id" :label="t('provider.modelId')" width="180" />
         <el-table-column prop="display_name" :label="t('common.name')" />
-        <el-table-column prop="context_window" :label="t('provider.contextWindow')" />
+        <el-table-column :label="t('provider.contextWindow')" width="180" >
+          <template #default="{ row }">
+            {{ row.context_window }} / {{ row.max_output }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('provider.price')" width="100" >
+          <template #default="{ row }">
+            {{ row.input_price }} / {{ row.output_price }}
+          </template>
+        </el-table-column>
         <el-table-column :label="t('provider.source')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.source === 'manual' ? 'warning' : 'info'" size="small">
@@ -207,7 +216,7 @@ async function fetchProvider() {
   try {
     const res = await api.get(`/providers/${providerId}`)
     provider.value = res.data.provider
-    models.value = res.data.provider?.models || []
+    models.value = (res.data.provider?.models || []).sort((a: any, b: any) => a.model_id.localeCompare(b.model_id))
   } catch (e) {
     console.error(e)
   } finally {
