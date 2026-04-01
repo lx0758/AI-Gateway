@@ -5,7 +5,7 @@
 当前系统在编辑功能和数据管理上存在不足：
 - 前端编辑厂商时不加载现有数据
 - 模型映射不支持修改关键字段
-- API Key 的 `allowed_models` 使用 JSON 存储，查询和管理不便
+- API Key 的 `models` 使用 JSON 存储，查询和管理不便
 - 模型同步会覆盖手动配置
 - 仪表盘 API 返回 snake_case 字段名与前端 camelCase 不匹配
 - 刷新页面后跳转登录页，路由守卫在 fetchUser 执行前就检查了登录状态
@@ -39,13 +39,13 @@
 
 ```
 当前：
-keys.allowed_models = '["gpt-4", "claude-3"]'  -- JSON 字符串
+keys.models = '["gpt-4", "claude-3"]'  -- JSON 字符串
 
 改进后：
 api_key_models 表
 ├── id (PK)
 ├── key_id (FK → keys.id)
-├── model_alias (关联到 model_mappings.alias)
+├── model (关联到 model_mappings.alias)
 └── created_at
 ```
 

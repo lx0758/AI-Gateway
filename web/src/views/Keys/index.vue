@@ -18,7 +18,7 @@
           <template #default="{ row }">
             <template v-if="row.models && row.models.length > 0">
               <el-tag v-for="m in row.models.slice(0, 3)" :key="m.id" size="small" style="margin-right: 4px">
-                {{ m.model_alias }}
+                {{ m.models }}
               </el-tag>
               <el-tag v-if="row.models.length > 3" size="small" type="info">+{{ row.models.length - 3 }}</el-tag>
             </template>
@@ -41,19 +41,13 @@
 
     <el-dialog v-model="dialogVisible" :title="editingId ? t('common.edit') : t('apiKey.createKey')">
       <el-form :model="form" ref="formRef" label-width="auto">
-        <el-form-item :label="t('apiKey.name')">
+        <el-form-item :label="t('apiKey.name')" required>
           <el-input v-model="form.name" />
         </el-form-item>
         <el-form-item :label="t('apiKey.allowedModels')">
-          <el-select v-model="form.allowed_models" multiple style="width: 100%" :placeholder="t('apiKey.allModels')" filterable>
+          <el-select v-model="form.models" multiple style="width: 100%" :placeholder="t('apiKey.allModels')" filterable>
             <el-option v-for="m in availableModels" :key="m.alias" :label="m.alias" :value="m.alias" />
           </el-select>
-        </el-form-item>
-        <el-form-item :label="t('apiKey.quota')">
-          <el-input-number v-model="form.quota" :min="0" />
-        </el-form-item>
-        <el-form-item :label="t('apiKey.rateLimit')">
-          <el-input-number v-model="form.rate_limit" :min="0" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -94,9 +88,7 @@ const formRef = ref()
 
 const form = reactive({
   name: '',
-  quota: 0,
-  rate_limit: 0,
-  allowed_models: [] as string[]
+  models: [] as string[]
 })
 
 onMounted(() => {
@@ -139,12 +131,10 @@ function showDialog(key?: any) {
   if (key) {
     Object.assign(form, {
       name: key.name || '',
-      quota: key.quota || 0,
-      rate_limit: key.rate_limit || 0,
-      allowed_models: key.models?.map((m: any) => m.model_alias) || []
+      models: key.models?.map((m: any) => m.models) || []
     })
   } else {
-    Object.assign(form, { name: '', quota: 0, rate_limit: 0, allowed_models: [] })
+    Object.assign(form, { name: '', models: [] })
   }
   dialogVisible.value = true
 }

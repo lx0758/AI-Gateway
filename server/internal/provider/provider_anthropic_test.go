@@ -787,7 +787,7 @@ event: content_block_start
 data: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"\n\n已执行工具测试。当前目录下有一个文件 `opencode.exe`。"}}
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"\n\n已执行工具测试。当前目录下有一个文件 'opencode.exe'。"}}
 
 event: content_block_stop
 data: {"type":"content_block_stop","index":1}

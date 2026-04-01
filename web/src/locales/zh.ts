@@ -65,6 +65,7 @@ export default {
   provider: {
     name: '厂商名称',
     type: 'API 类型',
+    apiStyles: '支持格式',
     baseUrl: '接口地址',
     apiKey: 'API 密钥',
     apiKeyPlaceholder: '留空则保持当前密钥不变',
@@ -89,9 +90,6 @@ export default {
     name: '密钥名称',
     key: 'API 密钥',
     allowedModels: '允许模型',
-    quota: '配额',
-    usedQuota: '已用',
-    rateLimit: '速率限制',
     expiresAt: '过期时间',
     createKey: '创建 API 密钥',
     allModels: '所有模型'
@@ -104,6 +102,8 @@ export default {
     completionTokens: '补全 Token',
     successRate: '成功率',
     avgLatency: '平均耗时',
+    callMethod: '调用方式',
+    callMethodStats: '调用方式统计',
     totalRequests: '总请求数',
     time: '时间',
     model: '模型',
@@ -114,9 +114,9 @@ export default {
     keyName: 'Key 名称',
     callCount: '调用次数',
     providerModel: '厂商/模型',
-    typeProviderModel: '类型/厂商/模型',
     source: '接入点',
     sourceStats: '接入点统计',
+    provider: '厂商',
     providerStats: '厂商统计',
     providerModelStats: '厂商模型统计',
     key: 'Key',
@@ -131,6 +131,7 @@ export default {
     passwordChanged: '密码修改成功'
   },
   modelMapping: {
+    create: '创建映射',
     alias: '模型别名',
     actualModel: '实际模型',
     weight: '权重',

@@ -15,24 +15,21 @@ import (
 type APIKeyHandler struct{}
 
 type createAPIKeyRequest struct {
-	Name          string   `json:"name" binding:"required"`
-	Quota         int      `json:"quota"`
-	RateLimit     int      `json:"rate_limit"`
-	AllowedModels []string `json:"allowed_models"`
-	ExpiresAt     *string  `json:"expires_at"`
+	Name      string   `json:"name" binding:"required"`
+	Models    []string `json:"models"`
+	ExpiresAt *string  `json:"expires_at"`
 }
 
 type updateAPIKeyRequest struct {
-	Name      *string `json:"name"`
-	Quota     *int    `json:"quota"`
-	RateLimit *int    `json:"rate_limit"`
-	ExpiresAt *string `json:"expires_at"`
-	Enabled   *bool   `json:"enabled"`
+	Name      *string  `json:"name"`
+	Models    []string `json:"models"`
+	ExpiresAt *string  `json:"expires_at"`
+	Enabled   *bool    `json:"enabled"`
 }
 
 type keyModelResponse struct {
-	ID         uint   `json:"id"`
-	ModelAlias string `json:"model_alias"`
+	ID    uint   `json:"id"`
+	Model string `json:"model"`
 }
 
 type apiKeyResponse struct {
@@ -77,8 +74,8 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 		models := make([]keyModelResponse, len(k.Models))
 		for j, m := range k.Models {
 			models[j] = keyModelResponse{
-				ID:         m.ID,
-				ModelAlias: m.ModelAlias,
+				ID:    m.ID,
+				Model: m.Model,
 			}
 		}
 
@@ -123,10 +120,10 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		return
 	}
 
-	for _, alias := range req.AllowedModels {
+	for _, alias := range req.Models {
 		akm := model.KeyModel{
-			KeyID:      key.ID,
-			ModelAlias: alias,
+			KeyID: key.ID,
+			Model: alias,
 		}
 		model.DB.Create(&akm)
 	}
@@ -136,8 +133,8 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 	models := make([]keyModelResponse, len(key.Models))
 	for j, m := range key.Models {
 		models[j] = keyModelResponse{
-			ID:         m.ID,
-			ModelAlias: m.ModelAlias,
+			ID:    m.ID,
+			Model: m.Model,
 		}
 	}
 
@@ -216,8 +213,8 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	models := make([]keyModelResponse, len(key.Models))
 	for j, m := range key.Models {
 		models[j] = keyModelResponse{
-			ID:         m.ID,
-			ModelAlias: m.ModelAlias,
+			ID:    m.ID,
+			Model: m.Model,
 		}
 	}
 
@@ -254,8 +251,8 @@ func (h *APIKeyHandler) AddModel(c *gin.Context) {
 	}
 
 	akm := model.KeyModel{
-		KeyID:      uint(id),
-		ModelAlias: req.ModelAlias,
+		KeyID: uint(id),
+		Model: req.ModelAlias,
 	}
 	if err := model.DB.Create(&akm).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -263,8 +260,8 @@ func (h *APIKeyHandler) AddModel(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"model": keyModelResponse{
-		ID:         akm.ID,
-		ModelAlias: akm.ModelAlias,
+		ID:    akm.ID,
+		Model: akm.Model,
 	}})
 }
 
@@ -305,8 +302,8 @@ func (h *APIKeyHandler) ListModels(c *gin.Context) {
 	result := make([]keyModelResponse, len(models))
 	for i, m := range models {
 		result[i] = keyModelResponse{
-			ID:         m.ID,
-			ModelAlias: m.ModelAlias,
+			ID:    m.ID,
+			Model: m.Model,
 		}
 	}
 

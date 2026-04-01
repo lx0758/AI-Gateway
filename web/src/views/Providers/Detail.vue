@@ -8,8 +8,10 @@
 
     <el-card class="info-card">
       <el-descriptions :column="2" border>
-        <el-descriptions-item :label="t('provider.type')">{{ formatType(provider?.type) }}</el-descriptions-item>
-        <el-descriptions-item :label="t('provider.baseUrl')">{{ provider?.base_url }}</el-descriptions-item>
+        <el-descriptions-item :label="t('provider.apiStyles')">
+          <el-tag v-if="provider?.openai_base_url" type="success" style="margin-right: 4px">OpenAI</el-tag>
+          <el-tag v-if="provider?.anthropic_base_url" type="primary">Anthropic</el-tag>
+        </el-descriptions-item>
         <el-descriptions-item :label="t('common.status')">
           <el-tag :type="provider?.enabled ? 'success' : 'info'">
             {{ provider?.enabled ? t('common.enabled') : t('common.disabled') }}
@@ -194,15 +196,6 @@ const form = reactive({
 
 const rules = {
   model_id: [{ required: true, message: () => t('common.required'), trigger: 'blur' }]
-}
-
-const typeLabels: Record<string, string> = {
-  openai: '@ai-sdk/openai-compatible',
-  anthropic: '@ai-sdk/anthropic'
-}
-
-function formatType(type: string) {
-  return typeLabels[type] || type
 }
 
 onMounted(() => {

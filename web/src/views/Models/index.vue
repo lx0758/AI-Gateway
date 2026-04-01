@@ -6,7 +6,7 @@
           <span>{{ t('menu.models') }}</span>
           <div class="header-actions">
             <el-button type="danger" @click="handleBatchDelete" :disabled="selectedIds.length === 0">{{ t('common.batchDelete') }} ({{ selectedIds.length }})</el-button>
-            <el-button type="primary" @click="showDialog()">{{ t('common.create') }}</el-button>
+            <el-button type="primary" @click="showDialog()">{{ t('modelMapping.create') }}</el-button>
           </div>
         </div>
       </template>

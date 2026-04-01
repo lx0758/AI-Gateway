@@ -45,6 +45,20 @@
       </el-table>
     </el-card>
 
+    <el-card class="call-method-stats-card" v-if="callMethodStats.length">
+      <template #header>{{ t('usage.callMethodStats') || '调用方式统计' }}</template>
+      <el-table :data="callMethodStats" stripe size="small">
+        <el-table-column prop="call_method" :label="t('usage.callMethod') || '调用方式'" />
+        <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
+        <el-table-column prop="tokens" :label="'Tokens'">
+          <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
+          <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
     <el-card class="key-stats-card" v-if="keyStats.length">
       <template #header>{{ t('usage.keyStats') || 'Key 统计' }}</template>
       <el-table :data="keyStats" stripe size="small">
@@ -90,9 +104,14 @@
     <el-card class="provider-model-stats-card" v-if="providerModelStats.length">
       <template #header>{{ t('usage.providerModelStats') || '厂商模型统计' }}</template>
       <el-table :data="providerModelStats" stripe size="small">
-        <el-table-column :label="t('usage.providerModel')" width="200">
+        <el-table-column :label="t('usage.model')">
           <template #default="{ row }">
-            {{ row.provider_name }}/{{ row.model }}
+            {{ row.actual_model_name }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('usage.provider')">
+          <template #default="{ row }">
+            {{ row.provider_name }}
           </template>
         </el-table-column>
         <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
@@ -111,29 +130,34 @@
         <el-table-column :label="t('usage.time') || '时间'" width="160">
           <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
         </el-table-column>
-        <el-table-column prop="source" :label="t('usage.source') || '来源'" width="120">
+        <el-table-column prop="source" :label="t('usage.source') || '来源'" width="100">
           <template #default="{ row }">
             <el-tag size="small" type="info">{{ row.source }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="key_name" :label="t('usage.key') || 'Key'" width="120" />
+        <el-table-column prop="key_name" :label="t('usage.key') || 'Key'" width="100" />
         <el-table-column prop="model" :label="t('usage.model') || '模型'" width="150">
           <template #default="{ row }">
             <span>{{ row.model }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('usage.typeProviderModel') || '类型/厂家/模型'" width="280">
+        <el-table-column :label="t('usage.providerModel') || '厂商/模型'" width="250">
           <template #default="{ row }">
-            <el-tag size="small" type="info">{{ row.provider_type }}/{{ row.provider_name }}/{{ row.actual_model_name }}</el-tag>
+            <el-tag size="small" type="info">{{ row.provider_name }}/{{ row.actual_model_name }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="call_method" :label="t('usage.callMethod') || '调用方式'" width="100">
+          <template #default="{ row }">
+            <el-tag size="small" type="info">{{ row.call_method }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="total_tokens" :label="'Tokens'" width="100">
           <template #default="{ row }">{{ formatTokens(row.total_tokens) }}</template>
         </el-table-column>
-        <el-table-column prop="latency_ms" :label="t('usage.latency') || '耗时'" width="100">
+        <el-table-column prop="latency_ms" :label="t('usage.latency') || '耗时'" width="80">
           <template #default="{ row }">{{ formatLatency(row.latency_ms) }}</template>
         </el-table-column>
-        <el-table-column prop="status" :label="t('common.status') || '结果'" width="100">
+        <el-table-column prop="status" :label="t('common.status') || '状态'" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 'success' ? 'success' : 'danger'" size="small">
               {{ row.status }}
@@ -165,11 +189,11 @@ interface LogItem {
   key_id: number
   key_name: string
   model: string
-  provider_type: string
   provider_id: number
   provider_name: string
   actual_model_id: string
   actual_model_name: string
+  call_method: string
   total_tokens: number
   latency_ms: number
   status: string
@@ -195,10 +219,11 @@ const stats = computed(() => {
 })
 
 const sourceStats = computed(() => aggregateBy('source'))
+const callMethodStats = computed(() => aggregateBy('call_method'))
 const keyStats = computed(() => aggregateBy('key_name'))
 const modelStats = computed(() => aggregateBy('model'))
 const providerStats = computed(() => aggregateBy('provider_name'))
-const providerModelStats = computed(() => aggregateBy(['provider_name', 'model']))
+const providerModelStats = computed(() => aggregateBy(['provider_name', 'actual_model_name']))
 
 function aggregateBy(dimensions: string | string[]): any[] {
   const list = logs.value
@@ -267,6 +292,7 @@ async function fetchLogs() {
 .usage-page { padding: 20px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .source-stats-card { margin-top: 20px; }
+.call-method-stats-card { margin-top: 20px; }
 .key-stats-card { margin-top: 20px; }
 .model-stats-card { margin-top: 20px; }
 .provider-stats-card { margin-top: 20px; }

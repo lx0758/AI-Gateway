@@ -25,19 +25,19 @@ type User struct {
 }
 
 type Provider struct {
-	ID         uint   `gorm:"primaryKey"`
-	Name       string `gorm:"uniqueIndex"`
-	Type       string
-	BaseURL    string
-	APIKey     string
-	Enabled    bool   `gorm:"default:true"`
-	Priority   int    `gorm:"default:0"`
-	Config     string `gorm:"type:text"`
-	LastSyncAt *time.Time
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	DeletedAt  gorm.DeletedAt
-	Models     []ProviderModel
+	ID               uint   `gorm:"primaryKey"`
+	Name             string `gorm:"uniqueIndex"`
+	OpenAIBaseURL    string `gorm:"column:openai_base_url"`
+	AnthropicBaseURL string `gorm:"column:anthropic_base_url"`
+	APIKey           string
+	Enabled          bool   `gorm:"default:true"`
+	Priority         int    `gorm:"default:0"`
+	Config           string `gorm:"type:text"`
+	LastSyncAt       *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	DeletedAt        gorm.DeletedAt
+	Models           []ProviderModel
 }
 
 type ProviderModel struct {
@@ -85,10 +85,10 @@ type Key struct {
 }
 
 type KeyModel struct {
-	ID         uint `gorm:"primaryKey"`
-	KeyID      uint `gorm:"index"`
-	ModelAlias string
-	CreatedAt  time.Time
+	ID        uint `gorm:"primaryKey"`
+	KeyID     uint `gorm:"index"`
+	Model     string
+	CreatedAt time.Time
 }
 
 type UsageLog struct {
@@ -97,11 +97,11 @@ type UsageLog struct {
 	KeyID           uint `gorm:"index"`
 	KeyName         string
 	Model           string
-	ProviderType    string
 	ProviderID      uint `gorm:"index"`
 	ProviderName    string
 	ActualModelID   string `gorm:"index"`
 	ActualModelName string
+	CallMethod      string
 	TotalTokens     int `gorm:"default:0"`
 	LatencyMs       int `gorm:"default:0"`
 	Status          string
@@ -110,8 +110,8 @@ type UsageLog struct {
 }
 
 func (u *UsageLog) String() string {
-	return fmt.Sprintf("[%s] %s calling model %s, provider:(%s/%s/%s), tokens:%d, time:%dms, status:%s",
-		u.Source, u.KeyName, u.Model, u.ProviderType, u.ProviderName, u.ActualModelName, u.TotalTokens, u.LatencyMs, u.Status,
+	return fmt.Sprintf("[%s] %s calling model %s, provider:(%s/%s), method:%s, tokens:%d, time:%dms, status:%s",
+		u.Source, u.KeyName, u.Model, u.ProviderName, u.ActualModelName, u.CallMethod, u.TotalTokens, u.LatencyMs, u.Status,
 	)
 }
 

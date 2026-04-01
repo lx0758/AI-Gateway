@@ -62,7 +62,7 @@ The system SHALL provide UI for managing API keys.
 
 #### Scenario: Create key form
 - **WHEN** user clicks "Create Key"
-- **THEN** system shows form with name, allowed_models, quota, rate_limit fields
+- **THEN** system shows form with name, models, quota, rate_limit fields
 
 ### Requirement: Usage statistics page
 

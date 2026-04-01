@@ -31,26 +31,18 @@ func (u openAIUsage) total() int {
 	return u.TotalTokens
 }
 
-type OpenAICompatibleProvider struct {
+type OpenAIProvider struct {
 	cfg *Config
 }
 
-func NewOpenAICompatibleProvider(cfg *Config) *OpenAICompatibleProvider {
-	return &OpenAICompatibleProvider{cfg: cfg}
+func NewOpenAIProvider(cfg *Config) *OpenAIProvider {
+	return &OpenAIProvider{cfg: cfg}
 }
 
-func (m *OpenAICompatibleProvider) Name() string {
-	return m.cfg.ProviderName
-}
-
-func (m *OpenAICompatibleProvider) Type() string {
-	return m.cfg.ProviderType
-}
-
-func (m *OpenAICompatibleProvider) SyncModels(provider *model.Provider) ([]model.ProviderModel, error) {
-	baseURL := provider.BaseURL
+func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, error) {
+	baseURL := m.cfg.BaseURL
 	if baseURL == "" {
-		return nil, fmt.Errorf("OpenAI compatible base URL is required")
+		return nil, fmt.Errorf("OpenAI base URL is required")
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -58,7 +50,8 @@ func (m *OpenAICompatibleProvider) SyncModels(provider *model.Provider) ([]model
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+provider.APIKey)
+	httpReq.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
@@ -73,9 +66,18 @@ func (m *OpenAICompatibleProvider) SyncModels(provider *model.Provider) ([]model
 
 	var result struct {
 		Data []struct {
-			ID      string `json:"id"`
-			Object  string `json:"object"`
-			OwnedBy string `json:"owned_by"`
+			ID            string    `json:"id"`
+			Name          string    `json:"name"`
+			Created       time.Time `json:"created"`
+			Description   time.Time `json:"description"`
+			ContextLength int       `json:"context_length"`
+			Object        string    `json:"object"`
+			OwnedBy       string    `json:"owned_by"`
+			Pricing       struct {
+				Completion float64 `json:"completion"`
+				Prompt     float64 `json:"prompt"`
+				WebSearch  float64 `json:"web_search"`
+			} `json:"pricing"`
 		} `json:"data"`
 	}
 
@@ -83,13 +85,20 @@ func (m *OpenAICompatibleProvider) SyncModels(provider *model.Provider) ([]model
 		return nil, err
 	}
 
-	models := make([]model.ProviderModel, 0, len(result.Data))
+	models := []model.ProviderModel{}
 	for _, m := range result.Data {
+		if m.ID == "" {
+			continue
+		}
 		models = append(models, model.ProviderModel{
-			ProviderID:     provider.ID,
+			ProviderID:     providerID,
 			ModelID:        m.ID,
 			DisplayName:    m.ID,
 			OwnedBy:        m.OwnedBy,
+			ContextWindow:  m.ContextLength,
+			MaxOutput:      0,
+			InputPrice:     m.Pricing.Prompt,
+			OutputPrice:    m.Pricing.Completion,
 			SupportsStream: true,
 			IsAvailable:    true,
 			Source:         "sync",
@@ -99,7 +108,7 @@ func (m *OpenAICompatibleProvider) SyncModels(provider *model.Provider) ([]model
 	return models, nil
 }
 
-func (m *OpenAICompatibleProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
+func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		return 0, err
@@ -151,7 +160,7 @@ func (m *OpenAICompatibleProvider) ExecuteOpenAIRequest(c *gin.Context, pm *mode
 	return tokens, nil
 }
 
-func (m *OpenAICompatibleProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader) int {
+func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader) int {
 	src, dst = recordStream("O2O", src, dst)
 	reader := bufio.NewReader(src)
 	tokens := 0
@@ -194,7 +203,7 @@ func (m *OpenAICompatibleProvider) copyOpenAIStreaming(dst io.Writer, src io.Rea
 	return tokens
 }
 
-func (m *OpenAICompatibleProvider) copyOpenAIResponse(dst io.Writer, src io.Reader) int {
+func (m *OpenAIProvider) copyOpenAIResponse(dst io.Writer, src io.Reader) int {
 	body, err := io.ReadAll(src)
 	if err != nil {
 		return 0
@@ -215,7 +224,7 @@ func (m *OpenAICompatibleProvider) copyOpenAIResponse(dst io.Writer, src io.Read
 	return tokens
 }
 
-func (m *OpenAICompatibleProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
+func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		return 0, err
@@ -326,7 +335,7 @@ func (m *OpenAICompatibleProvider) ExecuteAnthropicRequest(c *gin.Context, pm *m
 	return tokens, nil
 }
 
-func (m *OpenAICompatibleProvider) extractSystemContent(system interface{}) string {
+func (m *OpenAIProvider) extractSystemContent(system interface{}) string {
 	if system == nil {
 		return ""
 	}
@@ -358,7 +367,7 @@ func (m *OpenAICompatibleProvider) extractSystemContent(system interface{}) stri
 	return ""
 }
 
-func (m *OpenAICompatibleProvider) convertAnthropicMessageToOpenAI(msg map[string]interface{}) []map[string]interface{} {
+func (m *OpenAIProvider) convertAnthropicMessageToOpenAI(msg map[string]interface{}) []map[string]interface{} {
 	role, _ := msg["role"].(string)
 	content := msg["content"]
 
@@ -461,7 +470,7 @@ func (m *OpenAICompatibleProvider) convertAnthropicMessageToOpenAI(msg map[strin
 	}
 }
 
-func (m *OpenAICompatibleProvider) convertAnthropicToolResultToOpenAI(blockMap map[string]interface{}) map[string]interface{} {
+func (m *OpenAIProvider) convertAnthropicToolResultToOpenAI(blockMap map[string]interface{}) map[string]interface{} {
 	toolUseID, _ := blockMap["tool_use_id"].(string)
 	result := map[string]interface{}{
 		"role":         "tool",
@@ -496,7 +505,7 @@ func (m *OpenAICompatibleProvider) convertAnthropicToolResultToOpenAI(blockMap m
 	return result
 }
 
-func (m *OpenAICompatibleProvider) convertAnthropicToolToOpenAI(tool map[string]interface{}) map[string]interface{} {
+func (m *OpenAIProvider) convertAnthropicToolToOpenAI(tool map[string]interface{}) map[string]interface{} {
 	result := map[string]interface{}{
 		"type": "function",
 		"function": map[string]interface{}{
@@ -510,7 +519,7 @@ func (m *OpenAICompatibleProvider) convertAnthropicToolToOpenAI(tool map[string]
 	return result
 }
 
-func (m *OpenAICompatibleProvider) convertOpenAIResponseToAnthropic(openAIResp []byte) ([]byte, int, error) {
+func (m *OpenAIProvider) convertOpenAIResponseToAnthropic(openAIResp []byte) ([]byte, int, error) {
 	var openAI struct {
 		ID      string `json:"id"`
 		Model   string `json:"model"`
@@ -595,7 +604,7 @@ func (m *OpenAICompatibleProvider) convertOpenAIResponseToAnthropic(openAIResp [
 	return result, tokens, nil
 }
 
-func (m *OpenAICompatibleProvider) isStreaming(resp *http.Response) bool {
+func (m *OpenAIProvider) isStreaming(resp *http.Response) bool {
 	contentType := resp.Header.Get("Content-Type")
 	return len(resp.Header["Transfer-Encoding"]) > 0 ||
 		(len(contentType) > 0 && len(contentType) >= 17 && contentType[:17] == "text/event-stream")
@@ -608,7 +617,7 @@ type toolCallState struct {
 	startSent bool
 }
 
-func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, model string) int {
+func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, model string) int {
 	src, dst = recordStream("A2O", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("msg_%s", m.generateID())
@@ -865,7 +874,7 @@ func (m *OpenAICompatibleProvider) streamOpenAIToAnthropic(src io.Reader, dst io
 	return tokens
 }
 
-func (m *OpenAICompatibleProvider) writeAnthropicSSE(w io.Writer, eventType string, data interface{}) {
+func (m *OpenAIProvider) writeAnthropicSSE(w io.Writer, eventType string, data interface{}) {
 	dataBytes, _ := json.Marshal(data)
 	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, string(dataBytes))
 	if flusher, ok := w.(http.Flusher); ok {
@@ -873,7 +882,7 @@ func (m *OpenAICompatibleProvider) writeAnthropicSSE(w io.Writer, eventType stri
 	}
 }
 
-func (m *OpenAICompatibleProvider) generateID() string {
+func (m *OpenAIProvider) generateID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, 24)
 	for i := range b {

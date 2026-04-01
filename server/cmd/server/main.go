@@ -46,22 +46,24 @@ func main() {
 	providerModelHandler := handler.NewProviderModelHandler()
 	modelMappingHandler := handler.NewModelMappingHandler()
 	apiKeyHandler := handler.NewAPIKeyHandler()
-	proxyHandler := handler.NewProxyHandler()
+	openAIProxyHandler := handler.NewOpenAIProxyHandler()
 	anthropicProxyHandler := handler.NewAnthropicProxyHandler()
 	usageHandler := handler.NewUsageHandler()
 
 	openai := r.Group("/openai/v1")
 	openai.Use(middleware.RequireAPIKey())
 	{
-		openai.POST("/chat/completions", proxyHandler.ChatCompletions)
-		openai.GET("/models", proxyHandler.ListModels)
-		openai.GET("/models/:id", proxyHandler.GetModel)
+		openai.POST("/chat/completions", openAIProxyHandler.ChatCompletions)
+		openai.GET("/models", openAIProxyHandler.ListModels)
+		openai.GET("/models/:id", openAIProxyHandler.GetModel)
 	}
 
 	anthropic := r.Group("/anthropic/v1")
 	anthropic.Use(middleware.RequireAPIKeyForAnthropic())
 	{
 		anthropic.POST("/messages", anthropicProxyHandler.Messages)
+		anthropic.GET("/models", anthropicProxyHandler.ListModels)
+		anthropic.GET("/models/:id", anthropicProxyHandler.GetModel)
 	}
 
 	api := r.Group("/api/v1")

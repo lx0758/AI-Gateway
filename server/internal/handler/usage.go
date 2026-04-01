@@ -22,11 +22,11 @@ type logsResponse struct {
 	KeyID           uint      `json:"key_id"`
 	KeyName         string    `json:"key_name"`
 	Model           string    `json:"model"`
-	ProviderType    string    `json:"provider_type"`
 	ProviderID      uint      `json:"provider_id"`
 	ProviderName    string    `json:"provider_name"`
 	ActualModelID   string    `json:"actual_model_id"`
 	ActualModelName string    `json:"actual_model_name"`
+	CallMethod      string    `json:"call_method"`
 	TotalTokens     int64     `json:"total_tokens"`
 	LatencyMs       int64     `json:"latency_ms"`
 	Status          string    `json:"status"`
@@ -137,21 +137,25 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 	})
 }
 
-func NewUsageLog(source string, keyID uint, keyName, modelName string, result *router.RouteResult, tokens int, latencyMs int, status string, errorMsg string) *model.UsageLog {
+func NewUsageLog(source string, keyID uint, keyName, modelName string, result *router.RouteResult, matched bool, tokens int, latencyMs int, status string, errorMsg string) *model.UsageLog {
 	actualModelName := result.ProviderModel.DisplayName
 	if actualModelName == "" {
 		actualModelName = result.ProviderModel.ModelID
+	}
+	callMethod := "direct"
+	if !matched {
+		callMethod = "convert"
 	}
 	return &model.UsageLog{
 		Source:          source,
 		KeyID:           keyID,
 		KeyName:         keyName,
 		Model:           modelName,
-		ProviderType:    result.Provider.Type,
 		ProviderID:      result.Provider.ID,
 		ProviderName:    result.Provider.Name,
 		ActualModelID:   result.ProviderModel.ModelID,
 		ActualModelName: actualModelName,
+		CallMethod:      callMethod,
 		TotalTokens:     tokens,
 		LatencyMs:       latencyMs,
 		Status:          status,

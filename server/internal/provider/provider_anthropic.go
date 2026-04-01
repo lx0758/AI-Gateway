@@ -34,16 +34,8 @@ func NewAnthropicProvider(cfg *Config) *AnthropicProvider {
 	return &AnthropicProvider{cfg: cfg}
 }
 
-func (m *AnthropicProvider) Name() string {
-	return m.cfg.ProviderName
-}
-
-func (m *AnthropicProvider) Type() string {
-	return m.cfg.ProviderType
-}
-
-func (m *AnthropicProvider) SyncModels(provider *model.Provider) ([]model.ProviderModel, error) {
-	baseURL := provider.BaseURL
+func (m *AnthropicProvider) SyncModels(providerID uint) ([]model.ProviderModel, error) {
+	baseURL := m.cfg.BaseURL
 	if baseURL == "" {
 		return nil, fmt.Errorf("Anthropic base URL is required")
 	}
@@ -53,7 +45,8 @@ func (m *AnthropicProvider) SyncModels(provider *model.Provider) ([]model.Provid
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("x-api-key", provider.APIKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-api-key", m.cfg.APIKey)
 	httpReq.Header.Set("anthropic-version", "2023-06-01")
 
 	resp, err := client.Do(httpReq)
@@ -91,8 +84,11 @@ func (m *AnthropicProvider) SyncModels(provider *model.Provider) ([]model.Provid
 		return nil, err
 	}
 
-	models := make([]model.ProviderModel, 0, len(result.Data))
+	models := []model.ProviderModel{}
 	for _, m := range result.Data {
+		if m.ID == "" {
+			continue
+		}
 		displayName := m.DisplayName
 		if displayName == "" {
 			displayName = m.ID
@@ -102,7 +98,7 @@ func (m *AnthropicProvider) SyncModels(provider *model.Provider) ([]model.Provid
 		supportsTools := true
 
 		models = append(models, model.ProviderModel{
-			ProviderID:     provider.ID,
+			ProviderID:     providerID,
 			ModelID:        m.ID,
 			DisplayName:    displayName,
 			OwnedBy:        "anthropic",

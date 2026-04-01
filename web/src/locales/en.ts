@@ -65,6 +65,7 @@ export default {
   provider: {
     name: 'Provider Name',
     type: 'API Type',
+    apiStyles: 'API Styles',
     baseUrl: 'Base URL',
     apiKey: 'API Key',
     apiKeyPlaceholder: 'Leave empty to keep current key',
@@ -89,9 +90,6 @@ export default {
     name: 'Key Name',
     key: 'API Key',
     allowedModels: 'Allowed Models',
-    quota: 'Quota',
-    usedQuota: 'Used',
-    rateLimit: 'Rate Limit',
     expiresAt: 'Expires At',
     createKey: 'Create API Key',
     allModels: 'All Models'
@@ -104,6 +102,8 @@ export default {
     completionTokens: 'Completion Tokens',
     successRate: 'Success Rate',
     avgLatency: 'Avg Latency',
+    callMethod: 'Calling Method',
+    callMethodStats: 'Calling Method Stats',
     totalRequests: 'Total Requests',
     time: 'Time',
     model: 'Model',
@@ -114,9 +114,9 @@ export default {
     keyName: 'Key Name',
     callCount: 'Calls',
     providerModel: 'Provider/Model',
-    typeProviderModel: 'Type/Provider/Model',
     source: 'Source',
     sourceStats: 'Source Stats',
+    provider: 'Provider',
     providerStats: 'Provider Stats',
     providerModelStats: 'Provider/Model Stats',
     key: 'Key',
@@ -131,6 +131,7 @@ export default {
     passwordChanged: 'Password changed successfully'
   },
   modelMapping: {
+    create: 'Create Mapping',
     alias: 'Alias',
     actualModel: 'Actual Model',
     weight: 'Weight',

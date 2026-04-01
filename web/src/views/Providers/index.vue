@@ -13,12 +13,13 @@
       <el-table :data="providers" stripe v-loading="loading" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" />
         <el-table-column prop="name" :label="t('provider.name')" width="180" />
-        <el-table-column prop="type" :label="t('provider.type')" width="250">
+        <el-table-column :label="t('provider.apiStyles')" width="250">
           <template #default="{ row }">
-            {{ formatType(row.type) }}
+            <el-tag v-if="row.openai_base_url" type="success" style="margin-right: 4px">OpenAI</el-tag>
+            <el-tag v-if="row.anthropic_base_url" type="primary">Anthropic</el-tag>
+            <span v-if="!row.openai_base_url && !row.anthropic_base_url">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="base_url" :label="t('provider.baseUrl')" />
         <el-table-column :label="t('provider.models')" width="80">
           <template #default="{ row }">
             {{ row.models?.length || 0 }}
@@ -44,14 +45,11 @@
         <el-form-item :label="t('provider.name')" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item :label="t('provider.type')" prop="type">
-          <el-select v-model="form.type" style="width: 100%">
-            <el-option label="@ai-sdk/openai-compatible" value="openai" />
-            <el-option label="@ai-sdk/anthropic" value="anthropic" />
-          </el-select>
+        <el-form-item :label="'OpenAI BaseURL'">
+          <el-input v-model="form.openai_base_url" placeholder="https://api.openai.com/v1" />
         </el-form-item>
-        <el-form-item :label="t('provider.baseUrl')" prop="base_url">
-          <el-input v-model="form.base_url" />
+        <el-form-item :label="'Anthropic BaseURL'">
+          <el-input v-model="form.anthropic_base_url" placeholder="https://api.anthropic.com/v1" />
         </el-form-item>
         <el-form-item :label="t('provider.apiKey')" prop="api_key">
           <el-input v-model="form.api_key" type="password" show-password :placeholder="editingId ? t('provider.apiKeyPlaceholder') : ''" />
@@ -86,25 +84,22 @@ const formRef = ref()
 
 const form = reactive({
   name: '',
-  type: 'openai',
-  base_url: '',
+  openai_base_url: '',
+  anthropic_base_url: '',
   api_key: ''
 })
 
 const rules = computed(() => ({
   name: [{ required: true, message: 'Required', trigger: 'blur' }],
-  type: [{ required: true, message: 'Required', trigger: 'change' }],
-  base_url: [{ required: true, message: 'Required', trigger: 'blur' }],
   api_key: editingId.value ? [] : [{ required: true, message: 'Required', trigger: 'blur' }]
 }))
 
-const typeLabels: Record<string, string> = {
-  openai: '@ai-sdk/openai-compatible',
-  anthropic: '@ai-sdk/anthropic'
-}
-
-function formatType(type: string) {
-  return typeLabels[type] || type
+function validateBaseURL() {
+  if (!form.openai_base_url && !form.anthropic_base_url) {
+    ElMessage.error('At least one BaseURL is required')
+    return false
+  }
+  return true
 }
 
 onMounted(() => {
@@ -127,7 +122,7 @@ function handleSelectionChange(selection: any[]) {
 
 async function showDialog(id?: number) {
   editingId.value = id || null
-  Object.assign(form, { name: '', type: 'openai', base_url: '', api_key: '' })
+  Object.assign(form, { name: '', openai_base_url: '', anthropic_base_url: '', api_key: '' })
   dialogVisible.value = true
   
   if (id) {
@@ -138,8 +133,8 @@ async function showDialog(id?: number) {
       if (provider) {
         Object.assign(form, {
           name: provider.name || '',
-          type: provider.type || 'openai',
-          base_url: provider.base_url || '',
+          openai_base_url: provider.openai_base_url || '',
+          anthropic_base_url: provider.anthropic_base_url || '',
           api_key: ''
         })
       }
@@ -155,6 +150,8 @@ async function showDialog(id?: number) {
 async function handleSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
+  
+  if (!validateBaseURL()) return
 
   submitting.value = true
   try {

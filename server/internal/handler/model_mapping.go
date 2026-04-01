@@ -27,9 +27,10 @@ type updateModelMappingRequest struct {
 }
 
 type providerBasicResponse struct {
-	ID      uint   `json:"id"`
-	Name    string `json:"name"`
-	Type string `json:"type"`
+	ID               uint   `json:"id"`
+	Name             string `json:"name"`
+	OpenAIBaseURL    string `json:"openai_base_url"`
+	AnthropicBaseURL string `json:"anthropic_base_url"`
 }
 
 type modelMappingResponse struct {
@@ -71,9 +72,10 @@ func (h *ModelMappingHandler) List(c *gin.Context) {
 		}
 		if m.Provider != nil {
 			item.Provider = &providerBasicResponse{
-				ID:      m.Provider.ID,
-				Name:    m.Provider.Name,
-				Type: m.Provider.Type,
+				ID:               m.Provider.ID,
+				Name:             m.Provider.Name,
+				OpenAIBaseURL:    m.Provider.OpenAIBaseURL,
+				AnthropicBaseURL: m.Provider.AnthropicBaseURL,
 			}
 		}
 		result = append(result, item)
@@ -123,9 +125,10 @@ func (h *ModelMappingHandler) Create(c *gin.Context) {
 	var providerResp *providerBasicResponse
 	if mapping.Provider != nil {
 		providerResp = &providerBasicResponse{
-			ID:      mapping.Provider.ID,
-			Name:    mapping.Provider.Name,
-			Type: mapping.Provider.Type,
+			ID:               mapping.Provider.ID,
+			Name:             mapping.Provider.Name,
+			OpenAIBaseURL:    mapping.Provider.OpenAIBaseURL,
+			AnthropicBaseURL: mapping.Provider.AnthropicBaseURL,
 		}
 	}
 
@@ -202,9 +205,10 @@ func (h *ModelMappingHandler) Update(c *gin.Context) {
 	var providerResp *providerBasicResponse
 	if mapping.Provider != nil {
 		providerResp = &providerBasicResponse{
-			ID:      mapping.Provider.ID,
-			Name:    mapping.Provider.Name,
-			Type: mapping.Provider.Type,
+			ID:               mapping.Provider.ID,
+			Name:             mapping.Provider.Name,
+			OpenAIBaseURL:    mapping.Provider.OpenAIBaseURL,
+			AnthropicBaseURL: mapping.Provider.AnthropicBaseURL,
 		}
 	}
 

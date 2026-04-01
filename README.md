@@ -124,13 +124,34 @@ GET  /api/v1/usage/dashboard # 仪表盘数据
 ### 1. 添加厂商
 
 ```bash
+# 添加只支持 OpenAI 格式的厂商
 curl -X POST http://localhost:18080/api/v1/providers \
   -H "Content-Type: application/json" \
   -b "session=your-session-cookie" \
   -d '{
     "name": "OpenAI",
-    "type": "openai",
-    "base_url": "https://api.openai.com/v1"，
+    "openai_base_url": "https://api.openai.com/v1",
+    "api_key": "sk-xxx"
+  }'
+
+# 添加只支持 Anthropic 格式的厂商
+curl -X POST http://localhost:18080/api/v1/providers \
+  -H "Content-Type: application/json" \
+  -b "session=your-session-cookie" \
+  -d '{
+    "name": "Anthropic",
+    "anthropic_base_url": "https://api.anthropic.com/v1",
+    "api_key": "sk-xxx"
+  }'
+
+# 添加同时支持两种格式的厂商
+curl -X POST http://localhost:18080/api/v1/providers \
+  -H "Content-Type: application/json" \
+  -b "session=your-session-cookie" \
+  -d '{
+    "name": "My Service",
+    "openai_base_url": "https://my-service.com/v1",
+    "anthropic_base_url": "https://my-service.com/v1",
     "api_key": "sk-xxx"
   }'
 ```
@@ -156,8 +177,8 @@ curl -X POST http://localhost:18080/api/v1/api-keys \
   -H "Content-Type: application/json" \
   -b "session=your-session-cookie" \
   -d '{
-    "name": "My API Key",
-    "allowed_models": ["gpt-4"]
+    "name": "my-api-key",
+    "models": ["gpt-4"]
   }'
 ```
 
@@ -197,12 +218,21 @@ ai-model-proxy/
 └── openspec/                   # 设计文档
 ```
 
-## 支持的厂商
+## 厂商配置说明
 
-| API Type | 显示名称 | 格式转换 |
-|----------|----------|---------|
-| `openai` | `@ai-sdk/openai-compatible` | 直通 |
-| `anthropic` | `@ai-sdk/anthropic` | OpenAI ↔ Anthropic |
+一个厂商可以配置一个或两个 BaseURL：
+- `openai_base_url`: OpenAI 兼容格式的接口地址
+- `anthropic_base_url`: Anthropic 格式的接口地址
+
+**格式转换**：
+- 当请求格式与厂商支持的格式匹配时，直接透传（无转换）
+- 当请求格式与厂商支持的格式不匹配时，自动转换（OpenAI ↔ Anthropic）
+- 路由优先匹配同格式的厂商，减少转换开销
+
+**示例场景**：
+- OpenAI 官方：只配置 `openai_base_url`
+- Anthropic 官方：只配置 `anthropic_base_url`
+- 自建服务：同时配置两个 BaseURL（如果支持两种格式）
 
 ## 开发
 

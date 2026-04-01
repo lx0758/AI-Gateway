@@ -2,11 +2,21 @@ package router
 
 import (
 	"ai-proxy/internal/model"
+	"ai-proxy/internal/provider"
 )
 
 type RouteResult struct {
-	Provider      *model.Provider
-	ProviderModel *model.ProviderModel
+	Provider         *model.Provider
+	ProviderModel    *model.ProviderModel
+	ProviderInstance provider.Provider
+}
+
+func (r *RouteResult) SupportOpenAI() bool {
+	return r.Provider.OpenAIBaseURL != ""
+}
+
+func (r *RouteResult) SupportAnthropic() bool {
+	return r.Provider.AnthropicBaseURL != ""
 }
 
 type ModelRouter struct{}
@@ -15,7 +25,7 @@ func NewModelRouter() *ModelRouter {
 	return &ModelRouter{}
 }
 
-func (r *ModelRouter) Route(alias string) (*RouteResult, error) {
+func (r *ModelRouter) Route(alias string) ([]RouteResult, error) {
 	var mappings []model.ModelMapping
 	if err := model.DB.Preload("Provider").
 		Where("alias = ? AND enabled = ?", alias, true).
@@ -28,21 +38,30 @@ func (r *ModelRouter) Route(alias string) (*RouteResult, error) {
 		return nil, nil
 	}
 
-	for _, m := range mappings {
-		if !m.Provider.Enabled {
+	var providers []RouteResult
+
+	for _, mapping := range mappings {
+		providerInfo := mapping.Provider
+		if !providerInfo.Enabled {
 			continue
 		}
 
 		var pm model.ProviderModel
-		if err := model.DB.Where("provider_id = ? AND model_id = ? AND is_available = ?", m.ProviderID, m.ProviderModelName, true).First(&pm).Error; err != nil {
+		if err := model.DB.Where("provider_id = ? AND model_id = ? AND is_available = ?", mapping.ProviderID, mapping.ProviderModelName, true).First(&pm).Error; err != nil {
 			continue
 		}
 
-		return &RouteResult{
-			Provider:      m.Provider,
-			ProviderModel: &pm,
-		}, nil
+		providerImpl := provider.NewAutomatedProvider(
+			providerInfo.OpenAIBaseURL,
+			providerInfo.AnthropicBaseURL,
+			providerInfo.APIKey,
+		)
+		providers = append(providers, RouteResult{
+			Provider:         providerInfo,
+			ProviderModel:    &pm,
+			ProviderInstance: providerImpl,
+		})
 	}
 
-	return nil, nil
+	return providers, nil
 }

@@ -13,32 +13,32 @@ import (
 type ProviderHandler struct{}
 
 type createProviderRequest struct {
-	Name     string `json:"name" binding:"required"`
-	Type     string `json:"type" binding:"required,oneof=openai anthropic"`
-	BaseURL  string `json:"base_url" binding:"required"`
-	APIKey   string `json:"api_key" binding:"required"`
-	Priority int    `json:"priority"`
+	Name             string `json:"name" binding:"required"`
+	OpenAIBaseURL    string `json:"openai_base_url"`
+	AnthropicBaseURL string `json:"anthropic_base_url"`
+	APIKey           string `json:"api_key" binding:"required"`
+	Priority         int    `json:"priority"`
 }
 
 type updateProviderRequest struct {
-	Name     string `json:"name"`
-	Type     string `json:"type" binding:"omitempty,oneof=openai anthropic"`
-	BaseURL  string `json:"base_url"`
-	APIKey   string `json:"api_key" binding:"omitempty"`
-	Enabled  *bool  `json:"enabled"`
-	Priority *int   `json:"priority"`
+	Name             string  `json:"name"`
+	OpenAIBaseURL    *string `json:"openai_base_url"`
+	AnthropicBaseURL *string `json:"anthropic_base_url"`
+	APIKey           string  `json:"api_key"`
+	Enabled          *bool   `json:"enabled"`
+	Priority         *int    `json:"priority"`
 }
 
 type providerResponse struct {
-	ID           uint                    `json:"id"`
-	Name         string                  `json:"name"`
-	Type      string                     `json:"type"`
-	BaseURL      string                  `json:"base_url"`
-	APIKeyMasked string                  `json:"api_key_masked"`
-	Enabled      bool                    `json:"enabled"`
-	Priority     int                     `json:"priority"`
-	Models       []providerModelResponse `json:"models,omitempty"`
-	CreatedAt    string                  `json:"created_at"`
+	ID               uint                    `json:"id"`
+	Name             string                  `json:"name"`
+	OpenAIBaseURL    string                  `json:"openai_base_url"`
+	AnthropicBaseURL string                  `json:"anthropic_base_url"`
+	APIKeyMasked     string                  `json:"api_key_masked"`
+	Enabled          bool                    `json:"enabled"`
+	Priority         int                     `json:"priority"`
+	Models           []providerModelResponse `json:"models,omitempty"`
+	CreatedAt        string                  `json:"created_at"`
 }
 
 func NewProviderHandler() *ProviderHandler {
@@ -60,15 +60,15 @@ func (h *ProviderHandler) List(c *gin.Context) {
 		}
 
 		result[i] = providerResponse{
-			ID:           p.ID,
-			Name:         p.Name,
-			Type:      p.Type,
-			BaseURL:      p.BaseURL,
-			APIKeyMasked: maskAPIKey(p.APIKey),
-			Enabled:      p.Enabled,
-			Priority:     p.Priority,
-			Models:       models,
-			CreatedAt:    p.CreatedAt.Format("2006-01-02 15:04:05"),
+			ID:               p.ID,
+			Name:             p.Name,
+			OpenAIBaseURL:    p.OpenAIBaseURL,
+			AnthropicBaseURL: p.AnthropicBaseURL,
+			APIKeyMasked:     maskAPIKey(p.APIKey),
+			Enabled:          p.Enabled,
+			Priority:         p.Priority,
+			Models:           models,
+			CreatedAt:        p.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
 	}
 
@@ -94,15 +94,15 @@ func (h *ProviderHandler) Get(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"provider": providerResponse{
-		ID:           provider.ID,
-		Name:         provider.Name,
-		Type:      provider.Type,
-		BaseURL:      provider.BaseURL,
-		APIKeyMasked: maskAPIKey(provider.APIKey),
-		Enabled:      provider.Enabled,
-		Priority:     provider.Priority,
-		Models:       models,
-		CreatedAt:    provider.CreatedAt.Format("2006-01-02 15:04:05"),
+		ID:               provider.ID,
+		Name:             provider.Name,
+		OpenAIBaseURL:    provider.OpenAIBaseURL,
+		AnthropicBaseURL: provider.AnthropicBaseURL,
+		APIKeyMasked:     maskAPIKey(provider.APIKey),
+		Enabled:          provider.Enabled,
+		Priority:         provider.Priority,
+		Models:           models,
+		CreatedAt:        provider.CreatedAt.Format("2006-01-02 15:04:05"),
 	}})
 }
 
@@ -114,12 +114,17 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 	}
 
 	provider := model.Provider{
-		Name:     req.Name,
-		Type:     req.Type,
-		BaseURL:  strings.TrimSuffix(req.BaseURL, "/"),
-		APIKey:   req.APIKey,
-		Enabled:  true,
-		Priority: req.Priority,
+		Name:             req.Name,
+		OpenAIBaseURL:    strings.TrimSuffix(req.OpenAIBaseURL, "/"),
+		AnthropicBaseURL: strings.TrimSuffix(req.AnthropicBaseURL, "/"),
+		APIKey:           req.APIKey,
+		Enabled:          true,
+		Priority:         req.Priority,
+	}
+
+	if provider.OpenAIBaseURL == "" && provider.AnthropicBaseURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one base URL is required"})
+		return
 	}
 
 	if err := model.DB.Create(&provider).Error; err != nil {
@@ -128,14 +133,14 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"provider": providerResponse{
-		ID:           provider.ID,
-		Name:         provider.Name,
-		Type:      provider.Type,
-		BaseURL:      provider.BaseURL,
-		APIKeyMasked: maskAPIKey(provider.APIKey),
-		Enabled:      provider.Enabled,
-		Priority:     provider.Priority,
-		CreatedAt:    provider.CreatedAt.Format("2006-01-02 15:04:05"),
+		ID:               provider.ID,
+		Name:             provider.Name,
+		OpenAIBaseURL:    provider.OpenAIBaseURL,
+		AnthropicBaseURL: provider.AnthropicBaseURL,
+		APIKeyMasked:     maskAPIKey(provider.APIKey),
+		Enabled:          provider.Enabled,
+		Priority:         provider.Priority,
+		CreatedAt:        provider.CreatedAt.Format("2006-01-02 15:04:05"),
 	}})
 }
 
@@ -162,12 +167,15 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 	if req.Name != "" {
 		updates["name"] = req.Name
 	}
-	if req.Type != "" {
-		updates["type"] = req.Type
+
+	// 允许更新 BaseURL（包括清空）
+	if req.OpenAIBaseURL != nil {
+		updates["openai_base_url"] = strings.TrimSuffix(*req.OpenAIBaseURL, "/")
 	}
-	if req.BaseURL != "" {
-		updates["base_url"] = strings.TrimSuffix(req.BaseURL, "/")
+	if req.AnthropicBaseURL != nil {
+		updates["anthropic_base_url"] = strings.TrimSuffix(*req.AnthropicBaseURL, "/")
 	}
+
 	if req.APIKey != "" {
 		updates["api_key"] = req.APIKey
 	}
@@ -176,6 +184,20 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 	}
 	if req.Priority != nil {
 		updates["priority"] = *req.Priority
+	}
+
+	// 验证更新后至少有一个 BaseURL
+	newOpenAIBaseURL := provider.OpenAIBaseURL
+	newAnthropicBaseURL := provider.AnthropicBaseURL
+	if openaiURL, ok := updates["openai_base_url"].(string); ok {
+		newOpenAIBaseURL = openaiURL
+	}
+	if anthropicURL, ok := updates["anthropic_base_url"].(string); ok {
+		newAnthropicBaseURL = anthropicURL
+	}
+	if newOpenAIBaseURL == "" && newAnthropicBaseURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one base URL is required"})
+		return
 	}
 
 	if err := model.DB.Model(&provider).Updates(updates).Error; err != nil {
@@ -191,15 +213,15 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"provider": providerResponse{
-		ID:           provider.ID,
-		Name:         provider.Name,
-		Type:      provider.Type,
-		BaseURL:      provider.BaseURL,
-		APIKeyMasked: maskAPIKey(provider.APIKey),
-		Enabled:      provider.Enabled,
-		Priority:     provider.Priority,
-		Models:       models,
-		CreatedAt:    provider.CreatedAt.Format("2006-01-02 15:04:05"),
+		ID:               provider.ID,
+		Name:             provider.Name,
+		OpenAIBaseURL:    provider.OpenAIBaseURL,
+		AnthropicBaseURL: provider.AnthropicBaseURL,
+		APIKeyMasked:     maskAPIKey(provider.APIKey),
+		Enabled:          provider.Enabled,
+		Priority:         provider.Priority,
+		Models:           models,
+		CreatedAt:        provider.CreatedAt.Format("2006-01-02 15:04:05"),
 	}})
 }
 

@@ -218,13 +218,12 @@ func (h *ProviderModelHandler) Sync(c *gin.Context) {
 		return
 	}
 
-	providerImpl := providerPkg.NewFactory().Create(&provider)
-	if providerImpl == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported provider type"})
-		return
-	}
-
-	models, err := providerImpl.SyncModels(&provider)
+	providerImpl := providerPkg.NewAutomatedProvider(
+		provider.OpenAIBaseURL,
+		provider.AnthropicBaseURL,
+		provider.APIKey,
+	)
+	models, err := providerImpl.SyncModels(provider.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -258,7 +257,7 @@ func (h *ProviderModelHandler) Sync(c *gin.Context) {
 	model.DB.Model(&provider).Update("last_sync_at", &now)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("%s models synced", providerImpl.Name()),
+		"message": fmt.Sprintf("%s models synced", provider.Name),
 		"added":   added,
 		"updated": updated,
 		"total":   len(models),
