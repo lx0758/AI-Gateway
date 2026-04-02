@@ -173,16 +173,17 @@ func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader) int {
 			}
 			continue
 		}
-		fmt.Fprintln(dst, line)
+		fmt.Fprint(dst, line)
 
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		if !strings.HasPrefix(line, "data: ") {
+		if !strings.HasPrefix(line, "data:") {
 			continue
 		}
-		data := strings.TrimPrefix(line, "data: ")
+		data := strings.TrimPrefix(line, "data:")
+		data = strings.TrimSpace(data)
 		if data == "[DONE]" {
 			break
 		}

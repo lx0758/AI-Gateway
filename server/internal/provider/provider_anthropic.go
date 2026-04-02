@@ -854,16 +854,17 @@ func (m *AnthropicProvider) copyAnthropicStreaming(dst io.Writer, src io.Reader)
 			}
 			continue
 		}
-		fmt.Fprintln(dst, line)
+		fmt.Fprint(dst, line)
 
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		if !strings.HasPrefix(line, "data: ") {
+		if !strings.HasPrefix(line, "data:") {
 			continue
 		}
-		data := strings.TrimPrefix(line, "data: ")
+		data := strings.TrimPrefix(line, "data:")
+		data = strings.TrimSpace(data)
 
 		var event struct {
 			Type  string         `json:"type"`
