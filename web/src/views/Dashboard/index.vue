@@ -1,31 +1,31 @@
 <template>
   <div class="dashboard">
-    <el-row :gutter="20">
-      <el-col :span="4">
+    <el-row :gutter="20" class="stats-row">
+      <el-col :xs="24" :sm="12" :md="8" class="stat-col">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-value">{{ formatTokens(stats.totalTokens) }}</div>
           <div class="stat-label">{{ t('dashboard.totalTokens') || '总 Tokens' }}</div>
         </el-card>
       </el-col>
-      <el-col :span="4">
+      <el-col :xs="24" :sm="12" :md="8" class="stat-col">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-value">{{ stats.todayRequests || 0 }}</div>
           <div class="stat-label">{{ t('dashboard.todayRequests') }}</div>
         </el-card>
       </el-col>
-      <el-col :span="4">
+      <el-col :xs="24" :sm="12" :md="8" class="stat-col">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-value">{{ formatLatency(stats.avgLatency) }}</div>
           <div class="stat-label">{{ t('dashboard.avgLatency') || '平均耗时' }}</div>
         </el-card>
       </el-col>
-      <el-col :span="4">
+      <el-col :xs="24" :sm="12" :md="8" class="stat-col">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-value">{{ stats.activeProviders || 0 }}</div>
           <div class="stat-label">{{ t('dashboard.activeProviders') }}</div>
         </el-card>
       </el-col>
-      <el-col :span="4">
+      <el-col :xs="24" :sm="12" :md="8" class="stat-col">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-value">{{ stats.activeKeys || 0 }}</div>
           <div class="stat-label">{{ t('dashboard.activeKeys') }}</div>
@@ -254,16 +254,22 @@ function initPieChart() {
 
 .stat-card {
   text-align: center;
+  transition: box-shadow 0.3s ease;
+}
+
+.stat-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 .stat-value {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: bold;
   color: var(--el-color-primary);
 }
 
 .stat-label {
-  margin-top: 8px;
+  margin-top: 12px;
+  font-size: 14px;
   color: var(--el-text-color-secondary);
 }
 
@@ -273,6 +279,10 @@ function initPieChart() {
 }
 
 .stats-row {
+  margin-bottom: 20px;
+}
+
+.stat-col {
   margin-bottom: 20px;
 }
 
