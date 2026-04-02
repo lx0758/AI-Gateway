@@ -1,4 +1,8 @@
 # AI Gateway
+---
+
+**此项目是作者学习大模型接口的副产物，最早的核心功能仅仅是实现 OpenAI/Anthropic API 的相互转换。**
+**目前转换功能能处理文字内容（包括 “context”、“thinking”、“tools”），多模态转换从未尝试过。**
 
 统一的 AI 服务网关平台。聚合多个大模型厂商的 API 为 OpenAI 兼容格式，未来将扩展支持 MCP/ACP 等协议代理，打造多协议 AI 服务接入中心。
 
@@ -6,6 +10,7 @@
 
 - **多协议网关**: 当前支持 OpenAI/Anthropic API 代理，未来将支持 MCP 等协议
 - **OpenAI 兼容 API**: 暴露标准的 `/openai/v1/chat/completions` 和 `/openai/v1/models` 接口
+- **Anthropic 兼容 API**: 暴露标准的 `/anthropic/v1/messages` 和 `/anthropic/v1/models` 接口
 - **多厂商支持**: 支持多种 AI 服务厂商，可轻松扩展
 - **格式自动转换**: OpenAI ↔ Anthropic 请求/响应格式自动转换
 - **智能路由**: 支持多厂商轮询、故障转移和格式匹配优化
@@ -13,32 +18,44 @@
 - **用量统计**: 请求日志和用量仪表盘，实时监控服务调用
 - **Web 控制台**: Vue 3 管理界面，支持中英文、暗色模式
 
+## 外观
+
+| 仪表盘 | 厂商列表 | 厂商模型 | 模型映射 | 密钥管理 |
+| --- | --- | --- | --- | --- |
+| ![仪表盘](docs/仪表盘.png) | ![厂商列表](docs/厂商列表.png) | ![厂商模型](docs/厂商模型.png) | ![模型映射](docs/模型映射.png) | ![密钥管理](docs/密钥管理.png) |
+
+| 日志统计 | 日志统计 | 日志统计 |
+| --- | --- | --- |
+| ![日志统计](docs/日志统计_1.png) | ![日志统计](docs/日志统计_2.png) | ![日志统计](docs/日志统计_3.png) |
+
 ## 快速开始
 
 ### 环境要求
 
 - Go 1.21+
-- Node.js 18+ (仅开发前端时需要)
+- Node.js 18+
 
 ### 安装运行
 
 ```bash
 # 克隆项目
-git clone https://github.com/user/ai-gateway.git
+git clone https://github.com/lx0758/AI_Gateway.git ai-gateway
+
+# 构建
 cd ai-gateway
+make
 
-# 构建前端
-cd web && npm install && npm run build && cd ..
+# 单独构建前端
+cd ai-gateway/web
+make
 
-# 运行服务
-cd server && go run ./cmd/server
-
-# 或构建后运行
-cd server && go build -o bin/ai-gateway-server ./cmd/server
-./bin/ai-gateway-server
+# 单独构建后端
+cd ai-gateway/server
+make
 ```
+> 编译产物在 `ai-gateway/server/bin/ai-gateway-server`
 
-服务启动后访问 http://localhost:18080
+服务启动后访问 <http://localhost:18080>
 
 ### 默认账号
 
@@ -66,7 +83,8 @@ cd server && go build -o bin/ai-gateway-server ./cmd/server
 
 ```bash
 # 使用自定义端口
-AG_SERVER_PORT=3000 ./ai-gateway-server
+AG_SERVER_PORT=3000 \
+./ai-gateway-server
 
 # 生产环境配置
 AG_SERVER_MODE=release \
@@ -255,11 +273,11 @@ ai-gateway/
 # 在 Alpine 容器中构建
 docker run --rm -v "$PWD/server:/app" -w /app alpine:latest \
   sh -c "apk add --no-cache gcc musl-dev go && \
-         CGO_ENABLED=1 go build -ldflags '-linkmode external -extldflags \"-static\"' -o bin/ai-gateway-server ./cmd/server"
+         CGO_ENABLED=1 go build -ldflags '-linkmode external -extldflags \"-static\"' -o bin/ai-gateway-server ./cmd/server/main.go"
 
 # 或在 Linux 主机上交叉编译
 cd server
-CGO_ENABLED=1 go build -ldflags '-linkmode external -extldflags "-static"' -o bin/ai-gateway-server ./cmd/server
+CGO_ENABLED=1 go build -ldflags '-linkmode external -extldflags "-static"' -o bin/ai-gateway-server ./cmd/server/main.go
 ```
 
 ### Docker 部署示例
@@ -287,8 +305,8 @@ npm run build   # 构建生产版本
 
 ```bash
 cd server
-go run ./cmd/server           # 运行
-go build -o bin/ai-gateway-server ./cmd/server  # 构建
+go run ./cmd/server                                     # 运行
+go build -o bin/ai-gateway-server ./cmd/server/main.go  # 构建
 ```
 
 ## License
