@@ -1,6 +1,6 @@
 <template>
   <div class="usage-page">
-    <el-card>
+    <el-card v-loading="loading">
       <template #header>
         <div class="card-header">
           <span>{{ t('usage.stats') }}</span>
@@ -12,6 +12,7 @@
             :end-placeholder="t('usage.endTime')"
             value-format="YYYY-MM-DD HH:mm:ss"
             @change="fetchLogs"
+            style="width: 500px; flex: 0 0 500px"
           />
         </div>
       </template>
@@ -213,7 +214,17 @@ interface LogItem {
 
 const logs = ref<LogItem[]>([])
 const loading = ref(false)
-const dateRange = ref<string[] | null>(null)
+
+function getDefaultDateRange(): string[] {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0)
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  const format = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  return [format(start), format(end)]
+}
+
+const dateRange = ref<string[]>(getDefaultDateRange())
 
 const stats = computed(() => {
   const list = logs.value
@@ -324,8 +335,8 @@ async function fetchLogs() {
   try {
     const params: Record<string, string> = {}
     if (dateRange.value && dateRange.value.length === 2) {
-      params.start_date = dateRange.value[0].split(' ')[0]
-      params.end_date = dateRange.value[1].split(' ')[0]
+      params.start_date = dateRange.value[0]
+      params.end_date = dateRange.value[1]
     }
     const res = await api.get('/usage/logs', { params })
     logs.value = res.data.logs || []
@@ -359,5 +370,14 @@ function copyError(errorMsg: string) {
 .error-text { 
   color: var(--el-color-danger); 
   font-size: 12px;
+}
+</style>
+
+<style>
+.date-range-picker {
+  width: 160px !important;
+}
+.date-range-picker .el-input__wrapper {
+  width: 160px !important;
 }
 </style>

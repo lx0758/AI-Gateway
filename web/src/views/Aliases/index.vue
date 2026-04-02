@@ -140,6 +140,7 @@ const editingMapping = ref<Mapping | null>(null)
 const currentAliasId = ref<number | null>(null)
 const aliasFormRef = ref()
 const mappingFormRef = ref()
+let providersLoaded = false
 
 const aliasForm = reactive({
   name: '',
@@ -164,23 +165,18 @@ const mappingRules = computed(() => ({
 
 onMounted(() => {
   fetchAliases()
-  fetchProviders()
 })
 
 async function fetchAliases() {
   loading.value = true
   try {
     const res = await api.get('/aliases')
-    const list = res.data.aliases || []
-    aliases.value = await Promise.all(list.map(async (a: any) => {
-      const detailRes = await api.get(`/aliases/${a.id}`)
-      return {
-        id: a.id,
-        name: a.alias,
-        enabled: a.enabled,
-        mapping_count: a.mapping_count,
-        mappings: detailRes.data.alias?.mappings || []
-      }
+    aliases.value = (res.data.aliases || []).map((a: any) => ({
+      id: a.id,
+      name: a.alias,
+      enabled: a.enabled,
+      mapping_count: a.mapping_count,
+      mappings: a.mappings || []
     }))
   } finally {
     loading.value = false
@@ -235,7 +231,11 @@ async function handleDeleteAlias(id: number) {
   fetchAliases()
 }
 
-function showMappingDialog(aliasId: number, mapping?: Mapping) {
+async function showMappingDialog(aliasId: number, mapping?: Mapping) {
+  if (!providersLoaded) {
+    await fetchProviders()
+    providersLoaded = true
+  }
   currentAliasId.value = aliasId
   editingMapping.value = mapping || null
   Object.assign(mappingForm, {

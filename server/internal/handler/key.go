@@ -208,6 +208,14 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		}
 	}
 
+	if req.Models != nil {
+		model.DB.Where("key_id = ?", key.ID).Delete(&model.KeyModel{})
+		for _, alias := range req.Models {
+			akm := model.KeyModel{KeyID: key.ID, Model: alias}
+			model.DB.Create(&akm)
+		}
+	}
+
 	model.DB.Preload("Models").First(&key, id)
 
 	models := make([]keyModelResponse, len(key.Models))

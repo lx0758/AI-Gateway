@@ -66,22 +66,25 @@ func NewAliasHandler() *AliasHandler {
 
 func (h *AliasHandler) List(c *gin.Context) {
 	var aliases []model.Alias
-	if err := model.DB.Find(&aliases).Error; err != nil {
+	if err := model.DB.Preload("Mappings.Provider").Find(&aliases).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	result := make([]aliasResponse, len(aliases))
 	for i, a := range aliases {
-		var count int64
-		model.DB.Model(&model.AliasMapping{}).Where("alias_id = ?", a.ID).Count(&count)
+		mappings := make([]mappingResponse, len(a.Mappings))
+		for j, m := range a.Mappings {
+			mappings[j] = toMappingResponse(m)
+		}
 
 		result[i] = aliasResponse{
 			ID:           a.ID,
 			Alias:        a.Name,
 			Enabled:      a.Enabled,
-			MappingCount: int(count),
+			MappingCount: len(a.Mappings),
 			CreatedAt:    a.CreatedAt.Format("2006-01-02 15:04:05"),
+			Mappings:     mappings,
 		}
 	}
 

@@ -28,34 +28,48 @@ type logsResponse struct {
 	ActualModelID   string    `json:"actual_model_id"`
 	ActualModelName string    `json:"actual_model_name"`
 	CallMethod      string    `json:"call_method"`
-	CachedTokens    int     `json:"cached_tokens"`
-	InputTokens     int     `json:"input_tokens"`
-	OutputTokens    int     `json:"output_tokens"`
-	TotalTokens     int     `json:"total_tokens"`
-	LatencyMs       int     `json:"latency_ms"`
+	CachedTokens    int       `json:"cached_tokens"`
+	InputTokens     int       `json:"input_tokens"`
+	OutputTokens    int       `json:"output_tokens"`
+	TotalTokens     int       `json:"total_tokens"`
+	LatencyMs       int       `json:"latency_ms"`
 	Status          string    `json:"status"`
 	ErrorMsg        string    `json:"error_msg"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 
 func (h *UsageHandler) Logs(c *gin.Context) {
-	startDate := c.DefaultQuery("start_date", time.Now().AddDate(0, 0, -1).Format("2006-01-02"))
-	endDate := c.DefaultQuery("end_date", time.Now().AddDate(0, 0, 1).Format("2006-01-02"))
+	startDate := c.DefaultQuery("start_date", time.Now().Format("2006-01-02 00:00:00"))
+	endDate := c.DefaultQuery("end_date", time.Now().AddDate(0, 0, 1).Format("2006-01-02 00:00:00"))
 
-	query := "SELECT * FROM usage_logs WHERE created_at >= ? AND created_at <= ?"
-	args := []interface{}{startDate, endDate}
-
-	query += " ORDER BY created_at DESC"
+	startTime, err := time.Parse("2006-01-02 15:04:05", startDate)
+	if err != nil {
+		startTime, err = time.Parse("2006-01-02", startDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start date format"})
+			return
+		}
+	}
+	endTime, err := time.Parse("2006-01-02 15:04:05", endDate)
+	if err != nil {
+		endTime, err = time.Parse("2006-01-02", endDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end date format"})
+			return
+		}
+	}
 
 	var usageLogs []model.UsageLog
-	if err := model.DB.Raw(query, args...).Scan(&usageLogs).Error; err != nil {
+	if err := model.DB.Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Order("created_at DESC").
+		Find(&usageLogs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	var logsResponses []logsResponse
-	for _, log := range usageLogs {
-		logsResponses = append(logsResponses, logsResponse{
+	logsResponses := make([]logsResponse, len(usageLogs))
+	for i, log := range usageLogs {
+		logsResponses[i] = logsResponse{
 			ID:              log.ID,
 			Source:          log.Source,
 			KeyID:           log.KeyID,
@@ -74,7 +88,7 @@ func (h *UsageHandler) Logs(c *gin.Context) {
 			Status:          log.Status,
 			ErrorMsg:        log.ErrorMsg,
 			CreatedAt:       log.CreatedAt,
-		})
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"logs": logsResponses})

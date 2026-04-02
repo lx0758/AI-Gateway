@@ -85,6 +85,7 @@ const keyDialogVisible = ref(false)
 const newKey = ref('')
 const editingId = ref<number | null>(null)
 const formRef = ref()
+let modelsLoaded = false
 
 const form = reactive({
   name: '',
@@ -93,7 +94,6 @@ const form = reactive({
 
 onMounted(() => {
   fetchKeys()
-  fetchAvailableModels()
 })
 
 async function fetchKeys() {
@@ -119,7 +119,11 @@ function handleSelectionChange(selection: any[]) {
   selectedIds.value = selection.map(item => item.id)
 }
 
-function showDialog(key?: any) {
+async function showDialog(key?: any) {
+  if (!modelsLoaded) {
+    await fetchAvailableModels()
+    modelsLoaded = true
+  }
   editingId.value = key?.id || null
   if (key) {
     Object.assign(form, {
