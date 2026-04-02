@@ -94,7 +94,11 @@ export default {
     allowedModels: '允许模型',
     expiresAt: '过期时间',
     createKey: '创建 API 密钥',
-    allModels: '所有模型'
+    allModels: '所有模型',
+    reset: '重置',
+    resetConfirmTitle: '重置 API 密钥',
+    resetConfirmMessage: '重置后旧密钥将立即失效，所有使用旧密钥的请求将失败。确定要继续吗？',
+    resetSuccess: '密钥重置成功，请立即保存新的密钥值'
   },
   usage: {
     stats: '统计',

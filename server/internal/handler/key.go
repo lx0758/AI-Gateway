@@ -317,3 +317,52 @@ func (h *APIKeyHandler) ListModels(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"models": result})
 }
+
+func (h *APIKeyHandler) Reset(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var key model.Key
+	if err := model.DB.First(&key, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "key not found"})
+		return
+	}
+
+	newKey := generateAPIKey()
+
+	if err := model.DB.Model(&key).Update("key", newKey).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	model.DB.Preload("Models").First(&key, id)
+
+	models := make([]keyModelResponse, len(key.Models))
+	for j, m := range key.Models {
+		models[j] = keyModelResponse{
+			ID:    m.ID,
+			Model: m.Model,
+		}
+	}
+
+	maskedKey := key.Key
+	if len(maskedKey) > 8 {
+		maskedKey = maskedKey[:8] + "****" + maskedKey[len(maskedKey)-4:]
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"key": apiKeyResponse{
+			ID:        key.ID,
+			Key:       maskedKey,
+			Name:      key.Name,
+			Enabled:   key.Enabled,
+			ExpiresAt: key.ExpiresAt,
+			CreatedAt: key.CreatedAt,
+			Models:    models,
+		},
+		"raw_key": key.Key,
+	})
+}

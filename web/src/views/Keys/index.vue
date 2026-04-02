@@ -30,9 +30,10 @@
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="150">
+        <el-table-column :label="t('common.action')" width="200">
           <template #default="{ row }">
             <el-button link type="primary" @click="showDialog(row)">{{ t('common.edit') }}</el-button>
+            <el-button link type="warning" @click="handleReset(row.id)">{{ t('apiKey.reset') }}</el-button>
             <el-button link type="danger" @click="handleDelete(row.id)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
@@ -167,6 +168,23 @@ async function handleDelete(id: number) {
   await api.delete(`/api-keys/${id}`)
   ElMessage.success(t('common.success'))
   fetchKeys()
+}
+
+async function handleReset(id: number) {
+  await ElMessageBox.confirm(
+    t('apiKey.resetConfirmMessage'),
+    t('apiKey.resetConfirmTitle'),
+    { type: 'warning' }
+  )
+  try {
+    const res = await api.post(`/api-keys/${id}/reset`)
+    newKey.value = res.data.raw_key
+    keyDialogVisible.value = true
+    fetchKeys()
+    ElMessage.success(t('apiKey.resetSuccess'))
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.error || t('common.error'))
+  }
 }
 
 async function handleBatchDelete() {

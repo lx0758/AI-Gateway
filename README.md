@@ -117,6 +117,7 @@ GET  /api/v1/api-keys       # API Key 列表
 POST /api/v1/api-keys       # 创建 API Key
 PUT  /api/v1/api-keys/:id   # 更新 API Key
 DELETE /api/v1/api-keys/:id # 删除 API Key
+POST /api/v1/api-keys/:id/reset # 重置 API Key
 
 GET  /api/v1/usage/stats    # 用量统计
 GET  /api/v1/usage/logs     # 用量日志
@@ -175,7 +176,31 @@ curl -X POST http://localhost:18080/api/v1/api-keys \
   }'
 ```
 
-### 4. 调用网关 API
+### 4. 重置 API Key
+
+```bash
+# 重置 API Key，生成新的 Key 值并保留原有配置
+curl -X POST http://localhost:18080/api/v1/api-keys/1/reset \
+  -b "session=your-session-cookie"
+
+# 响应示例
+{
+  "key": {
+    "id": 1,
+    "key": "sk-abc123****xyz9",
+    "name": "my-api-key",
+    "enabled": true,
+    "expires_at": null,
+    "created_at": "2024-01-01T00:00:00Z",
+    "models": [{"id": 1, "model": "gpt-4"}]
+  },
+  "raw_key": "sk-abc123def456789xyz9"
+}
+```
+
+**注意**: `raw_key` 仅在重置时返回一次，请立即保存。旧 Key 值将立即失效。
+
+### 5. 调用网关 API
 
 ```bash
 # OpenAI 格式调用

@@ -94,7 +94,11 @@ export default {
     allowedModels: 'Allowed Models',
     expiresAt: 'Expires At',
     createKey: 'Create API Key',
-    allModels: 'All Models'
+    allModels: 'All Models',
+    reset: 'Reset',
+    resetConfirmTitle: 'Reset API Key',
+    resetConfirmMessage: 'After reset, the old key will immediately become invalid. All requests using the old key will fail. Are you sure to continue?',
+    resetSuccess: 'Key reset successful. Please save the new key immediately'
   },
   usage: {
     stats: 'Statistics',
