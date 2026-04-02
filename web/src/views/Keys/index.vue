@@ -18,7 +18,7 @@
           <template #default="{ row }">
             <template v-if="row.models && row.models.length > 0">
               <el-tag v-for="m in row.models.slice(0, 3)" :key="m.id" size="small" style="margin-right: 4px">
-                {{ m.models }}
+                {{ m.alias_name }}
               </el-tag>
               <el-tag v-if="row.models.length > 3" size="small" type="info">+{{ row.models.length - 3 }}</el-tag>
             </template>
@@ -47,7 +47,7 @@
         </el-form-item>
         <el-form-item :label="t('apiKey.allowedModels')">
           <el-select v-model="form.models" multiple style="width: 100%" :placeholder="t('apiKey.allModels')" filterable>
-            <el-option v-for="m in availableModels" :key="m.alias" :label="m.alias" :value="m.alias" />
+            <el-option v-for="m in availableModels" :key="m.id" :label="m.name" :value="m.id" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -90,7 +90,7 @@ let modelsLoaded = false
 
 const form = reactive({
   name: '',
-  models: [] as string[]
+  models: [] as number[]
 })
 
 onMounted(() => {
@@ -110,7 +110,7 @@ async function fetchKeys() {
 async function fetchAvailableModels() {
   try {
     const res = await api.get('/aliases')
-    availableModels.value = (res.data.aliases || []).map((a: any) => ({ alias: a.alias }))
+    availableModels.value = (res.data.aliases || []).map((a: any) => ({ id: a.id, name: a.alias }))
   } catch (e) {
     console.error(e)
   }
@@ -129,7 +129,7 @@ async function showDialog(key?: any) {
   if (key) {
     Object.assign(form, {
       name: key.name || '',
-      models: key.models?.map((m: any) => m.models) || []
+      models: key.models?.map((m: any) => m.alias_id) || []
     })
   } else {
     Object.assign(form, { name: '', models: [] })

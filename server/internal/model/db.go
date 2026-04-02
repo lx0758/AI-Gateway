@@ -111,8 +111,9 @@ type Key struct {
 type KeyModel struct {
 	ID        uint `gorm:"primaryKey"`
 	KeyID     uint `gorm:"index"`
-	Model     string
+	AliasID   uint `gorm:"index;constraint:OnDelete:CASCADE"`
 	CreatedAt time.Time
+	Alias     *Alias `gorm:"foreignKey:AliasID"`
 }
 
 type UsageLog struct {

@@ -110,8 +110,6 @@ func main() {
 			protected.DELETE("/api-keys/:id", apiKeyHandler.Delete)
 			protected.POST("/api-keys/:id/reset", apiKeyHandler.Reset)
 			protected.GET("/api-keys/:id/models", apiKeyHandler.ListModels)
-			protected.POST("/api-keys/:id/models", apiKeyHandler.AddModel)
-			protected.DELETE("/api-keys/:id/models/:model_alias", apiKeyHandler.RemoveModel)
 
 			protected.GET("/usage/logs", usageHandler.Logs)
 			protected.GET("/usage/dashboard", usageHandler.Dashboard)
