@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"ai-proxy/internal/model"
+	"ai-proxy/internal/provider"
 	"ai-proxy/internal/router"
 )
 
@@ -27,8 +28,11 @@ type logsResponse struct {
 	ActualModelID   string    `json:"actual_model_id"`
 	ActualModelName string    `json:"actual_model_name"`
 	CallMethod      string    `json:"call_method"`
-	TotalTokens     int64     `json:"total_tokens"`
-	LatencyMs       int64     `json:"latency_ms"`
+	CachedTokens    int     `json:"cached_tokens"`
+	InputTokens     int     `json:"input_tokens"`
+	OutputTokens    int     `json:"output_tokens"`
+	TotalTokens     int     `json:"total_tokens"`
+	LatencyMs       int     `json:"latency_ms"`
 	Status          string    `json:"status"`
 	ErrorMsg        string    `json:"error_msg"`
 	CreatedAt       time.Time `json:"created_at"`
@@ -43,13 +47,37 @@ func (h *UsageHandler) Logs(c *gin.Context) {
 
 	query += " ORDER BY created_at DESC"
 
-	var logsResponse []logsResponse
-	if err := model.DB.Raw(query, args...).Scan(&logsResponse).Error; err != nil {
+	var usageLogs []model.UsageLog
+	if err := model.DB.Raw(query, args...).Scan(&usageLogs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"logs": logsResponse})
+	var logsResponses []logsResponse
+	for _, log := range usageLogs {
+		logsResponses = append(logsResponses, logsResponse{
+			ID:              log.ID,
+			Source:          log.Source,
+			KeyID:           log.KeyID,
+			KeyName:         log.KeyName,
+			Model:           log.Model,
+			ProviderID:      log.ProviderID,
+			ProviderName:    log.ProviderName,
+			ActualModelID:   log.ActualModelID,
+			ActualModelName: log.ActualModelName,
+			CallMethod:      log.CallMethod,
+			CachedTokens:    log.CachedTokens,
+			InputTokens:     log.InputTokens,
+			OutputTokens:    log.OutputTokens,
+			TotalTokens:     log.TotalTokens,
+			LatencyMs:       log.LatencyMs,
+			Status:          log.Status,
+			ErrorMsg:        log.ErrorMsg,
+			CreatedAt:       log.CreatedAt,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"logs": logsResponses})
 }
 
 func (h *UsageHandler) Dashboard(c *gin.Context) {
@@ -137,7 +165,7 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 	})
 }
 
-func NewUsageLog(source string, keyID uint, keyName, modelName string, result *router.RouteResult, matched bool, tokens int, latencyMs int, status string, errorMsg string) *model.UsageLog {
+func NewUsageLog(source string, keyID uint, keyName, modelName string, result *router.RouteResult, matched bool, usage *provider.Usage, latencyMs int, status string, errorMsg string) *model.UsageLog {
 	actualModelName := result.ProviderModel.DisplayName
 	if actualModelName == "" {
 		actualModelName = result.ProviderModel.ModelID
@@ -156,7 +184,10 @@ func NewUsageLog(source string, keyID uint, keyName, modelName string, result *r
 		ActualModelID:   result.ProviderModel.ModelID,
 		ActualModelName: actualModelName,
 		CallMethod:      callMethod,
-		TotalTokens:     tokens,
+		CachedTokens:    usage.CachedTokens,
+		InputTokens:     usage.InputTokens,
+		OutputTokens:    usage.OutputTokens,
+		TotalTokens:     usage.TotalTokens(),
 		LatencyMs:       latencyMs,
 		Status:          status,
 		ErrorMsg:        errorMsg,

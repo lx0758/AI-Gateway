@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"ai-proxy/internal/model"
+	"ai-proxy/internal/provider"
 	"ai-proxy/internal/router"
 )
 
@@ -60,7 +61,8 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 	result := results[0]
 
 	start := time.Now()
-	tokens, err := result.ProviderInstance.ExecuteAnthropicRequest(c, result.ProviderModel)
+	usage := provider.Usage{}
+	err = result.ProviderInstance.ExecuteAnthropicRequest(c, result.ProviderModel, &usage)
 	latencyMs := time.Since(start).Milliseconds()
 
 	status := "success"
@@ -76,7 +78,7 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 		req.Model,
 		&result,
 		result.SupportAnthropic(),
-		tokens,
+		&usage,
 		int(latencyMs),
 		status,
 		errorMsg,

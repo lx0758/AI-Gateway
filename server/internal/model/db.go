@@ -126,6 +126,9 @@ type UsageLog struct {
 	ActualModelID   string `gorm:"index"`
 	ActualModelName string
 	CallMethod      string
+	CachedTokens    int `gorm:"default:0"`
+	InputTokens     int `gorm:"default:0"`
+	OutputTokens    int `gorm:"default:0"`
 	TotalTokens     int `gorm:"default:0"`
 	LatencyMs       int `gorm:"default:0"`
 	Status          string
@@ -134,8 +137,8 @@ type UsageLog struct {
 }
 
 func (u *UsageLog) String() string {
-	return fmt.Sprintf("[%s] %s calling model %s, provider:(%s/%s), method:%s, tokens:%d, time:%dms, status:%s",
-		u.Source, u.KeyName, u.Model, u.ProviderName, u.ActualModelName, u.CallMethod, u.TotalTokens, u.LatencyMs, u.Status,
+	return fmt.Sprintf("[%s] %s calling model %s, provider:(%s/%s), method:%s, tokens:(C:%d/I:%d/O:%d/T:%d), time:%dms, status:%s",
+		u.Source, u.KeyName, u.Model, u.ProviderName, u.ActualModelName, u.CallMethod, u.CachedTokens, u.InputTokens, u.OutputTokens, u.TotalTokens, u.LatencyMs, u.Status,
 	)
 }
 

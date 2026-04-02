@@ -37,7 +37,7 @@
         <el-table-column prop="source" :label="t('usage.source') || '接入点'" />
         <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
         <el-table-column prop="tokens" :label="'Tokens'">
-          <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
+          <template #default="{ row }">C:{{ formatTokens(row.cached_tokens) }}/I:{{ formatTokens(row.input_tokens) }}/O:{{ formatTokens(row.output_tokens) }}/T:{{ formatTokens(row.total_tokens) }}</template>
         </el-table-column>
         <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
           <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
@@ -50,8 +50,8 @@
       <el-table :data="callMethodStats" stripe size="small">
         <el-table-column prop="call_method" :label="t('usage.callMethod') || '调用方式'" />
         <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
-        <el-table-column prop="tokens" :label="'Tokens'">
-          <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
+        <el-table-column :label="'Tokens'">
+          <template #default="{ row }">C:{{ formatTokens(row.cached_tokens) }}/I:{{ formatTokens(row.input_tokens) }}/O:{{ formatTokens(row.output_tokens) }}/T:{{ formatTokens(row.total_tokens) }}</template>
         </el-table-column>
         <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
           <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
@@ -64,8 +64,8 @@
       <el-table :data="keyStats" stripe size="small">
         <el-table-column prop="key_name" :label="t('usage.keyName') || 'Key 名称'" />
         <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
-        <el-table-column prop="tokens" :label="'Tokens'">
-          <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
+        <el-table-column :label="'Tokens'">
+          <template #default="{ row }">C:{{ formatTokens(row.cached_tokens) }}/I:{{ formatTokens(row.input_tokens) }}/O:{{ formatTokens(row.output_tokens) }}/T:{{ formatTokens(row.total_tokens) }}</template>
         </el-table-column>
         <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
           <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
@@ -78,8 +78,8 @@
       <el-table :data="modelStats" stripe size="small">
         <el-table-column prop="model" :label="t('usage.model') || '模型'" />
         <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
-        <el-table-column prop="tokens" :label="'Tokens'">
-          <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
+        <el-table-column :label="'Tokens'">
+          <template #default="{ row }">C:{{ formatTokens(row.cached_tokens) }}/I:{{ formatTokens(row.input_tokens) }}/O:{{ formatTokens(row.output_tokens) }}/T:{{ formatTokens(row.total_tokens) }}</template>
         </el-table-column>
         <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
           <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
@@ -92,8 +92,8 @@
       <el-table :data="providerStats" stripe size="small">
         <el-table-column prop="provider_name" :label="t('usage.provider') || '厂商'" />
         <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
-        <el-table-column prop="tokens" :label="'Tokens'">
-          <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
+        <el-table-column :label="'Tokens'">
+          <template #default="{ row }">C:{{ formatTokens(row.cached_tokens) }}/I:{{ formatTokens(row.input_tokens) }}/O:{{ formatTokens(row.output_tokens) }}/T:{{ formatTokens(row.total_tokens) }}</template>
         </el-table-column>
         <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
           <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
@@ -115,8 +115,8 @@
           </template>
         </el-table-column>
         <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
-        <el-table-column prop="tokens" :label="'Tokens'">
-          <template #default="{ row }">{{ formatTokens(row.tokens) }}</template>
+        <el-table-column :label="'Tokens'">
+          <template #default="{ row }">C:{{ formatTokens(row.cached_tokens) }}/I:{{ formatTokens(row.input_tokens) }}/O:{{ formatTokens(row.output_tokens) }}/T:{{ formatTokens(row.total_tokens) }}</template>
         </el-table-column>
         <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
           <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
@@ -151,8 +151,8 @@
             <el-tag size="small" type="info">{{ row.call_method }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="total_tokens" :label="'Tokens'" width="100">
-          <template #default="{ row }">{{ formatTokens(row.total_tokens) }}</template>
+        <el-table-column :label="'Tokens'" width="200">
+          <template #default="{ row }">C:{{ formatTokens(row.cached_tokens) }}/I:{{ formatTokens(row.input_tokens) }}/O:{{ formatTokens(row.output_tokens) }}/T:{{ formatTokens(row.total_tokens) }}</template>
         </el-table-column>
         <el-table-column prop="latency_ms" :label="t('usage.latency') || '耗时'" width="80">
           <template #default="{ row }">{{ formatLatency(row.latency_ms) }}</template>
@@ -201,6 +201,9 @@ interface LogItem {
   actual_model_id: string
   actual_model_name: string
   call_method: string
+  cached_tokens: number
+  input_tokens: number
+  output_tokens: number
   total_tokens: number
   latency_ms: number
   status: string
@@ -215,14 +218,33 @@ const dateRange = ref<string[] | null>(null)
 const stats = computed(() => {
   const list = logs.value
   if (list.length === 0) {
-    return { totalRequests: 0, successRate: 0, totalTokens: 0, avgLatency: 0 }
+    return {
+      totalRequests: 0,
+      successRate: 0,
+      cachedTokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      avgLatency: 0,
+    }
   }
   const totalRequests = list.length
   const successCount = list.filter(l => l.status === 'success').length
   const successRate = (successCount / totalRequests) * 100
+  const cachedTokens = list.reduce((sum, l) => sum + (l.cached_tokens || 0), 0)
+  const inputTokens = list.reduce((sum, l) => sum + (l.input_tokens || 0), 0)
+  const outputTokens = list.reduce((sum, l) => sum + (l.output_tokens || 0), 0)
   const totalTokens = list.reduce((sum, l) => sum + (l.total_tokens || 0), 0)
   const avgLatency = list.reduce((sum, l) => sum + (l.latency_ms || 0), 0) / list.length
-  return { totalRequests, successRate, totalTokens, avgLatency }
+  return {
+    totalRequests,
+    successRate,
+    cachedTokens,
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    avgLatency
+  }
 })
 
 const sourceStats = computed(() => aggregateBy('source'))
@@ -235,7 +257,14 @@ const providerModelStats = computed(() => aggregateBy(['provider_name', 'actual_
 function aggregateBy(dimensions: string | string[]): any[] {
   const list = logs.value
   const dimKey = Array.isArray(dimensions) ? dimensions.join('_') : dimensions
-  const groups: Record<string, { count: number; tokens: number; latency: number }> = {}
+  const groups: Record<string, {
+    count: number;
+    cached_tokens: number;
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    latency: number;
+  }> = {}
 
   for (const log of list) {
     let key: string
@@ -247,10 +276,20 @@ function aggregateBy(dimensions: string | string[]): any[] {
     }
 
     if (!groups[key]) {
-      groups[key] = { count: 0, tokens: 0, latency: 0 }
+      groups[key] = { 
+        count: 0,
+        cached_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+        latency: 0,
+      }
     }
     groups[key].count++
-    groups[key].tokens += log.total_tokens || 0
+    groups[key].cached_tokens += log.cached_tokens || 0
+    groups[key].input_tokens += log.input_tokens || 0
+    groups[key].output_tokens += log.output_tokens || 0
+    groups[key].total_tokens += log.total_tokens || 0
     groups[key].latency += log.latency_ms || 0
   }
 
@@ -258,7 +297,10 @@ function aggregateBy(dimensions: string | string[]): any[] {
     .map(([key, value]) => {
       const item: any = {
         count: value.count,
-        tokens: value.tokens,
+        cached_tokens: value.cached_tokens,
+        input_tokens: value.input_tokens,
+        output_tokens: value.output_tokens,
+        total_tokens: value.total_tokens,
         avg_latency: value.count > 0 ? value.latency / value.count : 0
       }
       if (Array.isArray(dimensions)) {

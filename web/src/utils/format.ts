@@ -11,7 +11,7 @@ export function formatDateTime(date: string | Date | null | undefined): string {
   const minutes = String(d.getMinutes()).padStart(2, '0')
   const seconds = String(d.getSeconds()).padStart(2, '0')
   
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${d.getMilliseconds()}`
 }
 
 export function formatDate(date: string | Date | null | undefined): string {

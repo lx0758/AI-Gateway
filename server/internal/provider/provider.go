@@ -11,8 +11,18 @@ type Config struct {
 	APIKey  string
 }
 
+type Usage struct {
+	CachedTokens int
+	InputTokens  int
+	OutputTokens int
+}
+
+func (u Usage) TotalTokens() int {
+	return u.CachedTokens + u.InputTokens + u.OutputTokens
+}
+
 type Provider interface {
 	SyncModels(providerID uint) ([]model.ProviderModel, error)
-	ExecuteOpenAIRequest(ctx *gin.Context, pm *model.ProviderModel) (int, error)
-	ExecuteAnthropicRequest(ctx *gin.Context, pm *model.ProviderModel) (int, error)
+	ExecuteOpenAIRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error
+	ExecuteAnthropicRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error
 }

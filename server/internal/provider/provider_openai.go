@@ -27,8 +27,10 @@ type openAIUsage struct {
 	} `json:"completion_tokens_details"`
 }
 
-func (u openAIUsage) total() int {
-	return u.TotalTokens
+func (u openAIUsage) toUsage(usage *Usage) {
+	usage.CachedTokens = u.PromptTokensDetails.CachedTokens
+	usage.InputTokens = u.PromptTokens - u.PromptTokensDetails.CachedTokens
+	usage.OutputTokens = u.CompletionTokens
 }
 
 type OpenAIProvider struct {
@@ -108,26 +110,26 @@ func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, err
 	return models, nil
 }
 
-func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
+func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	bodyJson := map[string]interface{}{}
 	if err := json.Unmarshal(body, &bodyJson); err != nil {
-		return 0, err
+		return err
 	}
 	bodyJson["model"] = pm.ModelID
 	body, err = json.Marshal(bodyJson)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	recordBody("O2O", "raw", body)
 	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
@@ -136,7 +138,7 @@ func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provider
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -144,26 +146,28 @@ func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provider
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
 		recordError("O2O", resp.StatusCode, respBody)
-		return 0, fmt.Errorf("%s", string(respBody))
+		return fmt.Errorf("%s", string(respBody))
 	}
 
-	tokens := 0
 	if m.isStreaming(resp) {
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		tokens = m.copyOpenAIStreaming(c.Writer, resp.Body)
+		m.copyOpenAIStreaming(c.Writer, resp.Body, usage)
 	} else {
 		c.Header("Content-Type", "application/json")
-		tokens = m.copyOpenAIResponse(c.Writer, resp.Body)
+		err := m.copyOpenAIResponse(c.Writer, resp.Body, usage)
+		if err != nil {
+			c.JSON(resp.StatusCode, gin.H{"error": err.Error()})
+			return err
+		}
 	}
-	return tokens, nil
+	return nil
 }
 
-func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader) int {
+func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader, usage *Usage) {
 	src, dst = recordStream("O2O", src, dst)
 	reader := bufio.NewReader(src)
-	tokens := 0
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -193,21 +197,18 @@ func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader) int {
 		}
 
 		if err := json.Unmarshal([]byte(data), &chunk); err == nil {
-			tokens = chunk.OpenAIUsage.total()
+			chunk.OpenAIUsage.toUsage(usage)
 		}
 	}
-
 	if flusher, ok := dst.(http.Flusher); ok {
 		flusher.Flush()
 	}
-
-	return tokens
 }
 
-func (m *OpenAIProvider) copyOpenAIResponse(dst io.Writer, src io.Reader) int {
+func (m *OpenAIProvider) copyOpenAIResponse(dst io.Writer, src io.Reader, usage *Usage) error {
 	body, err := io.ReadAll(src)
 	if err != nil {
-		return 0
+		return err
 	}
 
 	dst.Write(body)
@@ -218,17 +219,17 @@ func (m *OpenAIProvider) copyOpenAIResponse(dst io.Writer, src io.Reader) int {
 	var resp struct {
 		OpenAIUsage openAIUsage `json:"usage"`
 	}
-	tokens := 0
-	if err := json.Unmarshal(body, &resp); err == nil {
-		tokens = resp.OpenAIUsage.total()
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return err
 	}
-	return tokens
+	resp.OpenAIUsage.toUsage(usage)
+	return nil
 }
 
-func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
+func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	recordBody("A2O", "raw", body)
@@ -242,13 +243,13 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 		StreamOptions *struct{}       `json:"stream_options,omitempty"`
 	}
 	if err := json.Unmarshal(body, &anthropicReq); err != nil {
-		return 0, err
+		return err
 	}
 	anthropicReq.Model = pm.ModelID
 
 	var anthropicMessages []map[string]interface{}
 	if err := json.Unmarshal(anthropicReq.Messages, &anthropicMessages); err != nil {
-		return 0, err
+		return err
 	}
 
 	openAIMessages := make([]map[string]interface{}, 0)
@@ -288,13 +289,13 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 
 	openAIBody, err := json.Marshal(openAIReq)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	recordBody("A2O", "converted", openAIBody)
 	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/chat/completions", bytes.NewReader(openAIBody))
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
@@ -303,7 +304,7 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -311,29 +312,28 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
 		recordError("A2O", resp.StatusCode, respBody)
-		return 0, fmt.Errorf("%s", string(respBody))
+		return fmt.Errorf("%s", string(respBody))
 	}
 
-	tokens := 0
 	if m.isStreaming(resp) {
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		tokens = m.streamOpenAIToAnthropic(resp.Body, c.Writer, anthropicReq.Model)
+		m.streamOpenAIToAnthropic(resp.Body, c.Writer, anthropicReq.Model, usage)
 		c.Writer.Flush()
 	} else {
 		openAIRespBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return 0, err
+			return err
 		}
-		anthropicResp, tokens, err := m.convertOpenAIResponseToAnthropic(openAIRespBody)
+		anthropicResp, err := m.convertOpenAIResponseToAnthropic(openAIRespBody, usage)
 		if err != nil {
-			return tokens, err
+			return err
 		}
 		c.Header("Content-Type", "application/json")
 		c.Writer.Write(anthropicResp)
 	}
-	return tokens, nil
+	return nil
 }
 
 func (m *OpenAIProvider) extractSystemContent(system interface{}) string {
@@ -520,7 +520,7 @@ func (m *OpenAIProvider) convertAnthropicToolToOpenAI(tool map[string]interface{
 	return result
 }
 
-func (m *OpenAIProvider) convertOpenAIResponseToAnthropic(openAIResp []byte) ([]byte, int, error) {
+func (m *OpenAIProvider) convertOpenAIResponseToAnthropic(openAIResp []byte, usage *Usage) ([]byte, error) {
 	var openAI struct {
 		ID      string `json:"id"`
 		Model   string `json:"model"`
@@ -533,12 +533,11 @@ func (m *OpenAIProvider) convertOpenAIResponseToAnthropic(openAIResp []byte) ([]
 		OpenAIUsage openAIUsage `json:"usage"`
 	}
 	if err := json.Unmarshal(openAIResp, &openAI); err != nil {
-		return nil, 0, fmt.Errorf("OpenAI response error")
+		return nil, fmt.Errorf("OpenAI response error")
 	}
 
-	tokens := openAI.OpenAIUsage.total()
 	if len(openAI.Choices) == 0 {
-		return nil, tokens, fmt.Errorf("OpenAI choices empty")
+		return nil, fmt.Errorf("OpenAI choices empty")
 	}
 
 	choice := openAI.Choices[0]
@@ -600,9 +599,10 @@ func (m *OpenAIProvider) convertOpenAIResponseToAnthropic(openAIResp []byte) ([]
 
 	result, err := json.Marshal(anthropicResp)
 	if err != nil {
-		return nil, tokens, fmt.Errorf("Anthropic response serialization error")
+		return nil, fmt.Errorf("Anthropic response serialization error")
 	}
-	return result, tokens, nil
+	openAI.OpenAIUsage.toUsage(usage)
+	return result, nil
 }
 
 func (m *OpenAIProvider) isStreaming(resp *http.Response) bool {
@@ -618,7 +618,7 @@ type toolCallState struct {
 	startSent bool
 }
 
-func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, model string) int {
+func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, model string, usage *Usage) {
 	src, dst = recordStream("A2O", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("msg_%s", m.generateID())
@@ -626,7 +626,6 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 	preBlockCount := 0
 	inThinkingBlock := false
 	inTextBlock := false
-	tokens := 0
 	lastUsage := openAIUsage{}
 	toolCallStates := make(map[int]*toolCallState)
 
@@ -669,7 +668,6 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 		}
 
 		if chunk.OpenAIUsage.TotalTokens > 0 {
-			tokens += chunk.OpenAIUsage.total()
 			lastUsage = chunk.OpenAIUsage
 		}
 
@@ -872,6 +870,7 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 				}
 
 				if lastUsage.TotalTokens > 0 {
+					lastUsage.toUsage(usage)
 					m.writeAnthropicSSE(dst, "message_delta", map[string]interface{}{
 						"type": "message_delta",
 						"delta": map[string]interface{}{
@@ -891,7 +890,6 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 			}
 		}
 	}
-	return tokens
 }
 
 func (m *OpenAIProvider) writeAnthropicSSE(w io.Writer, eventType string, data interface{}) {

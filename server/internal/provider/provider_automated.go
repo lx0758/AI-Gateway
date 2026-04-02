@@ -43,18 +43,18 @@ func (p *AutomatedProvider) SyncModels(providerID uint) ([]model.ProviderModel, 
 	return nil, fmt.Errorf("no valid models found")
 }
 
-func (p *AutomatedProvider) ExecuteOpenAIRequest(ctx *gin.Context, pm *model.ProviderModel) (int, error) {
+func (p *AutomatedProvider) ExecuteOpenAIRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	finialProvider := p.openAIProvider
 	if finialProvider == nil {
 		finialProvider = p.anthropicProvider
 	}
-	return finialProvider.ExecuteOpenAIRequest(ctx, pm)
+	return finialProvider.ExecuteOpenAIRequest(ctx, pm, usage)
 }
 
-func (p *AutomatedProvider) ExecuteAnthropicRequest(ctx *gin.Context, pm *model.ProviderModel) (int, error) {
+func (p *AutomatedProvider) ExecuteAnthropicRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	finialProvider := p.anthropicProvider
 	if finialProvider == nil {
 		finialProvider = p.openAIProvider
 	}
-	return finialProvider.ExecuteAnthropicRequest(ctx, pm)
+	return finialProvider.ExecuteAnthropicRequest(ctx, pm, usage)
 }

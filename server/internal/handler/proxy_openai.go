@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"ai-proxy/internal/model"
+	"ai-proxy/internal/provider"
 	"ai-proxy/internal/router"
 )
 
@@ -60,7 +61,8 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 	result := results[0]
 
 	start := time.Now()
-	tokens, err := result.ProviderInstance.ExecuteOpenAIRequest(c, result.ProviderModel)
+	usage := provider.Usage{}
+	err = result.ProviderInstance.ExecuteOpenAIRequest(c, result.ProviderModel, &usage)
 	latencyMs := time.Since(start).Milliseconds()
 
 	status := "success"
@@ -78,7 +80,7 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 		req.Model,
 		&result,
 		result.SupportOpenAI(),
-		tokens,
+		&usage,
 		int(latencyMs),
 		status,
 		errorMsg,

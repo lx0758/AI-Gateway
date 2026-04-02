@@ -26,6 +26,12 @@ func (u anthropicUsage) total() int {
 	return u.InputTokens + u.OutputTokens + u.CacheCreationInputTokens + u.CacheReadInputTokens
 }
 
+func (u anthropicUsage) toUsage(usage *Usage) {
+	usage.CachedTokens = u.CacheReadInputTokens
+	usage.InputTokens = u.InputTokens
+	usage.OutputTokens = u.OutputTokens
+}
+
 type AnthropicProvider struct {
 	cfg *Config
 }
@@ -115,10 +121,10 @@ func (m *AnthropicProvider) SyncModels(providerID uint) ([]model.ProviderModel, 
 	return models, nil
 }
 
-func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
+func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	recordBody("O2A", "raw", body)
@@ -130,7 +136,7 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 		Stream    bool                     `json:"stream"`
 	}
 	if err := json.Unmarshal(body, &openAIReq); err != nil {
-		return 0, err
+		return err
 	}
 	openAIReq.Model = pm.ModelID
 
@@ -138,13 +144,13 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 
 	anthropicBody, err := json.Marshal(anthropicReq)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	recordBody("O2A", "converted", anthropicBody)
 	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/messages", bytes.NewReader(anthropicBody))
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	req.Header.Set("x-api-key", m.cfg.APIKey)
@@ -154,7 +160,7 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -162,28 +168,28 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
 		recordError("O2A", resp.StatusCode, respBody)
-		return 0, fmt.Errorf("%s", string(respBody))
+		return fmt.Errorf("%s", string(respBody))
 	}
 
-	tokens := 0
 	if m.isStreaming(resp) {
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		tokens = m.streamAnthropicToOpenAI(resp.Body, c.Writer, openAIReq.Model)
+		m.streamAnthropicToOpenAI(resp.Body, c.Writer, openAIReq.Model, usage)
+		c.Writer.Flush()
 	} else {
 		anthropicRespBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return 0, err
+			return err
 		}
-		openAIResp, tokens, err := m.convertAnthropicResponseToOpenAI(anthropicRespBody, openAIReq.Model)
+		openAIResp, err := m.convertAnthropicResponseToOpenAI(anthropicRespBody, openAIReq.Model, usage)
 		if err != nil {
-			return tokens, err
+			return err
 		}
 		c.Header("Content-Type", "application/json")
 		c.Writer.Write(openAIResp)
 	}
-	return tokens, nil
+	return nil
 }
 
 func (m *AnthropicProvider) convertOpenAIRequestToAnthropic(openAIReq struct {
@@ -420,7 +426,7 @@ func (m *AnthropicProvider) parseDataURL(url string) (mediaType, data string) {
 	return mediaType, data
 }
 
-func (m *AnthropicProvider) convertAnthropicResponseToOpenAI(anthropicResp []byte, model string) ([]byte, int, error) {
+func (m *AnthropicProvider) convertAnthropicResponseToOpenAI(anthropicResp []byte, model string, usage *Usage) ([]byte, error) {
 	var anthropic struct {
 		ID         string                   `json:"id"`
 		Type       string                   `json:"type"`
@@ -431,10 +437,8 @@ func (m *AnthropicProvider) convertAnthropicResponseToOpenAI(anthropicResp []byt
 		Usage      anthropicUsage           `json:"usage"`
 	}
 	if err := json.Unmarshal(anthropicResp, &anthropic); err != nil {
-		return nil, 0, fmt.Errorf("failed to parse Anthropic response: %w", err)
+		return nil, fmt.Errorf("failed to parse Anthropic response: %w", err)
 	}
-
-	tokens := anthropic.Usage.total()
 
 	textContent := ""
 	reasoningContent := ""
@@ -507,18 +511,19 @@ func (m *AnthropicProvider) convertAnthropicResponseToOpenAI(anthropicResp []byt
 		"usage": map[string]interface{}{
 			"prompt_tokens":     anthropic.Usage.InputTokens,
 			"completion_tokens": anthropic.Usage.OutputTokens,
-			"total_tokens":      tokens,
+			"total_tokens":      anthropic.Usage.total(),
 		},
 	}
 
 	result, err := json.Marshal(openAIResp)
 	if err != nil {
-		return nil, tokens, fmt.Errorf("failed to marshal OpenAI response: %w", err)
+		return nil, fmt.Errorf("failed to marshal OpenAI response: %w", err)
 	}
-	return result, tokens, nil
+	anthropic.Usage.toUsage(usage)
+	return result, nil
 }
 
-func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer, model string) int {
+func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer, model string, usage *Usage) int {
 	src, dst = recordStream("O2A", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("chatcmpl-%s", m.generateID())
@@ -768,26 +773,26 @@ func (m *AnthropicProvider) isStreaming(resp *http.Response) bool {
 		(len(contentType) > 0 && len(contentType) >= 17 && contentType[:17] == "text/event-stream")
 }
 
-func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel) (int, error) {
+func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	bodyJson := map[string]interface{}{}
 	if err := json.Unmarshal(body, &bodyJson); err != nil {
-		return 0, err
+		return err
 	}
 	bodyJson["model"] = pm.ModelID
 	body, err = json.Marshal(bodyJson)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	recordBody("A2A", "raw", body)
 	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/messages", bytes.NewReader(body))
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	req.Header.Set("x-api-key", m.cfg.APIKey)
@@ -797,7 +802,7 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -805,46 +810,28 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 		respBody, _ := io.ReadAll(resp.Body)
 		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
 		recordError("A2A", resp.StatusCode, respBody)
-		return 0, fmt.Errorf("%s", string(respBody))
+		return fmt.Errorf("%s", string(respBody))
 	}
 
-	tokens := 0
 	if m.isStreaming(resp) {
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		tokens = m.copyAnthropicStreaming(c.Writer, resp.Body)
+		m.copyAnthropicStreaming(c.Writer, resp.Body, usage)
 	} else {
 		c.Header("Content-Type", "application/json")
-		tokens = m.copyAnthropicResponse(c.Writer, resp.Body)
+		err := m.copyAnthropicResponse(c.Writer, resp.Body, usage)
+		if err != nil {
+			c.JSON(resp.StatusCode, gin.H{"error": err.Error()})
+			return err
+		}
 	}
-	return tokens, nil
+	return nil
 }
 
-func (m *AnthropicProvider) copyAnthropicResponse(dst io.Writer, src io.Reader) int {
-	body, err := io.ReadAll(src)
-	if err != nil {
-		return 0
-	}
-
-	dst.Write(body)
-	if flusher, ok := dst.(http.Flusher); ok {
-		flusher.Flush()
-	}
-
-	var resp struct {
-		Usage anthropicUsage `json:"usage"`
-	}
-	if err := json.Unmarshal(body, &resp); err == nil {
-		return resp.Usage.total()
-	}
-	return 0
-}
-
-func (m *AnthropicProvider) copyAnthropicStreaming(dst io.Writer, src io.Reader) int {
+func (m *AnthropicProvider) copyAnthropicStreaming(dst io.Writer, src io.Reader, usage *Usage) {
 	src, dst = recordStream("O2A", src, dst)
 	reader := bufio.NewReader(src)
-	tokens := 0
 
 	for {
 		line, err := reader.ReadString('\n')
@@ -874,12 +861,32 @@ func (m *AnthropicProvider) copyAnthropicStreaming(dst io.Writer, src io.Reader)
 		if err := json.Unmarshal([]byte(data), &event); err == nil {
 			switch event.Type {
 			case "message_delta":
-				tokens = event.Usage.total()
+				event.Usage.toUsage(usage)
 			}
 		}
 	}
 	if flusher, ok := dst.(http.Flusher); ok {
 		flusher.Flush()
 	}
-	return tokens
+}
+
+func (m *AnthropicProvider) copyAnthropicResponse(dst io.Writer, src io.Reader, usage *Usage) error {
+	body, err := io.ReadAll(src)
+	if err != nil {
+		return err
+	}
+
+	dst.Write(body)
+	if flusher, ok := dst.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	var resp struct {
+		Usage anthropicUsage `json:"usage"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return err
+	}
+	resp.Usage.toUsage(usage)
+	return nil
 }
