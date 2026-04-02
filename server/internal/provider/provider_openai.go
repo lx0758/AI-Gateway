@@ -627,6 +627,7 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 	inThinkingBlock := false
 	inTextBlock := false
 	tokens := 0
+	lastUsage := openAIUsage{}
 	toolCallStates := make(map[int]*toolCallState)
 
 	for {
@@ -667,7 +668,10 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 			continue
 		}
 
-		tokens += chunk.OpenAIUsage.total()
+		if chunk.OpenAIUsage.TotalTokens > 0 {
+			tokens += chunk.OpenAIUsage.total()
+			lastUsage = chunk.OpenAIUsage
+		}
 
 		if !sentMessageStart {
 			m.writeAnthropicSSE(dst, "message_start", map[string]interface{}{
@@ -693,7 +697,16 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 			choice := chunk.Choices[0]
 			delta := choice.Delta
 
-			reasoning, hasReasoning := delta["reasoning_content"].(string)
+			reasoning := ""
+			hasReasoning := false
+			if r, ok := delta["reasoning_content"].(string); ok && r != "" {
+				reasoning = r
+				hasReasoning = true
+			} else if r, ok := delta["reasoning"].(string); ok && r != "" {
+				// fields compatible with OpenRouter
+				reasoning = r
+				hasReasoning = true
+			}
 			if hasReasoning && reasoning != "" {
 				if !inThinkingBlock {
 					if inTextBlock {
@@ -854,21 +867,27 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 					stopReason = "tool_use"
 				}
 
-				m.writeAnthropicSSE(dst, "message_delta", map[string]interface{}{
-					"type": "message_delta",
-					"delta": map[string]interface{}{
-						"stop_reason": stopReason,
-					},
-					"usage": map[string]interface{}{
-						"input_tokens":            chunk.OpenAIUsage.PromptTokens - chunk.OpenAIUsage.PromptTokensDetails.CachedTokens,
-						"output_tokens":           chunk.OpenAIUsage.CompletionTokens,
-						"cache_read_input_tokens": chunk.OpenAIUsage.PromptTokensDetails.CachedTokens,
-					},
-				})
-				m.writeAnthropicSSE(dst, "message_stop", map[string]interface{}{
-					"type": "message_stop",
-				})
-				break
+				if chunk.OpenAIUsage.TotalTokens > 0 {
+					lastUsage = chunk.OpenAIUsage
+				}
+
+				if lastUsage.TotalTokens > 0 {
+					m.writeAnthropicSSE(dst, "message_delta", map[string]interface{}{
+						"type": "message_delta",
+						"delta": map[string]interface{}{
+							"stop_reason": stopReason,
+						},
+						"usage": map[string]interface{}{
+							"input_tokens":            lastUsage.PromptTokens - lastUsage.PromptTokensDetails.CachedTokens,
+							"output_tokens":           lastUsage.CompletionTokens,
+							"cache_read_input_tokens": lastUsage.PromptTokensDetails.CachedTokens,
+						},
+					})
+					m.writeAnthropicSSE(dst, "message_stop", map[string]interface{}{
+						"type": "message_stop",
+					})
+					break
+				}
 			}
 		}
 	}
