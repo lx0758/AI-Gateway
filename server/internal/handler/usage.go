@@ -6,9 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-proxy/internal/model"
-	"ai-proxy/internal/provider"
-	"ai-proxy/internal/router"
+	"ai-gateway/internal/model"
+	"ai-gateway/internal/provider"
+	"ai-gateway/internal/router"
 )
 
 type UsageHandler struct{}

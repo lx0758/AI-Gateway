@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 
-	"ai-proxy/internal/model"
+	"ai-gateway/internal/model"
 )
 
 type AuthHandler struct{}

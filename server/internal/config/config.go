@@ -45,7 +45,7 @@ type DefaultAdminConfig struct {
 var cfg *Config
 
 func Load() *Config {
-	secret := getEnv("AMP_SESSION_SECRET", "")
+	secret := getEnv("AG_SESSION_SECRET", "")
 	if secret == "" {
 		secret = generateSecret()
 		log.Printf("[Config] Generated random session secret")
@@ -53,23 +53,23 @@ func Load() *Config {
 
 	cfg = &Config{
 		Server: ServerConfig{
-			Port: getInt("AMP_SERVER_PORT", 18080),
-			Mode: getEnv("AMP_SERVER_MODE", "debug"),
+			Port: getInt("AG_SERVER_PORT", 18080),
+			Mode: getEnv("AG_SERVER_MODE", "debug"),
 		},
 		Database: DatabaseConfig{
-			Path: getEnv("AMP_DATABASE_PATH", "data.db"),
+			Path: getEnv("AG_DATABASE_PATH", "data.db"),
 		},
 		Session: SessionConfig{
 			Secret:   secret,
-			MaxAge:   getInt("AMP_SESSION_MAX_AGE", 86400),
-			Secure:   getBool("AMP_SESSION_SECURE", false),
-			HttpOnly: getBool("AMP_SESSION_HTTP_ONLY", true),
-			SameSite: getEnv("AMP_SESSION_SAME_SITE", "lax"),
+			MaxAge:   getInt("AG_SESSION_MAX_AGE", 86400),
+			Secure:   getBool("AG_SESSION_SECURE", false),
+			HttpOnly: getBool("AG_SESSION_HTTP_ONLY", true),
+			SameSite: getEnv("AG_SESSION_SAME_SITE", "lax"),
 		},
 		Auth: AuthConfig{
 			DefaultAdmin: DefaultAdminConfig{
-				Username: getEnv("AMP_ADMIN_USERNAME", "admin"),
-				Password: getEnv("AMP_ADMIN_PASSWORD", "admin"),
+				Username: getEnv("AG_ADMIN_USERNAME", "admin"),
+				Password: getEnv("AG_ADMIN_PASSWORD", "admin"),
 			},
 		},
 	}

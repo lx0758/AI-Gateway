@@ -1,7 +1,7 @@
 export default {
   app: {
-    title: 'AI Proxy',
-    shortTitle: 'AI'
+    title: 'AI Gateway',
+    shortTitle: 'AG'
   },
   common: {
     save: 'Save',
@@ -34,7 +34,7 @@ export default {
     copied: 'Copied'
   },
   login: {
-    title: 'AI Proxy',
+    title: 'AI Gateway',
     username: 'Username',
     password: 'Password',
     submit: 'Login',

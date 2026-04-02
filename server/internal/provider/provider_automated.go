@@ -1,7 +1,7 @@
 package provider
 
 import (
-	"ai-proxy/internal/model"
+	"ai-gateway/internal/model"
 	"fmt"
 
 	"github.com/gin-gonic/gin"

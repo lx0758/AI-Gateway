@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-proxy/internal/model"
-	providerPkg "ai-proxy/internal/provider"
+	"ai-gateway/internal/model"
+	providerPkg "ai-gateway/internal/provider"
 )
 
 type ProviderModelHandler struct{}

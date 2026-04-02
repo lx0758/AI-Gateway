@@ -1,6 +1,6 @@
 .PHONY: build build-web build-server run clean test dev
 
-VERSION ?= $(shell date +v%Y.%-m.%-d)
+VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
 
 build: build-server
 

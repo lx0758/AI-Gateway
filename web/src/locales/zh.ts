@@ -1,7 +1,7 @@
 export default {
   app: {
-    title: 'AI 代理',
-    shortTitle: 'AI'
+    title: 'AI 网关',
+    shortTitle: 'AG'
   },
   common: {
     save: '保存',
@@ -34,7 +34,7 @@ export default {
     copied: '已复制'
   },
   login: {
-    title: 'AI 代理',
+    title: 'AI 网关',
     username: '用户名',
     password: '密码',
     submit: '登录',

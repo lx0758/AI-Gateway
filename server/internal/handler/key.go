@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-proxy/internal/model"
+	"ai-gateway/internal/model"
 )
 
 type APIKeyHandler struct{}

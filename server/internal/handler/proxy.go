@@ -3,7 +3,7 @@ package handler
 import (
 	"fmt"
 
-	modelPkg "ai-proxy/internal/model"
+	modelPkg "ai-gateway/internal/model"
 )
 
 func VerifyKeyID(keyID any, model string) error {

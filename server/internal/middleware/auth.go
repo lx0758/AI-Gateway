@@ -9,7 +9,7 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 
-	"ai-proxy/internal/model"
+	"ai-gateway/internal/model"
 )
 
 func SetupSessionStore(secret string, maxAge int, secure, httpOnly bool, sameSite string) gin.HandlerFunc {
@@ -33,7 +33,7 @@ func SetupSessionStore(secret string, maxAge int, secure, httpOnly bool, sameSit
 
 	store.Options(options)
 
-	return sessions.Sessions("ai-proxy-session", store)
+	return sessions.Sessions("ai-gateway-session", store)
 }
 
 func RequireAuth() gin.HandlerFunc {

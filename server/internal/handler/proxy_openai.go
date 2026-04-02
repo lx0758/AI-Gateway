@@ -10,9 +10,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-proxy/internal/model"
-	"ai-proxy/internal/provider"
-	"ai-proxy/internal/router"
+	"ai-gateway/internal/model"
+	"ai-gateway/internal/provider"
+	"ai-gateway/internal/router"
 )
 
 type OpenAIProxyHandler struct {
@@ -99,7 +99,7 @@ func (h *OpenAIProxyHandler) ListModels(c *gin.Context) {
 		models = append(models, map[string]interface{}{
 			"id":       a.Name,
 			"object":   "model",
-			"owned_by": "ai-proxy",
+			"owned_by": "ai-gateway",
 		})
 	}
 
@@ -121,6 +121,6 @@ func (h *OpenAIProxyHandler) GetModel(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"id":       alias.Name,
 		"object":   "model",
-		"owned_by": "ai-proxy",
+		"owned_by": "ai-gateway",
 	})
 }

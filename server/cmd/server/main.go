@@ -6,11 +6,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ai-proxy/internal/config"
-	"ai-proxy/internal/handler"
-	"ai-proxy/internal/middleware"
-	"ai-proxy/internal/model"
-	"ai-proxy/res"
+	"ai-gateway/internal/config"
+	"ai-gateway/internal/handler"
+	"ai-gateway/internal/middleware"
+	"ai-gateway/internal/model"
+	"ai-gateway/res"
 )
 
 func main() {

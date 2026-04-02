@@ -1,8 +1,8 @@
 package router
 
 import (
-	"ai-proxy/internal/model"
-	"ai-proxy/internal/provider"
+	"ai-gateway/internal/model"
+	"ai-gateway/internal/provider"
 )
 
 type RouteResult struct {
