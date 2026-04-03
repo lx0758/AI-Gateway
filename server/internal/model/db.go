@@ -121,7 +121,8 @@ type KeyModel struct {
 type UsageLog struct {
 	ID              uint `gorm:"primaryKey"`
 	Source          string
-	KeyID           uint `gorm:"index"`
+	ClientIPs       string `gorm:"column:client_ips"`
+	KeyID           uint   `gorm:"index"`
 	KeyName         string
 	Model           string
 	ProviderID      uint `gorm:"index"`
@@ -140,8 +141,8 @@ type UsageLog struct {
 }
 
 func (u *UsageLog) String() string {
-	return fmt.Sprintf("[%s] %s calling model %s, provider:(%s/%s), method:%s, tokens:(C:%d/I:%d/O:%d/T:%d), time:%dms, status:%s",
-		u.Source, u.KeyName, u.Model, u.ProviderName, u.ActualModelName, u.CallMethod, u.CachedTokens, u.InputTokens, u.OutputTokens, u.TotalTokens, u.LatencyMs, u.Status,
+	return fmt.Sprintf("[%s - %s] %s calling model %s, provider:(%s/%s), method:%s, tokens:(C:%d/I:%d/O:%d/T:%d), time:%dms, status:%s",
+		u.Source, u.ClientIPs, u.KeyName, u.Model, u.ProviderName, u.ActualModelName, u.CallMethod, u.CachedTokens, u.InputTokens, u.OutputTokens, u.TotalTokens, u.LatencyMs, u.Status,
 	)
 }
 

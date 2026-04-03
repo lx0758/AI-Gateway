@@ -127,7 +127,9 @@ export default {
     providerModelStats: '厂商模型统计',
     key: 'Key',
     latency: '耗时',
-    error: '错误信息'
+    error: '错误信息',
+    ipStats: 'IP 统计',
+    clientIp: '客户端 IP',
   },
   settings: {
     changePassword: '修改密码',

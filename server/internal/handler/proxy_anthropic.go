@@ -13,6 +13,7 @@ import (
 	"ai-gateway/internal/model"
 	"ai-gateway/internal/provider"
 	"ai-gateway/internal/router"
+	"ai-gateway/internal/utils"
 )
 
 type AnthropicProxyHandler struct {
@@ -71,8 +72,11 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 
+	clientIPs := utils.GetClientIPInfo(c)
+
 	usageLog := NewUsageLog(
 		"anthropic",
+		clientIPs,
 		keyID.(uint),
 		keyName.(string),
 		req.Model,

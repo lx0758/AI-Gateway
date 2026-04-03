@@ -46,6 +46,10 @@ func main() {
 
 	r := gin.Default()
 
+	if err := r.SetTrustedProxies(cfg.Server.TrustedProxies); err != nil {
+		log.Printf("Warning: Failed to set trusted proxies: %v, using default configuration", err)
+	}
+
 	r.Use(middleware.CORS())
 	r.Use(middleware.RequestLogger())
 

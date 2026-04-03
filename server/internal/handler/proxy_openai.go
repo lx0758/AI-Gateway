@@ -13,6 +13,7 @@ import (
 	"ai-gateway/internal/model"
 	"ai-gateway/internal/provider"
 	"ai-gateway/internal/router"
+	"ai-gateway/internal/utils"
 )
 
 type OpenAIProxyHandler struct {
@@ -73,8 +74,11 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 
+	clientIPs := utils.GetClientIPInfo(c)
+
 	usageLog := NewUsageLog(
 		"openai",
+		clientIPs,
 		keyID.(uint),
 		keyName.(string),
 		req.Model,

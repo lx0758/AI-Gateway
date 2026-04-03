@@ -20,6 +20,7 @@ func NewUsageHandler() *UsageHandler {
 type logsResponse struct {
 	ID              uint      `json:"id"`
 	Source          string    `json:"source"`
+	ClientIPs       string    `json:"client_ips"`
 	KeyID           uint      `json:"key_id"`
 	KeyName         string    `json:"key_name"`
 	Model           string    `json:"model"`
@@ -72,6 +73,7 @@ func (h *UsageHandler) Logs(c *gin.Context) {
 		logsResponses[i] = logsResponse{
 			ID:              log.ID,
 			Source:          log.Source,
+			ClientIPs:       log.ClientIPs,
 			KeyID:           log.KeyID,
 			KeyName:         log.KeyName,
 			Model:           log.Model,
@@ -179,7 +181,7 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 	})
 }
 
-func NewUsageLog(source string, keyID uint, keyName, modelName string, result *router.RouteResult, matched bool, usage *provider.Usage, latencyMs int, status string, errorMsg string) *model.UsageLog {
+func NewUsageLog(source string, clientIPs string, keyID uint, keyName, modelName string, result *router.RouteResult, matched bool, usage *provider.Usage, latencyMs int, status string, errorMsg string) *model.UsageLog {
 	actualModelName := result.ProviderModel.DisplayName
 	if actualModelName == "" {
 		actualModelName = result.ProviderModel.ModelID
@@ -190,6 +192,7 @@ func NewUsageLog(source string, keyID uint, keyName, modelName string, result *r
 	}
 	return &model.UsageLog{
 		Source:          source,
+		ClientIPs:       clientIPs,
 		KeyID:           keyID,
 		KeyName:         keyName,
 		Model:           modelName,

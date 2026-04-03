@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -24,8 +25,9 @@ type DebugConfig struct {
 }
 
 type ServerConfig struct {
-	Port int
-	Mode string
+	Port           int
+	Mode           string
+	TrustedProxies []string
 }
 
 type DatabaseConfig struct {
@@ -93,13 +95,19 @@ func Load() *Config {
 		log.Printf("[Config] Generated random session secret")
 	}
 
+	trustedProxies := getStringSlice("AG_TRUSTED_PROXIES", yamlCfg.Server.TrustedProxies)
+	if len(trustedProxies) == 0 {
+		trustedProxies = []string{"10.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12"}
+	}
+
 	cfg = &Config{
 		Debug: DebugConfig{
 			Enabled: getBool("AG_DEBUG_ENABLED", yamlCfg.Debug.Enabled),
 		},
 		Server: ServerConfig{
-			Port: getInt("AG_SERVER_PORT", yamlCfg.Server.Port),
-			Mode: getEnv("AG_SERVER_MODE", yamlCfg.Server.Mode),
+			Port:           getInt("AG_SERVER_PORT", yamlCfg.Server.Port),
+			Mode:           getEnv("AG_SERVER_MODE", yamlCfg.Server.Mode),
+			TrustedProxies: trustedProxies,
 		},
 		Database: DatabaseConfig{
 			Type:     getEnv("AG_DATABASE_TYPE", yamlCfg.Database.Type),
@@ -182,6 +190,27 @@ func getBool(key string, defaultValue bool) bool {
 	return defaultValue
 }
 
+func getStringSlice(key string, defaultValue []string) []string {
+	if val := os.Getenv(key); val != "" {
+		result := []string{}
+		for _, item := range splitString(val, ",") {
+			if trimmed := trimSpace(item); trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
+		return result
+	}
+	return defaultValue
+}
+
+func splitString(s, sep string) []string {
+	return strings.Split(s, sep)
+}
+
+func trimSpace(s string) string {
+	return strings.TrimSpace(s)
+}
+
 func generateSecret() string {
 	b := make([]byte, 32)
 	rand.Read(b)
@@ -193,6 +222,7 @@ func logConfig() {
 	log.Printf("  Debug Enabled: %v", cfg.Debug.Enabled)
 	log.Printf("  Server Port: %d", cfg.Server.Port)
 	log.Printf("  Server Mode: %s", cfg.Server.Mode)
+	log.Printf("  Trusted Proxies: %v", cfg.Server.TrustedProxies)
 	log.Printf("  Database Type: %s", cfg.Database.Type)
 	if cfg.Database.Type == "sqlite" {
 		log.Printf("  Database Path: %s", cfg.Database.Path)

@@ -127,7 +127,9 @@ export default {
     providerModelStats: 'Provider/Model Stats',
     key: 'Key',
     latency: 'Latency',
-    error: 'Error'
+    error: 'Error',
+    ipStats: 'IP Stats',
+    clientIp: 'Client IP',
   },
   settings: {
     changePassword: 'Change Password',

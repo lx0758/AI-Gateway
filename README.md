@@ -104,6 +104,7 @@ auth:
 | `AG_DEBUG_ENABLED` | `false` | 调试模式开关 |
 | `AG_SERVER_PORT` | `18080` | 服务端口 |
 | `AG_SERVER_MODE` | `debug` | 运行模式 (debug/release) |
+| `AG_TRUSTED_PROXIES` | `10.0.0.0/8,192.168.0.0/16,172.16.0.0/12` | 信任的代理IP CIDR范围（逗号分隔），用于获取真实客户端IP |
 | `AG_DATABASE_TYPE` | `sqlite` | 数据库类型 (sqlite/postgres) |
 | `AG_DATABASE_PATH` | `data.db` | SQLite 数据库路径 |
 | `AG_DATABASE_HOST` | `localhost` | PostgreSQL 服务器地址 |
@@ -207,6 +208,96 @@ AG_SESSION_SECRET=your-secret-key \
 AG_ADMIN_PASSWORD=secure-password \
 ./ai-gateway-server
 ```
+
+### IP 配置示例
+
+AI Gateway 支持获取真实客户端 IP 地址，用于追踪请求来源和防止 IP 伪造。以下是不同部署场景的配置示例：
+
+#### 1. 直连部署（无代理）
+
+默认配置即可，无需设置 `AG_TRUSTED_PROXIES`：
+
+```bash
+# 直接访问，ClientIP 从 RemoteAddr 获取
+./ai-gateway-server
+```
+
+#### 2. Nginx 反向代理
+
+假设 Nginx 和 AI Gateway 在同一内网（如 `192.168.1.x`）：
+
+**Nginx 配置**：
+```nginx
+location / {
+    proxy_pass http://192.168.1.100:18080;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+**AI Gateway 配置**：
+```bash
+# 信任内网代理（默认值已包含）
+AG_TRUSTED_PROXIES="192.168.0.0/16" \
+./ai-gateway-server
+```
+
+#### 3. Cloudflare CDN
+
+Cloudflare 的代理 IP 范围会动态变化，建议使用官方提供的 CIDR 列表：
+
+```bash
+# Cloudflare IPv4 CIDR（需要定期更新）
+AG_TRUSTED_PROXIES="173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.96.0/20,197.234.240.0/22,198.41.128.0/17,162.158.0.0/15,104.16.0.0/13,104.24.0.0/14,172.64.0.0/13,131.0.72.0/22" \
+./ai-gateway-server
+```
+
+> CIDR 列表来源：<https://www.cloudflare.com/ips-v4>
+
+#### 4. AWS ALB / 云负载均衡
+
+信任 AWS ALB 的内网 IP：
+
+```bash
+# AWS VPC 内网 CIDR（根据实际情况调整）
+AG_TRUSTED_PROXIES="10.0.0.0/8" \
+./ai-gateway-server
+```
+
+#### 5. 多层代理场景
+
+信任多个代理层（Nginx + Cloudflare）：
+
+```bash
+# 同时信任内网 Nginx 和 Cloudflare
+AG_TRUSTED_PROXIES="192.168.0.0/16,173.245.48.0/20,...（其他 Cloudflare CIDR）" \
+./ai-gateway-server
+```
+
+#### 验证 IP 配置
+
+启动服务后，查看日志确认 TrustedProxies 配置：
+
+```bash
+# 日志输出示例
+[Config] Trusted Proxies: [192.168.0.0/16]
+```
+
+调用 API 后，检查 UsageLog 中的 `client_ips` 字段：
+
+```bash
+# 查看 logs API
+curl http://localhost:18080/api/v1/usage/logs | jq '.logs[] | {client_ips}'
+```
+
+`client_ips` 字段存储完整的 IP 转发链（逗号分隔），例如：
+- 直连场景：`192.168.1.100`
+- 代理场景：`192.168.1.100, 10.0.0.1, 172.16.0.1`
+
+> **安全提示**: 
+> - 生产环境必须正确配置 `AG_TRUSTED_PROXIES`，防止 IP 伪造攻击
+> - 代理 IP 列表需要定期更新（特别是 Cloudflare 等动态 IP）
+> - 禁止信任公网不可信 IP（如 `0.0.0.0/0`）
 
 ## 核心设计
 

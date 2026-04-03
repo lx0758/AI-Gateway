@@ -46,6 +46,27 @@
       </el-table>
     </el-card>
 
+    <el-card class="ip-stats-card" v-if="ipStats.length">
+      <template #header>{{ t('usage.ipStats') || 'IP 统计' }}</template>
+      <el-table :data="ipStats" stripe size="small">
+        <el-table-column :label="t('usage.clientIp') || '客户端 IP'">
+          <template #default="{ row }">
+            <span>{{ row.client_ips }}</span>
+            <el-tooltip v-if="row.full_chain.includes(',')" :content="row.full_chain" placement="top">
+              <el-icon style="margin-left: 4px; cursor: help;"><InfoFilled /></el-icon>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+        <el-table-column prop="count" :label="t('usage.callCount') || '调用次数'" />
+        <el-table-column :label="'Tokens'">
+          <template #default="{ row }">C:{{ formatTokens(row.cached_tokens) }}/I:{{ formatTokens(row.input_tokens) }}/O:{{ formatTokens(row.output_tokens) }}/T:{{ formatTokens(row.total_tokens) }}</template>
+        </el-table-column>
+        <el-table-column :label="t('usage.avgLatency') || '平均耗时'">
+          <template #default="{ row }">{{ formatLatency(row.avg_latency) }}</template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
     <el-card class="call-method-stats-card" v-if="callMethodStats.length">
       <template #header>{{ t('usage.callMethodStats') || '调用方式统计' }}</template>
       <el-table :data="callMethodStats" stripe size="small">
@@ -136,6 +157,14 @@
             <el-tag size="small" type="info">{{ row.source }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="client_ips" :label="t('usage.clientIp') || 'IP'" width="120">
+          <template #default="{ row }">
+            <span>{{ row.client_ips.split(',')[0].trim() }}</span>
+            <el-tooltip v-if="row.client_ips.includes(',')" :content="row.client_ips" placement="top">
+              <el-icon style="margin-left: 4px; cursor: help;"><InfoFilled /></el-icon>
+            </el-tooltip>
+          </template>
+        </el-table-column>
         <el-table-column prop="key_name" :label="t('usage.key') || 'Key'" width="100" />
         <el-table-column prop="model" :label="t('usage.model') || '模型'" width="150">
           <template #default="{ row }">
@@ -185,7 +214,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { CopyDocument } from '@element-plus/icons-vue'
+import { CopyDocument, InfoFilled } from '@element-plus/icons-vue'
 import api from '@/api'
 import { formatDateTime, formatLatency, formatTokens } from '@/utils/format'
 
@@ -194,6 +223,7 @@ const { t } = useI18n()
 interface LogItem {
   id: number
   source: string
+  client_ips: string
   key_id: number
   key_name: string
   model: string
@@ -261,6 +291,53 @@ const stats = computed(() => {
 const sourceStats = computed(() => aggregateBy('source'))
 const callMethodStats = computed(() => aggregateBy('call_method'))
 const keyStats = computed(() => aggregateBy('key_name'))
+const ipStats = computed(() => {
+  const list = logs.value
+  const groups: Record<string, {
+    count: number;
+    cached_tokens: number;
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    latency: number;
+    full_chain: string;
+  }> = {}
+
+  for (const log of list) {
+    const chain = log.client_ips || 'unknown'
+    const firstIP = chain.split(',')[0].trim()
+    if (!groups[firstIP]) {
+      groups[firstIP] = {
+        count: 0,
+        cached_tokens: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+        latency: 0,
+        full_chain: chain,
+      }
+    }
+    groups[firstIP].count++
+    groups[firstIP].cached_tokens += log.cached_tokens || 0
+    groups[firstIP].input_tokens += log.input_tokens || 0
+    groups[firstIP].output_tokens += log.output_tokens || 0
+    groups[firstIP].total_tokens += log.total_tokens || 0
+    groups[firstIP].latency += log.latency_ms || 0
+  }
+
+  return Object.entries(groups)
+    .map(([key, value]) => ({
+      client_ips: key,
+      full_chain: value.full_chain,
+      count: value.count,
+      cached_tokens: value.cached_tokens,
+      input_tokens: value.input_tokens,
+      output_tokens: value.output_tokens,
+      total_tokens: value.total_tokens,
+      avg_latency: value.count > 0 ? value.latency / value.count : 0,
+    }))
+    .sort((a, b) => b.count - a.count)
+})
 const modelStats = computed(() => aggregateBy('model'))
 const providerStats = computed(() => aggregateBy('provider_name'))
 const providerModelStats = computed(() => aggregateBy(['provider_name', 'actual_model_name']))
@@ -360,6 +437,7 @@ function copyError(errorMsg: string) {
 .usage-page { padding: 20px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .source-stats-card { margin-top: 20px; }
+.ip-stats-card { margin-top: 20px; }
 .call-method-stats-card { margin-top: 20px; }
 .key-stats-card { margin-top: 20px; }
 .model-stats-card { margin-top: 20px; }
