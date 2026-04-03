@@ -121,6 +121,7 @@ func main() {
 
 			protected.GET("/aliases/:id/mappings", aliasHandler.ListMappings)
 			protected.POST("/aliases/:id/mappings", aliasHandler.CreateMapping)
+			protected.PUT("/aliases/:id/mappings/order", aliasHandler.UpdateMappingsOrder)
 			protected.PUT("/aliases/:id/mappings/:mid", aliasHandler.UpdateMapping)
 			protected.DELETE("/aliases/:id/mappings/:mid", aliasHandler.DeleteMapping)
 

@@ -32,9 +32,23 @@
         <el-table-column type="selection" width="50" />
         <el-table-column prop="model_id" :label="t('provider.modelId')" width="180" />
         <el-table-column prop="display_name" :label="t('common.name')" />
-        <el-table-column :label="t('provider.contextWindow')" width="180" >
+        <el-table-column :label="t('provider.capabilities')" width="200">
           <template #default="{ row }">
-            {{ row.context_window }} / {{ row.max_output }}
+            <div class="capability-tags">
+              <el-tag v-if="row.supports_vision" type="success" size="small" style="margin-right: 4px">Vision</el-tag>
+              <el-tag v-if="row.supports_tools" type="warning" size="small" style="margin-right: 4px">Tools</el-tag>
+              <el-tag v-if="row.supports_stream" type="primary" size="small">Stream</el-tag>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('provider.contextWindow')" width="150" >
+          <template #default="{ row }">
+            <el-tooltip v-if="row.context_window > 0 || row.max_output > 0" 
+              :content="`${row.context_window.toLocaleString()} / ${row.max_output.toLocaleString()}`" 
+              placement="top">
+              <span>{{ formatContextDisplay(row.context_window, row.max_output) }}</span>
+            </el-tooltip>
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column :label="t('provider.price')" width="100" >
@@ -172,7 +186,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatContextDisplay } from '@/utils/format'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -345,5 +359,11 @@ async function handleBatchDelete() {
 
 .clickable-table :deep(.el-table__row:hover) {
   background-color: #f5f7fa;
+}
+
+.capability-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 </style>

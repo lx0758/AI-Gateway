@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -35,13 +36,22 @@ type updateMappingRequest struct {
 	Enabled           *bool   `json:"enabled"`
 }
 
+type updateMappingsOrderRequest struct {
+	Order []uint `json:"order" binding:"required"`
+}
+
 type aliasResponse struct {
-	ID           uint              `json:"id"`
-	Alias        string            `json:"alias"`
-	Enabled      bool              `json:"enabled"`
-	MappingCount int               `json:"mapping_count"`
-	CreatedAt    string            `json:"created_at"`
-	Mappings     []mappingResponse `json:"mappings,omitempty"`
+	ID               uint              `json:"id"`
+	Alias            string            `json:"alias"`
+	Enabled          bool              `json:"enabled"`
+	MappingCount     int               `json:"mapping_count"`
+	MinContextWindow int               `json:"min_context_window"`
+	MinMaxOutput     int               `json:"min_max_output"`
+	SupportsVision   bool              `json:"supports_vision"`
+	SupportsTools    bool              `json:"supports_tools"`
+	SupportsStream   bool              `json:"supports_stream"`
+	CreatedAt        string            `json:"created_at"`
+	Mappings         []mappingResponse `json:"mappings,omitempty"`
 }
 
 type mappingResponse struct {
@@ -51,6 +61,15 @@ type mappingResponse struct {
 	Weight            int                    `json:"weight"`
 	Enabled           bool                   `json:"enabled"`
 	Provider          *providerBasicResponse `json:"provider,omitempty"`
+	ModelInfo         *modelInfoResponse     `json:"model_info,omitempty"`
+}
+
+type modelInfoResponse struct {
+	ContextWindow  int  `json:"context_window"`
+	MaxOutput      int  `json:"max_output"`
+	SupportsVision bool `json:"supports_vision"`
+	SupportsTools  bool `json:"supports_tools"`
+	SupportsStream bool `json:"supports_stream"`
 }
 
 type providerBasicResponse struct {
@@ -78,13 +97,21 @@ func (h *AliasHandler) List(c *gin.Context) {
 			mappings[j] = toMappingResponse(m)
 		}
 
+		minContext, minOutput := calculateMinTokens(a.Mappings)
+		supportsVision, supportsTools, supportsStream := calculateCapabilitiesIntersection(a.Mappings)
+
 		result[i] = aliasResponse{
-			ID:           a.ID,
-			Alias:        a.Name,
-			Enabled:      a.Enabled,
-			MappingCount: len(a.Mappings),
-			CreatedAt:    a.CreatedAt.Format("2006-01-02 15:04:05"),
-			Mappings:     mappings,
+			ID:               a.ID,
+			Alias:            a.Name,
+			Enabled:          a.Enabled,
+			MappingCount:     len(a.Mappings),
+			MinContextWindow: minContext,
+			MinMaxOutput:     minOutput,
+			SupportsVision:   supportsVision,
+			SupportsTools:    supportsTools,
+			SupportsStream:   supportsStream,
+			CreatedAt:        a.CreatedAt.Format("2006-01-02 15:04:05"),
+			Mappings:         mappings,
 		}
 	}
 
@@ -383,6 +410,44 @@ func (h *AliasHandler) DeleteMapping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "mapping deleted"})
 }
 
+func (h *AliasHandler) UpdateMappingsOrder(c *gin.Context) {
+	aliasID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
+		return
+	}
+
+	var alias model.Alias
+	if err := model.DB.First(&alias, aliasID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "alias not found"})
+		return
+	}
+
+	var req updateMappingsOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(req.Order) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "order array is empty"})
+		return
+	}
+
+	totalMappings := len(req.Order)
+	for i, mappingID := range req.Order {
+		weight := totalMappings - 1 - i
+		if err := model.DB.Model(&model.AliasMapping{}).
+			Where("id = ? AND alias_id = ?", mappingID, aliasID).
+			Update("weight", weight).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to update mapping %d: %v", mappingID, err)})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "mappings order updated"})
+}
+
 func toMappingResponse(m model.AliasMapping) mappingResponse {
 	var providerResp *providerBasicResponse
 	if m.Provider != nil {
@@ -393,6 +458,19 @@ func toMappingResponse(m model.AliasMapping) mappingResponse {
 			AnthropicBaseURL: m.Provider.AnthropicBaseURL,
 		}
 	}
+
+	var modelInfoResp *modelInfoResponse
+	var pm model.ProviderModel
+	if err := model.DB.Where("provider_id = ? AND model_id = ?", m.ProviderID, m.ProviderModelName).First(&pm).Error; err == nil {
+		modelInfoResp = &modelInfoResponse{
+			ContextWindow:  pm.ContextWindow,
+			MaxOutput:      pm.MaxOutput,
+			SupportsVision: pm.SupportsVision,
+			SupportsTools:  pm.SupportsTools,
+			SupportsStream: pm.SupportsStream,
+		}
+	}
+
 	return mappingResponse{
 		ID:                m.ID,
 		ProviderID:        m.ProviderID,
@@ -400,5 +478,79 @@ func toMappingResponse(m model.AliasMapping) mappingResponse {
 		Weight:            m.Weight,
 		Enabled:           m.Enabled,
 		Provider:          providerResp,
+		ModelInfo:         modelInfoResp,
 	}
+}
+
+func calculateMinTokens(mappings []model.AliasMapping) (int, int) {
+	minContext := 0
+	minOutput := 0
+	hasEnabled := false
+
+	for _, m := range mappings {
+		if !m.Enabled {
+			continue
+		}
+
+		hasEnabled = true
+		var pm model.ProviderModel
+		if err := model.DB.Where("provider_id = ? AND model_id = ?", m.ProviderID, m.ProviderModelName).First(&pm).Error; err != nil {
+			continue
+		}
+
+		if pm.ContextWindow > 0 {
+			if minContext == 0 || pm.ContextWindow < minContext {
+				minContext = pm.ContextWindow
+			}
+		}
+		if pm.MaxOutput > 0 {
+			if minOutput == 0 || pm.MaxOutput < minOutput {
+				minOutput = pm.MaxOutput
+			}
+		}
+	}
+
+	if !hasEnabled {
+		return 0, 0
+	}
+
+	return minContext, minOutput
+}
+
+func calculateCapabilitiesIntersection(mappings []model.AliasMapping) (bool, bool, bool) {
+	supportsVision := true
+	supportsTools := true
+	supportsStream := true
+	hasEnabled := false
+
+	for _, m := range mappings {
+		if !m.Enabled {
+			continue
+		}
+
+		hasEnabled = true
+		var pm model.ProviderModel
+		if err := model.DB.Where("provider_id = ? AND model_id = ?", m.ProviderID, m.ProviderModelName).First(&pm).Error; err != nil {
+			supportsVision = false
+			supportsTools = false
+			supportsStream = false
+			continue
+		}
+
+		if !pm.SupportsVision {
+			supportsVision = false
+		}
+		if !pm.SupportsTools {
+			supportsTools = false
+		}
+		if !pm.SupportsStream {
+			supportsStream = false
+		}
+	}
+
+	if !hasEnabled {
+		return false, false, false
+	}
+
+	return supportsVision, supportsTools, supportsStream
 }

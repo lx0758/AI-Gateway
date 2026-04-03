@@ -86,7 +86,8 @@ export default {
     supportsStream: 'Supports Stream',
     addModel: 'Add Model',
     inputPrice: 'Input Price',
-    outputPrice: 'Output Price'
+    outputPrice: 'Output Price',
+    capabilities: 'Capabilities'
   },
   apiKey: {
     name: 'Key Name',
@@ -154,6 +155,10 @@ export default {
     mappings: 'mappings',
     addMapping: 'Add Mapping',
     editMapping: 'Edit Mapping',
-    providerType: 'Provider Type'
+    providerType: 'Provider Type',
+    mappingCount: 'Mapping Count',
+    tokenSummary: 'Token Summary',
+    contextWindow: 'Context Window',
+    capabilities: 'Capabilities'
   }
 }

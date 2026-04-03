@@ -86,7 +86,8 @@ export default {
     supportsStream: '支持流式',
     addModel: '添加模型',
     inputPrice: '输入价格',
-    outputPrice: '输出价格'
+    outputPrice: '输出价格',
+    capabilities: '能力特性'
   },
   apiKey: {
     name: '密钥名称',
@@ -154,6 +155,10 @@ export default {
     mappings: '个映射',
     addMapping: '添加映射',
     editMapping: '编辑映射',
-    providerType: '厂商类型'
+    providerType: '厂商类型',
+    mappingCount: '映射数量',
+    tokenSummary: 'Token 汇总',
+    contextWindow: '上下文窗口',
+    capabilities: '能力特性'
   }
 }

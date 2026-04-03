@@ -30,7 +30,7 @@
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="250">
+        <el-table-column :label="t('common.action')" width="180">
           <template #default="{ row }">
             <el-button link type="primary" @click="showDialog(row.id)">{{ t('common.edit') }}</el-button>
             <el-button link type="default" @click="goDetail(row.id)">{{ t('common.detail') }}</el-button>

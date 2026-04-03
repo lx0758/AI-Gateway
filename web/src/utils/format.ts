@@ -40,3 +40,22 @@ export function formatTokens(tokens: number | null | undefined): string {
   if (tokens >= 1e3) return (tokens / 1e3).toFixed(1) + 'K'
   return tokens.toString()
 }
+
+export function formatToken(value: number | null | undefined): string {
+  if (value == null || value === 0) return '0'
+  if (value < 1000) return value.toString()
+  
+  if (value < 1000000) {
+    const k = value / 1000
+    return k % 1 === 0 ? `${k}K` : `${k.toFixed(1)}K`
+  }
+  
+  const m = value / 1000000
+  return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`
+}
+
+export function formatContextDisplay(context: number | null | undefined, output: number | null | undefined): string {
+  const contextStr = formatToken(context)
+  const outputStr = formatToken(output)
+  return `${contextStr} / ${outputStr}`
+}

@@ -30,7 +30,7 @@
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="200">
+        <el-table-column :label="t('common.action')" width="180">
           <template #default="{ row }">
             <el-button link type="primary" @click="showDialog(row)">{{ t('common.edit') }}</el-button>
             <el-button link type="warning" @click="handleReset(row.id)">{{ t('apiKey.reset') }}</el-button>
