@@ -4,19 +4,19 @@
 **此项目是作者学习大模型接口的副产物，最早的核心功能仅仅是实现 OpenAI/Anthropic API 的相互转换。**
 **目前转换功能能处理文字内容（包括 “context”、“thinking”、“tools”），多模态转换从未尝试过。**
 
-统一的 AI 服务网关平台。聚合多个大模型厂商的 API 为 OpenAI 兼容格式，未来将扩展支持 MCP/ACP 等协议代理，打造多协议 AI 服务接入中心。
+统一的 AI 服务网关平台。聚合多个大模型厂商的 API，未来将扩展支持 MCP/ACP 等协议代理，打造多协议 AI 服务接入中心。
 
 ## 特性
 
 - **多协议网关**: 当前支持 OpenAI/Anthropic API 代理，未来将支持 MCP 等协议
 - **OpenAI 兼容 API**: 暴露标准的 `/openai/v1/chat/completions` 和 `/openai/v1/models` 接口
 - **Anthropic 兼容 API**: 暴露标准的 `/anthropic/v1/messages` 和 `/anthropic/v1/models` 接口
-- **多厂商支持**: 支持多种 AI 服务厂商，可轻松扩展
+- **Web 控制台**: Vue 3 管理界面，支持中英文、暗色模式
+- **多厂商支持**: 支持多种 AI 服务厂商（OpenAI、Anthropic双协议兼容），可轻松扩展
 - **格式自动转换**: OpenAI ↔ Anthropic 请求/响应格式自动转换
-- **智能路由**: 支持多厂商轮询、故障转移和格式匹配优化
+- ~~**智能路由**: 支持多厂商轮询、故障转移和格式匹配优化~~
 - **API Key 管理**: 生成和管理网关 API Key，支持模型访问权限控制
 - **用量统计**: 请求日志和用量仪表盘，实时监控服务调用
-- **Web 控制台**: Vue 3 管理界面，支持中英文、暗色模式
 
 ## 外观
 
@@ -39,7 +39,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/lx0758/AI_Gateway.git ai-gateway
+git clone https://github.com/lx0758/AI-Gateway.git ai-gateway
 
 # 构建
 cd ai-gateway
@@ -52,6 +52,9 @@ make
 # 单独构建后端
 cd ai-gateway/server
 make
+
+# 运行
+ai-gateway/server/bin/ai-gateway-server
 ```
 > 编译产物在 `ai-gateway/server/bin/ai-gateway-server`
 
@@ -62,7 +65,7 @@ make
 - 用户名: `admin`
 - 密码: `admin`
 
-## 配置
+### 配置
 
 使用环境变量配置，所有变量以 `AG_` 为前缀：
 
@@ -91,6 +94,78 @@ AG_SERVER_MODE=release \
 AG_SESSION_SECRET=your-secret-key \
 AG_ADMIN_PASSWORD=secure-password \
 ./ai-gateway-server
+```
+
+## 核心设计
+
+- **别名抽象**：用户使用统一的模型名称（别名），无需关心后端实际模型
+- **多后端映射**：一个别名可映射到多个 Provider，实现负载均衡和故障转移
+- **权重路由**：按 weight 值降序排列，优先选择高权重 Provider
+- **双协议支持**：每个 Provider 可同时配置 OpenAI 和 Anthropic BaseURL
+
+## 工作原理
+
+### 请求处理流程
+
+```mermaid
+flowchart TD
+    subgraph 入口["入口 (双协议支持)"]
+        A1["OpenAI 入口<br/>POST /openai/v1/chat/completions<br/>Authorization: Bearer sk-xxx"]
+        A2["Anthropic 入口<br/>POST /anthropic/v1/messages<br/>x-api-key: sk-xxx"]
+    end
+
+    A1 --> B
+    A2 --> B
+
+    B["API Key 认证<br/>验证 Key 有效性和模型权限"]
+    --> C["模型路由<br/>Alias → AliasMapping → Provider → ProviderModel<br/>按 weight 排序"]
+
+    --> D{"协议匹配决策"}
+
+    D -->|"协议相同"| S1
+    D -->|"协议不同"| S2
+
+    subgraph 直通流程["直通流程 (无需转换)"]
+        S1["模型替换<br/>alias → actual_model_id"]
+        --> R1["请求后端 API<br/>透传请求体"]
+        --> RES1["返回响应<br/>流式/非流式"]
+        --> TK1["Token 统计"]
+    end
+
+    subgraph 转换流程["转换流程 (协议转换)"]
+        S2["模型替换<br/>alias → actual_model_id"]
+        --> TR1["请求转换<br/>OpenAI ↔ Anthropic"]
+        --> R2["请求后端 API"]
+        --> TR2["响应转换<br/>Anthropic ↔ OpenAI"]
+        --> RES2["返回响应<br/>流式/非流式"]
+        --> TK2["Token 统计"]
+    end
+
+    TK1 --> I["用量记录<br/>写入 UsageLog"]
+    TK2 --> I
+```
+
+### 路由决策流程(暂未实现负载均衡)
+
+```mermaid
+flowchart TD
+    A["输入: model_name"] --> B["查询 Alias<br/>WHERE name = model_name<br/>AND enabled = true"]
+
+    B --> C{"Alias 存在?"}
+
+    C -->|"No"| D["返回 404<br/>model not found"]
+    C -->|"Yes"| E["查询 AliasMapping<br/>WHERE alias_id = alias.ID<br/>AND enabled = true<br/>ORDER BY weight DESC"]
+
+    E --> F{"Mapping 列表为空?"}
+
+    F -->|"Yes"| G["返回 404<br/>no provider available"]
+    F -->|"No"| H["遍历每个 Mapping"]
+
+    H --> I["检查 Provider.enabled<br/>查询 ProviderModel<br/>WHERE is_available = true"]
+
+    I --> J["构建 Provider 实例<br/>OpenAI BaseURL → OpenAIProvider<br/>Anthropic BaseURL → AnthropicProvider"]
+
+    J --> K["返回 RouteResult 列表<br/>按 weight 降序排列"]
 ```
 
 ## API 接口
@@ -143,82 +218,6 @@ GET  /api/v1/usage/dashboard # 仪表盘数据
 ```
 
 ## 使用示例
-
-### 1. 添加厂商
-
-```bash
-# 添加支持 OpenAI 格式的厂商
-curl -X POST http://localhost:18080/api/v1/providers \
-  -H "Content-Type: application/json" \
-  -b "session=your-session-cookie" \
-  -d '{
-    "name": "OpenAI",
-    "openai_base_url": "https://api.openai.com/v1",
-    "api_key": "sk-xxx"
-  }'
-
-# 添加支持 Anthropic 格式的厂商
-curl -X POST http://localhost:18080/api/v1/providers \
-  -H "Content-Type: application/json" \
-  -b "session=your-session-cookie" \
-  -d '{
-    "name": "Anthropic",
-    "anthropic_base_url": "https://api.anthropic.com/v1",
-    "api_key": "sk-xxx"
-  }'
-```
-
-### 2. 创建模型别名
-
-```bash
-curl -X POST http://localhost:18080/api/v1/aliases \
-  -H "Content-Type: application/json" \
-  -b "session=your-session-cookie" \
-  -d '{
-    "name": "gpt-4",
-    "mappings": [
-      {"provider_id": 1, "model_name": "gpt-4-turbo-preview", "weight": 100}
-    ]
-  }'
-```
-
-### 3. 创建 API Key
-
-```bash
-curl -X POST http://localhost:18080/api/v1/api-keys \
-  -H "Content-Type: application/json" \
-  -b "session=your-session-cookie" \
-  -d '{
-    "name": "my-api-key",
-    "models": ["gpt-4"]
-  }'
-```
-
-### 4. 重置 API Key
-
-```bash
-# 重置 API Key，生成新的 Key 值并保留原有配置
-curl -X POST http://localhost:18080/api/v1/api-keys/1/reset \
-  -b "session=your-session-cookie"
-
-# 响应示例
-{
-  "key": {
-    "id": 1,
-    "key": "sk-abc123****xyz9",
-    "name": "my-api-key",
-    "enabled": true,
-    "expires_at": null,
-    "created_at": "2024-01-01T00:00:00Z",
-    "models": [{"id": 1, "model": "gpt-4"}]
-  },
-  "raw_key": "sk-abc123def456789xyz9"
-}
-```
-
-**注意**: `raw_key` 仅在重置时返回一次，请立即保存。旧 Key 值将立即失效。
-
-### 5. 调用网关 API
 
 ```bash
 # OpenAI 格式调用
