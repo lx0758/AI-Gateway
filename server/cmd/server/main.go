@@ -10,15 +10,25 @@ import (
 	"ai-gateway/internal/handler"
 	"ai-gateway/internal/middleware"
 	"ai-gateway/internal/model"
+	"ai-gateway/internal/provider"
 	"ai-gateway/res"
 )
 
 func main() {
 	cfg := config.Load()
 
-	log.Printf("AI Model Proxy v%s", res.Version)
+	log.Printf("AI Gateway v%s", res.Version)
 
-	if err := model.InitDB(cfg.Database.Path); err != nil {
+	if err := model.InitDB(
+		cfg.Database.Type,
+		cfg.Database.Path,
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.Username,
+		cfg.Database.Password,
+		cfg.Database.DBName,
+		cfg.Debug.Enabled,
+	); err != nil {
 		log.Fatalf("Failed to init database: %v", err)
 	}
 
@@ -26,7 +36,13 @@ func main() {
 		log.Fatalf("Failed to init default admin: %v", err)
 	}
 
-	gin.SetMode(cfg.Server.Mode)
+	provider.SetDebugMode(cfg.Debug.Enabled)
+
+	if cfg.Debug.Enabled {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	r := gin.Default()
 

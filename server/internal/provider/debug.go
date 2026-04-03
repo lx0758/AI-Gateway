@@ -10,8 +10,13 @@ import (
 	"time"
 )
 
-const DEBUG = false
 const DEBUG_DIR = "debug"
+
+var debugEnabled = false
+
+func SetDebugMode(enabled bool) {
+	debugEnabled = enabled
+}
 
 type debugReader struct {
 	src io.Reader
@@ -61,7 +66,7 @@ func (w *debugWriter) Write(p []byte) (n int, err error) {
 }
 
 func recordBody(method string, bodyType string, body []byte) {
-	if !DEBUG {
+	if !debugEnabled {
 		return
 	}
 	os.MkdirAll(DEBUG_DIR, 0755)
@@ -72,7 +77,7 @@ func recordBody(method string, bodyType string, body []byte) {
 }
 
 func recordError(method string, httpCode int, body []byte) {
-	if !DEBUG {
+	if !debugEnabled {
 		return
 	}
 	os.MkdirAll(DEBUG_DIR, 0755)
@@ -83,7 +88,7 @@ func recordError(method string, httpCode int, body []byte) {
 }
 
 func recordStream(method string, src io.Reader, dst io.Writer) (io.Reader, io.Writer) {
-	if !DEBUG {
+	if !debugEnabled {
 		return src, dst
 	}
 	os.MkdirAll(DEBUG_DIR, 0755)

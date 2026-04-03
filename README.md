@@ -67,13 +67,50 @@ ai-gateway/server/bin/ai-gateway-server
 
 ### 配置
 
-使用环境变量配置，所有变量以 `AG_` 为前缀：
+支持 YAML 配置文件和环境变量两种配置方式，优先级：**环境变量 > YAML 配置 > 默认值**
+
+#### YAML 配置
+
+在 `server/` 目录下创建 `config.yaml` 文件（参考 `config.yaml.example`）：
+
+```yaml
+debug:
+  enabled: false  # 调试模式开关
+
+server:
+  port: 18080     # 服务端口
+  mode: debug     # 运行模式
+
+database:
+  type: sqlite    # 数据库类型 (sqlite/postgres)
+  path: data.db   # SQLite 数据库路径
+
+session:
+  secret: ""      # Session 密钥
+  max_age: 86400  # Session 有效期
+
+auth:
+  default_admin:
+    username: admin
+    password: admin
+```
+
+#### 环境变量配置
+
+所有变量以 `AG_` 为前缀：
 
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
+| `AG_DEBUG_ENABLED` | `false` | 调试模式开关 |
 | `AG_SERVER_PORT` | `18080` | 服务端口 |
 | `AG_SERVER_MODE` | `debug` | 运行模式 (debug/release) |
+| `AG_DATABASE_TYPE` | `sqlite` | 数据库类型 (sqlite/postgres) |
 | `AG_DATABASE_PATH` | `data.db` | SQLite 数据库路径 |
+| `AG_DATABASE_HOST` | `localhost` | PostgreSQL 服务器地址 |
+| `AG_DATABASE_PORT` | `5432` | PostgreSQL 服务器端口 |
+| `AG_DATABASE_USERNAME` | `postgres` | PostgreSQL 用户名 |
+| `AG_DATABASE_PASSWORD` | `""` | PostgreSQL 密码 |
+| `AG_DATABASE_DBNAME` | `ai_gateway` | PostgreSQL 数据库名 |
 | `AG_SESSION_SECRET` | (自动生成) | Session 密钥，未设置时自动生成 |
 | `AG_SESSION_MAX_AGE` | `86400` | Session 有效期(秒) |
 | `AG_SESSION_SECURE` | `false` | Cookie Secure 标志 |
@@ -81,6 +118,81 @@ ai-gateway/server/bin/ai-gateway-server
 | `AG_SESSION_SAME_SITE` | `lax` | Cookie SameSite 属性 |
 | `AG_ADMIN_USERNAME` | `admin` | 默认管理员用户名 |
 | `AG_ADMIN_PASSWORD` | `admin` | 默认管理员密码 |
+
+#### 调试模式
+
+启用调试模式（`debug.enabled: true` 或 `AG_DEBUG_ENABLED=true`）后：
+- Gin 框架运行在 DebugMode
+- Gorm 输出详细日志（Info 级别）
+- Provider 记录请求/响应到 `debug/` 目录
+
+### 数据库配置
+
+#### SQLite（默认）
+
+无需额外配置，数据库文件自动创建在 `server/data.db`：
+
+```yaml
+database:
+  type: sqlite
+  path: data.db
+```
+
+#### PostgreSQL
+
+1. 创建数据库：
+
+```sql
+CREATE DATABASE ai_gateway;
+CREATE USER your_username WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE ai_gateway TO ai_gateway;
+```
+
+2. 配置连接：
+
+**YAML 方式** (`config.yaml`):
+
+```yaml
+database:
+  type: postgres
+  host: localhost
+  port: 5432
+  username: your_username
+  password: your_password
+  dbname: ai_gateway
+```
+
+**环境变量方式**:
+
+```bash
+AG_DATABASE_TYPE=postgres \
+AG_DATABASE_HOST=localhost \
+AG_DATABASE_PORT=5432 \
+AG_DATABASE_USERNAME=your_username \
+AG_DATABASE_PASSWORD=your_password \
+AG_DATABASE_DBNAME=ai_gateway \
+./ai-gateway-server
+```
+
+#### SQLite 到 PostgreSQL 迁移
+
+1. 导出 SQLite 数据：
+
+```bash
+sqlite3 data.db .dump > backup.sql
+```
+
+2. 创建 PostgreSQL 数据库
+
+3. 调整 SQL 语法（如有必要）
+
+4. 导入数据：
+
+```bash
+psql -U your_username -d ai_gateway -f backup.sql
+```
+
+5. 更新配置切换到 PostgreSQL
 
 ### 示例
 

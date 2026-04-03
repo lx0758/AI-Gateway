@@ -1,0 +1,72 @@
+# AI Gateway Configuration Example
+# 
+# This file demonstrates all available configuration parameters.
+# Copy this file to 'config.yaml' and modify as needed.
+#
+# Configuration Priority: Environment Variables > YAML File > Default Values
+# All parameters support both YAML and environment variable configuration.
+# Environment variables use 'AG_' prefix (e.g., AG_SERVER_PORT, AG_DATABASE_TYPE).
+
+# Debug Mode Configuration
+# Controls logging verbosity and debug features
+debug:
+  enabled: false       # Enable debug mode (true/false)
+                       # When enabled:
+                       # - Gin framework runs in DebugMode
+                       # - Gorm logs at Info level
+                       # - Provider debug recording is active (saves to 'debug/' directory)
+                       # Environment variable: AG_DEBUG_ENABLED
+
+# Server Configuration
+# Controls HTTP server settings
+server:
+  port: 18080          # Server listening port
+                       # Environment variable: AG_SERVER_PORT
+  mode: debug          # Gin framework mode (debug/release)
+                       # Note: This is overridden by debug.enabled setting
+                       # Environment variable: AG_SERVER_MODE
+
+# Database Configuration
+# Supports SQLite and PostgreSQL
+database:
+  type: sqlite         # Database type: sqlite or postgres
+                       # Environment variable: AG_DATABASE_TYPE
+  
+  # SQLite Configuration (used when type=sqlite)
+  path: data.db        # SQLite database file path
+                       # Environment variable: AG_DATABASE_PATH
+  
+  # PostgreSQL Configuration (used when type=postgres)
+  host: localhost      # PostgreSQL server host
+                       # Environment variable: AG_DATABASE_HOST
+  port: 5432           # PostgreSQL server port
+                       # Environment variable: AG_DATABASE_PORT
+  username: postgres   # PostgreSQL username
+                       # Environment variable: AG_DATABASE_USERNAME
+  password: ""         # PostgreSQL password
+                       # Environment variable: AG_DATABASE_PASSWORD
+  dbname: ai_gateway   # PostgreSQL database name
+                       # Environment variable: AG_DATABASE_DBNAME
+
+# Session Configuration
+# Controls user session management
+session:
+  secret: ""           # Session secret key (auto-generated if empty)
+                       # Environment variable: AG_SESSION_SECRET
+  max_age: 86400       # Session max age in seconds (default: 24 hours)
+                       # Environment variable: AG_SESSION_MAX_AGE
+  secure: false        # Use secure cookies (HTTPS only)
+                       # Environment variable: AG_SESSION_SECURE
+  http_only: true      # HTTP-only cookies (prevent JavaScript access)
+                       # Environment variable: AG_SESSION_HTTP_ONLY
+  same_site: lax       # SameSite cookie policy (strict/lax/none)
+                       # Environment variable: AG_SESSION_SAME_SITE
+
+# Authentication Configuration
+# Controls default admin credentials
+auth:
+  default_admin:
+    username: admin    # Default admin username
+                       # Environment variable: AG_ADMIN_USERNAME
+    password: admin    # Default admin password
+                       # Environment variable: AG_ADMIN_PASSWORD

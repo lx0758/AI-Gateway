@@ -2,10 +2,12 @@ package model
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
 
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -18,7 +20,7 @@ type User struct {
 	Username     string `gorm:"uniqueIndex"`
 	PasswordHash string
 	Role         string `gorm:"default:admin"`
-	Enabled      bool   `gorm:"default:true"`
+	Enabled      bool   `gorm:"type:boolean;default:true"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	DeletedAt    gorm.DeletedAt
@@ -30,7 +32,7 @@ type Provider struct {
 	OpenAIBaseURL    string `gorm:"column:openai_base_url"`
 	AnthropicBaseURL string `gorm:"column:anthropic_base_url"`
 	APIKey           string
-	Enabled          bool   `gorm:"default:true"`
+	Enabled          bool   `gorm:"type:boolean;default:true"`
 	Priority         int    `gorm:"default:0"`
 	Config           string `gorm:"type:text"`
 	LastSyncAt       *time.Time
@@ -50,11 +52,11 @@ type ProviderModel struct {
 	MaxOutput      int     `gorm:"default:0"`
 	InputPrice     float64 `gorm:"default:0"`
 	OutputPrice    float64 `gorm:"default:0"`
-	SupportsVision bool    `gorm:"default:false"`
-	SupportsTools  bool    `gorm:"default:true"`
-	SupportsStream bool    `gorm:"default:true"`
+	SupportsVision bool    `gorm:"type:boolean;default:false"`
+	SupportsTools  bool    `gorm:"type:boolean;default:true"`
+	SupportsStream bool    `gorm:"type:boolean;default:true"`
 	Metadata       string  `gorm:"type:text"`
-	IsAvailable    bool    `gorm:"default:true"`
+	IsAvailable    bool    `gorm:"type:boolean;default:true"`
 	Source         string  `gorm:"default:sync"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
@@ -64,7 +66,7 @@ type ProviderModel struct {
 type Alias struct {
 	ID        uint   `gorm:"primaryKey;tableName:aliases"`
 	Name      string `gorm:"uniqueIndex;column:name"`
-	Enabled   bool   `gorm:"default:true"`
+	Enabled   bool   `gorm:"type:boolean;default:true"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt
@@ -77,7 +79,7 @@ type AliasMapping struct {
 	ProviderID        uint `gorm:"index"`
 	ProviderModelName string
 	Weight            int  `gorm:"default:1"`
-	Enabled           bool `gorm:"default:true"`
+	Enabled           bool `gorm:"type:boolean;default:true"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	DeletedAt         gorm.DeletedAt
@@ -90,7 +92,7 @@ type Mapping struct {
 	ProviderID        uint `gorm:"index"`
 	ProviderModelName string
 	Weight            int  `gorm:"default:1"`
-	Enabled           bool `gorm:"default:true"`
+	Enabled           bool `gorm:"type:boolean;default:true"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	DeletedAt         gorm.DeletedAt
@@ -101,7 +103,7 @@ type Key struct {
 	ID        uint   `gorm:"primaryKey"`
 	Key       string `gorm:"uniqueIndex"`
 	Name      string
-	Enabled   bool `gorm:"default:true"`
+	Enabled   bool `gorm:"type:boolean;default:true"`
 	ExpiresAt *time.Time
 	CreatedAt time.Time
 	DeletedAt gorm.DeletedAt
@@ -143,20 +145,42 @@ func (u *UsageLog) String() string {
 	)
 }
 
-func InitDB(dbPath string) error {
-	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
+func InitDB(dbType, dbPath, dbHost string, dbPort int, dbUser, dbPassword, dbName string, debug bool) error {
+	var dialector gorm.Dialector
+	var err error
+
+	switch dbType {
+	case "postgres":
+		dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
+			dbHost, dbPort, dbUser, dbPassword, dbName)
+		log.Printf("[Database] Connecting to PostgreSQL: host=%s, port=%d, dbname=%s", dbHost, dbPort, dbName)
+		dialector = postgres.Open(dsn)
+	case "sqlite":
+		dir := filepath.Dir(dbPath)
+		if err = os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		dsn := dbPath + "?_loc=auto"
+		log.Printf("[Database] Connecting to SQLite: path=%s", dbPath)
+		dialector = sqlite.Open(dsn)
+	default:
+		return fmt.Errorf("unsupported database type: %s", dbType)
 	}
 
-	var err error
-	dsn := dbPath + "?_loc=auto"
-	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
+	logLevel := logger.Silent
+	if debug {
+		logLevel = logger.Info
+	}
+
+	DB, err = gorm.Open(dialector, &gorm.Config{
+		Logger: logger.Default.LogMode(logLevel),
 	})
 	if err != nil {
-		return err
+		log.Printf("[Database] Failed to connect to database: %v", err)
+		return fmt.Errorf("failed to connect to database: %v", err)
 	}
+
+	log.Printf("[Database] Database connection successful")
 
 	if err := autoMigrate(); err != nil {
 		return err

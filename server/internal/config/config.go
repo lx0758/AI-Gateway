@@ -7,13 +7,20 @@ import (
 	"log"
 	"os"
 	"strconv"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
+	Debug    DebugConfig
 	Server   ServerConfig
 	Database DatabaseConfig
 	Session  SessionConfig
 	Auth     AuthConfig
+}
+
+type DebugConfig struct {
+	Enabled bool
 }
 
 type ServerConfig struct {
@@ -22,7 +29,13 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
-	Path string
+	Type     string
+	Path     string
+	Host     string
+	Port     int
+	Username string
+	Password string
+	DBName   string
 }
 
 type SessionConfig struct {
@@ -44,34 +57,95 @@ type DefaultAdminConfig struct {
 
 var cfg *Config
 
+func loadYAML(configPath string) *Config {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Printf("[Config] YAML file not found at %s, using environment variables and defaults", configPath)
+			return nil
+		}
+		log.Printf("[Config] Error reading YAML file: %v", err)
+		return nil
+	}
+
+	var yamlCfg Config
+	if err := yaml.Unmarshal(data, &yamlCfg); err != nil {
+		log.Printf("[Config] Error parsing YAML file: %v", err)
+		return nil
+	}
+
+	log.Printf("[Config] Successfully loaded configuration from %s", configPath)
+	return &yamlCfg
+}
+
 func Load() *Config {
-	secret := getEnv("AG_SESSION_SECRET", "")
+	configPath := "config.yaml"
+
+	yamlCfg := loadYAML(configPath)
+
+	if yamlCfg == nil {
+		yamlCfg = &Config{}
+	}
+
+	secret := getEnv("AG_SESSION_SECRET", yamlCfg.Session.Secret)
 	if secret == "" {
 		secret = generateSecret()
 		log.Printf("[Config] Generated random session secret")
 	}
 
 	cfg = &Config{
+		Debug: DebugConfig{
+			Enabled: getBool("AG_DEBUG_ENABLED", yamlCfg.Debug.Enabled),
+		},
 		Server: ServerConfig{
-			Port: getInt("AG_SERVER_PORT", 18080),
-			Mode: getEnv("AG_SERVER_MODE", "debug"),
+			Port: getInt("AG_SERVER_PORT", yamlCfg.Server.Port),
+			Mode: getEnv("AG_SERVER_MODE", yamlCfg.Server.Mode),
 		},
 		Database: DatabaseConfig{
-			Path: getEnv("AG_DATABASE_PATH", "data.db"),
+			Type:     getEnv("AG_DATABASE_TYPE", yamlCfg.Database.Type),
+			Path:     getEnv("AG_DATABASE_PATH", yamlCfg.Database.Path),
+			Host:     getEnv("AG_DATABASE_HOST", yamlCfg.Database.Host),
+			Port:     getInt("AG_DATABASE_PORT", yamlCfg.Database.Port),
+			Username: getEnv("AG_DATABASE_USERNAME", yamlCfg.Database.Username),
+			Password: getEnv("AG_DATABASE_PASSWORD", yamlCfg.Database.Password),
+			DBName:   getEnv("AG_DATABASE_DBNAME", yamlCfg.Database.DBName),
 		},
 		Session: SessionConfig{
 			Secret:   secret,
-			MaxAge:   getInt("AG_SESSION_MAX_AGE", 86400),
-			Secure:   getBool("AG_SESSION_SECURE", false),
-			HttpOnly: getBool("AG_SESSION_HTTP_ONLY", true),
-			SameSite: getEnv("AG_SESSION_SAME_SITE", "lax"),
+			MaxAge:   getInt("AG_SESSION_MAX_AGE", yamlCfg.Session.MaxAge),
+			Secure:   getBool("AG_SESSION_SECURE", yamlCfg.Session.Secure),
+			HttpOnly: getBool("AG_SESSION_HTTP_ONLY", yamlCfg.Session.HttpOnly),
+			SameSite: getEnv("AG_SESSION_SAME_SITE", yamlCfg.Session.SameSite),
 		},
 		Auth: AuthConfig{
 			DefaultAdmin: DefaultAdminConfig{
-				Username: getEnv("AG_ADMIN_USERNAME", "admin"),
-				Password: getEnv("AG_ADMIN_PASSWORD", "admin"),
+				Username: getEnv("AG_ADMIN_USERNAME", yamlCfg.Auth.DefaultAdmin.Username),
+				Password: getEnv("AG_ADMIN_PASSWORD", yamlCfg.Auth.DefaultAdmin.Password),
 			},
 		},
+	}
+
+	if cfg.Database.Type == "" {
+		cfg.Database.Type = "sqlite"
+		cfg.Database.Path = "data.db"
+	}
+	if cfg.Server.Port == 0 {
+		cfg.Server.Port = 18080
+	}
+	if cfg.Server.Mode == "" {
+		cfg.Server.Mode = "debug"
+	}
+	if cfg.Session.MaxAge == 0 {
+		cfg.Session.MaxAge = 86400
+	}
+	if cfg.Session.SameSite == "" {
+		cfg.Session.SameSite = "lax"
+	}
+	if cfg.Auth.DefaultAdmin.Username == "" {
+		cfg.Auth.DefaultAdmin.Username = "admin"
+	}
+	if cfg.Auth.DefaultAdmin.Password == "" {
+		cfg.Auth.DefaultAdmin.Password = "admin"
 	}
 
 	logConfig()
@@ -116,9 +190,19 @@ func generateSecret() string {
 
 func logConfig() {
 	log.Println("[Config] Configuration loaded:")
+	log.Printf("  Debug Enabled: %v", cfg.Debug.Enabled)
 	log.Printf("  Server Port: %d", cfg.Server.Port)
 	log.Printf("  Server Mode: %s", cfg.Server.Mode)
-	log.Printf("  Database Path: %s", cfg.Database.Path)
+	log.Printf("  Database Type: %s", cfg.Database.Type)
+	if cfg.Database.Type == "sqlite" {
+		log.Printf("  Database Path: %s", cfg.Database.Path)
+	} else {
+		log.Printf("  Database Host: %s", cfg.Database.Host)
+		log.Printf("  Database Port: %d", cfg.Database.Port)
+		log.Printf("  Database Username: %s", cfg.Database.Username)
+		log.Printf("  Database Password: %s", maskPassword(cfg.Database.Password))
+		log.Printf("  Database Name: %s", cfg.Database.DBName)
+	}
 	log.Printf("  Session MaxAge: %d", cfg.Session.MaxAge)
 	log.Printf("  Session Secure: %v", cfg.Session.Secure)
 	log.Printf("  Session HttpOnly: %v", cfg.Session.HttpOnly)
@@ -135,5 +219,13 @@ func maskPassword(p string) string {
 }
 
 func (c *Config) DSN() string {
-	return fmt.Sprintf("%s?_loc=auto", c.Database.Path)
+	switch c.Database.Type {
+	case "postgres":
+		return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
+			c.Database.Host, c.Database.Port, c.Database.Username, c.Database.Password, c.Database.DBName)
+	case "sqlite":
+		return fmt.Sprintf("%s?_loc=auto", c.Database.Path)
+	default:
+		return fmt.Sprintf("%s?_loc=auto", c.Database.Path)
+	}
 }
