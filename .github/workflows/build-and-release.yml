@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*' # 匹配以v开头的tag，例如v1.0.0
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,7 +21,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'server/go.mod'
-          cache: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

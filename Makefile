@@ -17,7 +17,7 @@ build-server: build-web
 	cd server && VERSION=$(VERSION) $(MAKE) build
 
 clean:
-	cd server && $(MAKE) clean
 	cd web && $(MAKE) clean
+	cd server && $(MAKE) clean
 
 .DEFAULT_GOAL := build

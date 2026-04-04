@@ -10,6 +10,7 @@ build:
 	npm run build -- --outDir ../server/res/web/
 
 clean:
-	rm -rf ../server/res/web/
+	rm -rf ../server/res/web/*
+	touch ../server/res/web/.gitkeep
 
 .DEFAULT_GOAL := build
