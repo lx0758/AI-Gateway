@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -168,11 +169,17 @@ func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provider
 func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader, usage *Usage) {
 	src, dst = recordStream("O2O", src, dst)
 	reader := bufio.NewReader(src)
+	errorCount := 0
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
+				break
+			}
+			errorCount += 1
+			if errorCount >= 3 {
+				log.Printf("OpenAI stream error, error: %v", err)
 				break
 			}
 			continue
@@ -628,11 +635,17 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 	inTextBlock := false
 	lastUsage := openAIUsage{}
 	toolCallStates := make(map[int]*toolCallState)
+	errorCount := 0
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
+				break
+			}
+			errorCount += 1
+			if errorCount >= 3 {
+				log.Printf("OpenAI stream error, error: %v", err)
 				break
 			}
 			continue

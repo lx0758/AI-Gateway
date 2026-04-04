@@ -146,7 +146,7 @@ func (u *UsageLog) String() string {
 	)
 }
 
-func InitDB(dbType, dbPath, dbHost string, dbPort int, dbUser, dbPassword, dbName string, debug bool) error {
+func InitDB(dbType, dbPath, dbHost string, dbPort int, dbUser, dbPassword, dbName string, maxOpen, maxIdle int, maxLifetime, maxIdleTime time.Duration, debug bool) error {
 	var dialector gorm.Dialector
 	var err error
 
@@ -180,6 +180,22 @@ func InitDB(dbType, dbPath, dbHost string, dbPort int, dbUser, dbPassword, dbNam
 		log.Printf("[Database] Failed to connect to database: %v", err)
 		return fmt.Errorf("failed to connect to database: %v", err)
 	}
+
+	sqlDB, err := DB.DB()
+	if err != nil {
+		log.Printf("[Database] Failed to get underlying sql.DB: %v", err)
+		return fmt.Errorf("failed to get underlying sql.DB: %v", err)
+	}
+
+	if dbType == "sqlite" {
+		maxOpen = 1
+		maxIdle = 1
+	}
+	sqlDB.SetMaxOpenConns(maxOpen)
+	sqlDB.SetMaxIdleConns(maxIdle)
+	sqlDB.SetConnMaxLifetime(maxLifetime)
+	sqlDB.SetConnMaxIdleTime(maxIdleTime)
+	log.Printf("[Database] Connection pool configured: MaxOpen=%d, MaxIdle=%d, MaxLifetime=%v, MaxIdleTime=%v", maxOpen, maxIdle, maxLifetime, maxIdleTime)
 
 	log.Printf("[Database] Database connection successful")
 

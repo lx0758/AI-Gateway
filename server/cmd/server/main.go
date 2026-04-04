@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/gin-gonic/gin"
 
@@ -17,7 +19,7 @@ import (
 func main() {
 	cfg := config.Load()
 
-	log.Printf("AI Gateway v%s", res.Version)
+	log.Printf("AI Gateway %s", res.Version)
 
 	if err := model.InitDB(
 		cfg.Database.Type,
@@ -27,7 +29,11 @@ func main() {
 		cfg.Database.Username,
 		cfg.Database.Password,
 		cfg.Database.DBName,
-		cfg.Debug.Enabled,
+		cfg.Database.Pool.MaxOpen,
+		cfg.Database.Pool.MaxIdle,
+		cfg.Database.Pool.MaxLifetime,
+		cfg.Database.Pool.MaxIdleTime,
+		cfg.Debug.Gorm,
 	); err != nil {
 		log.Fatalf("Failed to init database: %v", err)
 	}
@@ -36,9 +42,9 @@ func main() {
 		log.Fatalf("Failed to init default admin: %v", err)
 	}
 
-	provider.SetDebugMode(cfg.Debug.Enabled)
+	provider.SetDebugMode(cfg.Debug.Provider)
 
-	if cfg.Debug.Enabled {
+	if cfg.Debug.Gin {
 		gin.SetMode(gin.DebugMode)
 	} else {
 		gin.SetMode(gin.ReleaseMode)
@@ -54,11 +60,11 @@ func main() {
 	r.Use(middleware.RequestLogger())
 
 	r.Use(middleware.SetupSessionStore(
-		cfg.Session.Secret,
-		cfg.Session.MaxAge,
-		cfg.Session.Secure,
-		cfg.Session.HttpOnly,
-		cfg.Session.SameSite,
+		cfg.Server.Session.Secret,
+		cfg.Server.Session.MaxAge,
+		cfg.Server.Session.Secure,
+		cfg.Server.Session.HttpOnly,
+		cfg.Server.Session.SameSite,
 	))
 
 	authHandler := handler.NewAuthHandler()
@@ -142,6 +148,14 @@ func main() {
 	})
 
 	r.NoRoute(middleware.Static(res.WebFS))
+
+	go func() {
+		pprofAddr := fmt.Sprintf("localhost:%d", cfg.Pprof.Port)
+		log.Printf("[Pprof] Performance profiling server starting on http://%s/debug/pprof/", pprofAddr)
+		if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			log.Printf("[Pprof] Failed to start pprof server: %v", err)
+		}
+	}()
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("Server starting on %s", addr)

@@ -8,65 +8,104 @@
 # Environment variables use 'AG_' prefix (e.g., AG_SERVER_PORT, AG_DATABASE_TYPE).
 
 # Debug Mode Configuration
-# Controls logging verbosity and debug features
+# Controls logging verbosity for individual components
 debug:
-  enabled: false       # Enable debug mode (true/false)
-                       # When enabled:
-                       # - Gin framework runs in DebugMode
-                       # - Gorm logs at Info level
-                       # - Provider debug recording is active (saves to 'debug/' directory)
-                       # Environment variable: AG_DEBUG_ENABLED
+  gin: false            # Enable Gin framework debug mode
+                        # When enabled: Gin runs in DebugMode with verbose request logging
+                        # Environment variable: AG_DEBUG_GIN
+  
+  gorm: false           # Enable GORM SQL debug logging
+                        # When enabled: GORM logs all SQL queries at Info level
+                        # Environment variable: AG_DEBUG_GORM
+  
+  provider: false       # Enable Provider debug recording
+                        # When enabled: saves request/response streams to 'debug/' directory
+                        # Environment variable: AG_DEBUG_PROVIDER
+
+# Pprof Configuration
+# Performance profiling server (for production diagnostics)
+pprof:
+  port: 6060            # Pprof server port (bound to localhost only)
+                        # Access profiling at: http://localhost:6060/debug/pprof/
+                        # Available endpoints: /profile, /heap, /goroutine, /block, etc.
+                        # Environment variable: AG_PPROF_PORT
 
 # Server Configuration
 # Controls HTTP server settings
 server:
-  port: 18080          # Server listening port
-                       # Environment variable: AG_SERVER_PORT
-  mode: debug          # Gin framework mode (debug/release)
-                       # Note: This is overridden by debug.enabled setting
-                       # Environment variable: AG_SERVER_MODE
+  port: 18080           # Server listening port
+                        # Environment variable: AG_SERVER_PORT
+  
+  trusted_proxies:      # Trusted proxy IP ranges for correct client IP detection
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "192.168.0.0/16"
+                        # Environment variable: AG_SERVER_TRUSTED_PROXIES (comma-separated)
+  
+  # Session Configuration
+  # Controls user session management
+  session:
+    secret: ""            # Session secret key (auto-generated if empty)
+                          # Environment variable: AG_SERVER_SESSION_SECRET
+    max_age: 86400        # Session max age in seconds (default: 24 hours)
+                          # Environment variable: AG_SERVER_SESSION_MAX_AGE
+    secure: false         # Use secure cookies (HTTPS only)
+                          # Environment variable: AG_SERVER_SESSION_SECURE
+    http_only: true       # HTTP-only cookies (prevent JavaScript access)
+                          # Environment variable: AG_SERVER_SESSION_HTTP_ONLY
+    same_site: lax        # SameSite cookie policy (strict/lax/none)
+                          # Environment variable: AG_SERVER_SESSION_SAME_SITE
 
 # Database Configuration
 # Supports SQLite and PostgreSQL
 database:
-  type: sqlite         # Database type: sqlite or postgres
-                       # Environment variable: AG_DATABASE_TYPE
+  type: sqlite          # Database type: sqlite or postgres
+                        # Environment variable: AG_DATABASE_TYPE
   
   # SQLite Configuration (used when type=sqlite)
-  path: data.db        # SQLite database file path
-                       # Environment variable: AG_DATABASE_PATH
+  path: data.db         # SQLite database file path
+                        # Environment variable: AG_DATABASE_PATH
   
   # PostgreSQL Configuration (used when type=postgres)
-  host: localhost      # PostgreSQL server host
-                       # Environment variable: AG_DATABASE_HOST
-  port: 5432           # PostgreSQL server port
-                       # Environment variable: AG_DATABASE_PORT
-  username: postgres   # PostgreSQL username
-                       # Environment variable: AG_DATABASE_USERNAME
-  password: ""         # PostgreSQL password
-                       # Environment variable: AG_DATABASE_PASSWORD
-  dbname: ai_gateway   # PostgreSQL database name
-                       # Environment variable: AG_DATABASE_DBNAME
-
-# Session Configuration
-# Controls user session management
-session:
-  secret: ""           # Session secret key (auto-generated if empty)
-                       # Environment variable: AG_SESSION_SECRET
-  max_age: 86400       # Session max age in seconds (default: 24 hours)
-                       # Environment variable: AG_SESSION_MAX_AGE
-  secure: false        # Use secure cookies (HTTPS only)
-                       # Environment variable: AG_SESSION_SECURE
-  http_only: true      # HTTP-only cookies (prevent JavaScript access)
-                       # Environment variable: AG_SESSION_HTTP_ONLY
-  same_site: lax       # SameSite cookie policy (strict/lax/none)
-                       # Environment variable: AG_SESSION_SAME_SITE
+  host: localhost       # PostgreSQL server host
+                        # Environment variable: AG_DATABASE_HOST
+  port: 5432            # PostgreSQL server port
+                        # Environment variable: AG_DATABASE_PORT
+  username: postgres    # PostgreSQL username
+                        # Environment variable: AG_DATABASE_USERNAME
+  password: ""          # PostgreSQL password
+                        # Environment variable: AG_DATABASE_PASSWORD
+  dbname: ai_gateway    # PostgreSQL database name
+                        # Environment variable: AG_DATABASE_DBNAME
+  
+  # Connection Pool Configuration
+  # Optimizes database connection management
+  pool:
+    max_open: 20        # Maximum open connections
+                        # SQLite: constrained to 1 (single connection)
+                        # PostgreSQL/MySQL: default 20
+                        # Environment variable: AG_DATABASE_POOL_MAX_OPEN
+    
+    max_idle: 5         # Maximum idle connections
+                        # SQLite: constrained to 1
+                        # PostgreSQL/MySQL: default 5
+                        # Environment variable: AG_DATABASE_POOL_MAX_IDLE
+    
+    max_lifetime: 1h    # Maximum connection lifetime
+                        # Prevents long-running connection issues
+                        # Format: duration string (e.g., "1h", "30m", "3600s")
+                        # Environment variable: AG_DATABASE_POOL_MAX_LIFETIME
+    
+    max_idle_time: 5m   # Maximum idle time before connection closes
+                        # Helps release unused connections
+                        # Format: duration string (e.g., "5m", "300s")
+                        # Environment variable: AG_DATABASE_POOL_MAX_IDLE_TIME
 
 # Authentication Configuration
 # Controls default admin credentials
 auth:
   default_admin:
-    username: admin    # Default admin username
-                       # Environment variable: AG_ADMIN_USERNAME
-    password: admin    # Default admin password
-                       # Environment variable: AG_ADMIN_PASSWORD
+    username: admin     # Default admin username
+                        # Environment variable: AG_ADMIN_USERNAME
+    password: admin     # Default admin password
+                        # Environment variable: AG_ADMIN_PASSWORD

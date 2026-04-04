@@ -1,100 +1,24 @@
-## Requirements
+## ADDED Requirements
 
-### Requirement: YAML configuration file loading
+### Requirement: Pprof configuration section
 
-The system SHALL support loading configuration parameters from a YAML file named `config.yaml` located in the server directory.
-
-#### Scenario: Default YAML file loading
-- **WHEN** a `config.yaml` file exists in the server directory
-- **THEN** the system SHALL load configuration parameters from `config.yaml`
-
-#### Scenario: YAML file not found
-- **WHEN** the `config.yaml` file does not exist in the server directory
-- **THEN** the system SHALL proceed using environment variables and default values without error
-
-### Requirement: Environment variable override priority
-
-The system SHALL prioritize environment variables over YAML configuration values, allowing temporary configuration overrides without modifying files.
-
-#### Scenario: Environment variable overrides YAML value
-- **WHEN** a configuration parameter exists in both YAML file and environment variable
-- **THEN** the system SHALL use the environment variable value and ignore the YAML value
-
-#### Scenario: YAML provides default when no environment variable
-- **WHEN** a configuration parameter exists in YAML file but not in environment variable
-- **THEN** the system SHALL use the YAML file value
-
-#### Scenario: Default value when neither YAML nor environment variable set
-- **WHEN** a configuration parameter exists neither in YAML file nor in environment variable
-- **THEN** the system SHALL use the hardcoded default value
-
-### Requirement: YAML configuration structure
-
-The system SHALL define a YAML configuration structure that mirrors the existing configuration groups (debug, server, database, auth, pprof).
-
-#### Scenario: Debug configuration in YAML
-- **WHEN** YAML file contains `debug.gin`, `debug.gorm`, `debug.provider` fields
-- **THEN** the system SHALL parse these fields into `DebugConfig` structure
-
-#### Scenario: Server configuration in YAML
-- **WHEN** YAML file contains `server.port`, `server.trusted_proxies`, `server.session.*` fields
-- **THEN** the system SHALL parse these fields into `ServerConfig` structure including `SessionConfig`
-
-#### Scenario: Database configuration in YAML
-- **WHEN** YAML file contains `database.type`, `database.path`, `database.host`, `database.pool.*` etc.
-- **THEN** the system SHALL parse these fields into `DatabaseConfig` structure including `PoolConfig`
-
-#### Scenario: Session configuration in YAML
-- **WHEN** YAML file contains `server.session.secret`, `server.session.max_age`, etc.
-- **THEN** the system SHALL parse these fields into `ServerConfig.SessionConfig` structure
-
-#### Scenario: Auth configuration in YAML
-- **WHEN** YAML file contains `auth.default_admin.username` and `auth.default_admin.password`
-- **THEN** the system SHALL parse these fields into `AuthConfig` structure
+The system SHALL define a pprof configuration section in the YAML structure.
 
 #### Scenario: Pprof configuration in YAML
 - **WHEN** YAML file contains `pprof.port` field
 - **THEN** the system SHALL parse this field into `PprofConfig.Port`
 
-### Requirement: Configuration parameter extension standard
+#### Scenario: Pprof configuration defaults
+- **WHEN** `pprof.port` is not specified
+- **THEN** the system SHALL use default port 6060
 
-The system SHALL enforce a standard requiring all future configuration parameters to support both YAML and environment variable configuration methods.
+### Requirement: Database pool configuration section
 
-#### Scenario: New parameter has YAML support
-- **WHEN** a new configuration parameter is added to the system
-- **THEN** the parameter MUST be defined in the YAML configuration structure
+The system SHALL define a database pool configuration section in the YAML structure.
 
-#### Scenario: New parameter has environment variable support
-- **WHEN** a new configuration parameter is added to the system
-- **THEN** the parameter MUST be accessible via an environment variable with `AG_` prefix
-
-#### Scenario: New parameter documented
-- **WHEN** a new configuration parameter is added to the system
-- **THEN** documentation SHALL describe both YAML path and environment variable name
-
-### Requirement: YAML file format validation
-
-The system SHALL validate YAML file format and provide clear error messages when parsing fails.
-
-#### Scenario: Invalid YAML syntax
-- **WHEN** YAML file contains invalid syntax (e.g., malformed indentation)
-- **THEN** the system SHALL log a clear error message indicating the parse failure AND SHALL NOT start the service
-
-#### Scenario: Missing required YAML fields
-- **WHEN** YAML file is valid but missing optional configuration fields
-- **THEN** the system SHALL proceed using environment variables or default values for missing fields
-
-### Requirement: Configuration file example
-
-The system SHALL provide an example YAML configuration file demonstrating all supported parameters.
-
-#### Scenario: Example file exists
-- **WHEN** the project is deployed
-- **THEN** a `config.yaml.example` file SHALL exist in the project directory
-
-#### Scenario: Example file contains all parameters
-- **WHEN** user opens `config.yaml.example`
-- **THEN** the file SHALL contain all configuration parameters with example values and comments
+#### Scenario: Pool configuration in YAML
+- **WHEN** YAML file contains `database.pool.max_open`, `database.pool.max_idle`, `database.pool.max_lifetime`, `database.pool.max_idle_time`
+- **THEN** the system SHALL parse these fields into `DatabaseConfig.PoolConfig`
 
 ### Requirement: Debug configuration granularity
 
@@ -148,6 +72,36 @@ The system SHALL support granular debug configuration for individual components.
 - **WHEN** environment variable `AG_SERVER_TRUSTED_PROXIES` is set
 - **THEN** the system SHALL use this value for trusted proxy IP ranges
 
+## MODIFIED Requirements
+
+### Requirement: YAML configuration structure
+
+The system SHALL define a YAML configuration structure that mirrors the existing configuration groups (debug, server, database, auth, pprof).
+
+#### Scenario: Debug configuration in YAML
+- **WHEN** YAML file contains `debug.gin`, `debug.gorm`, `debug.provider` fields
+- **THEN** the system SHALL parse these fields into `DebugConfig` structure
+
+#### Scenario: Server configuration in YAML
+- **WHEN** YAML file contains `server.port`, `server.trusted_proxies`, `server.session.*` fields
+- **THEN** the system SHALL parse these fields into `ServerConfig` structure including `SessionConfig`
+
+#### Scenario: Database configuration in YAML
+- **WHEN** YAML file contains `database.type`, `database.path`, `database.host`, `database.pool.*` etc.
+- **THEN** the system SHALL parse these fields into `DatabaseConfig` structure including `PoolConfig`
+
+#### Scenario: Session configuration in YAML
+- **WHEN** YAML file contains `server.session.secret`, `server.session.max_age`, etc.
+- **THEN** the system SHALL parse these fields into `ServerConfig.SessionConfig` structure
+
+#### Scenario: Auth configuration in YAML
+- **WHEN** YAML file contains `auth.default_admin.username` and `auth.default_admin.password`
+- **THEN** the system SHALL parse these fields into `AuthConfig` structure
+
+#### Scenario: Pprof configuration in YAML
+- **WHEN** YAML file contains `pprof.port` field
+- **THEN** the system SHALL parse this field into `PprofConfig.Port`
+
 ### Requirement: Debug mode configuration
 
 The system SHALL support granular debug configuration parameters (`debug.gin`, `debug.gorm`, `debug.provider`) to control debugging behavior for individual components.
@@ -199,3 +153,40 @@ The system SHALL support session configuration as a nested section under `server
 #### Scenario: Session environment variables with AG_SERVER_SESSION prefix
 - **WHEN** environment variables `AG_SERVER_SESSION_SECRET`, `AG_SERVER_SESSION_MAX_AGE`, etc. are set
 - **THEN** the system SHALL use these values for session configuration
+
+## REMOVED Requirements
+
+### Requirement: Server mode configuration
+
+**Reason**: The `server.mode` configuration has no functional impact. Gin mode is controlled by `debug.gin`, and `server.mode` was never used in practice, only mentioned in partial documentation.
+
+**Migration**: Remove `server.mode` from YAML configuration files. The system will ignore this field if present and log a deprecation warning.
+
+#### Scenario: Server mode field ignored
+- **WHEN** YAML file contains `server.mode` field
+- **THEN** the system SHALL ignore this field AND log a deprecation warning
+
+### Requirement: Legacy session environment variable names
+
+**Reason**: Session configuration moved under `server`, environment variable names updated for consistency.
+
+**Migration**: Replace old environment variable names with new ones:
+- `AG_SESSION_SECRET` → `AG_SERVER_SESSION_SECRET`
+- `AG_SESSION_MAX_AGE` → `AG_SERVER_SESSION_MAX_AGE`
+- `AG_SESSION_SECURE` → `AG_SERVER_SESSION_SECURE`
+- `AG_SESSION_HTTP_ONLY` → `AG_SERVER_SESSION_HTTP_ONLY`
+- `AG_SESSION_SAME_SITE` → `AG_SERVER_SESSION_SAME_SITE`
+
+#### Scenario: Old session environment variable ignored
+- **WHEN** environment variable `AG_SESSION_SECRET` or other `AG_SESSION_*` variables are set
+- **THEN** the system SHALL NOT recognize these variables AND the new `AG_SERVER_SESSION_*` variables SHALL be used instead
+
+### Requirement: Legacy trusted proxies environment variable name
+
+**Reason**: TrustedProxies is a server configuration, environment variable name updated for consistency.
+
+**Migration**: Replace `AG_TRUSTED_PROXIES` with `AG_SERVER_TRUSTED_PROXIES`
+
+#### Scenario: Old trusted proxies environment variable ignored
+- **WHEN** environment variable `AG_TRUSTED_PROXIES` is set
+- **THEN** the system SHALL NOT recognize this variable AND `AG_SERVER_TRUSTED_PROXIES` SHALL be used instead

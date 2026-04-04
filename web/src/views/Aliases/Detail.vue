@@ -2,7 +2,7 @@
   <div class="alias-detail">
     <el-page-header @back="$router.back()">
       <template #content>
-        {{ alias?.name || t('menu.aliases') }}
+        {{ alias?.alias || t('menu.aliases') }}
       </template>
     </el-page-header>
 

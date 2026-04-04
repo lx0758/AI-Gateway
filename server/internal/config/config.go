@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -16,18 +17,20 @@ type Config struct {
 	Debug    DebugConfig
 	Server   ServerConfig
 	Database DatabaseConfig
-	Session  SessionConfig
 	Auth     AuthConfig
-}
-
-type DebugConfig struct {
-	Enabled bool
+	Pprof    PprofConfig
 }
 
 type ServerConfig struct {
 	Port           int
-	Mode           string
 	TrustedProxies []string
+	Session        SessionConfig
+}
+
+type DebugConfig struct {
+	Gin      bool
+	Gorm     bool
+	Provider bool
 }
 
 type DatabaseConfig struct {
@@ -38,6 +41,14 @@ type DatabaseConfig struct {
 	Username string
 	Password string
 	DBName   string
+	Pool     PoolConfig
+}
+
+type PoolConfig struct {
+	MaxOpen     int
+	MaxIdle     int
+	MaxLifetime time.Duration
+	MaxIdleTime time.Duration
 }
 
 type SessionConfig struct {
@@ -55,6 +66,10 @@ type AuthConfig struct {
 type DefaultAdminConfig struct {
 	Username string
 	Password string
+}
+
+type PprofConfig struct {
+	Port int
 }
 
 var cfg *Config
@@ -89,25 +104,33 @@ func Load() *Config {
 		yamlCfg = &Config{}
 	}
 
-	secret := getEnv("AG_SESSION_SECRET", yamlCfg.Session.Secret)
+	secret := getEnv("AG_SERVER_SESSION_SECRET", yamlCfg.Server.Session.Secret)
 	if secret == "" {
 		secret = generateSecret()
 		log.Printf("[Config] Generated random session secret")
 	}
 
-	trustedProxies := getStringSlice("AG_TRUSTED_PROXIES", yamlCfg.Server.TrustedProxies)
+	trustedProxies := getStringSlice("AG_SERVER_TRUSTED_PROXIES", yamlCfg.Server.TrustedProxies)
 	if len(trustedProxies) == 0 {
 		trustedProxies = []string{"10.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12"}
 	}
 
 	cfg = &Config{
 		Debug: DebugConfig{
-			Enabled: getBool("AG_DEBUG_ENABLED", yamlCfg.Debug.Enabled),
+			Gin:      getBool("AG_DEBUG_GIN", yamlCfg.Debug.Gin),
+			Gorm:     getBool("AG_DEBUG_GORM", yamlCfg.Debug.Gorm),
+			Provider: getBool("AG_DEBUG_PROVIDER", yamlCfg.Debug.Provider),
 		},
 		Server: ServerConfig{
 			Port:           getInt("AG_SERVER_PORT", yamlCfg.Server.Port),
-			Mode:           getEnv("AG_SERVER_MODE", yamlCfg.Server.Mode),
 			TrustedProxies: trustedProxies,
+			Session: SessionConfig{
+				Secret:   secret,
+				MaxAge:   getInt("AG_SERVER_SESSION_MAX_AGE", yamlCfg.Server.Session.MaxAge),
+				Secure:   getBool("AG_SERVER_SESSION_SECURE", yamlCfg.Server.Session.Secure),
+				HttpOnly: getBool("AG_SERVER_SESSION_HTTP_ONLY", yamlCfg.Server.Session.HttpOnly),
+				SameSite: getEnv("AG_SERVER_SESSION_SAME_SITE", yamlCfg.Server.Session.SameSite),
+			},
 		},
 		Database: DatabaseConfig{
 			Type:     getEnv("AG_DATABASE_TYPE", yamlCfg.Database.Type),
@@ -117,13 +140,12 @@ func Load() *Config {
 			Username: getEnv("AG_DATABASE_USERNAME", yamlCfg.Database.Username),
 			Password: getEnv("AG_DATABASE_PASSWORD", yamlCfg.Database.Password),
 			DBName:   getEnv("AG_DATABASE_DBNAME", yamlCfg.Database.DBName),
-		},
-		Session: SessionConfig{
-			Secret:   secret,
-			MaxAge:   getInt("AG_SESSION_MAX_AGE", yamlCfg.Session.MaxAge),
-			Secure:   getBool("AG_SESSION_SECURE", yamlCfg.Session.Secure),
-			HttpOnly: getBool("AG_SESSION_HTTP_ONLY", yamlCfg.Session.HttpOnly),
-			SameSite: getEnv("AG_SESSION_SAME_SITE", yamlCfg.Session.SameSite),
+			Pool: PoolConfig{
+				MaxOpen:     getInt("AG_DATABASE_POOL_MAX_OPEN", yamlCfg.Database.Pool.MaxOpen),
+				MaxIdle:     getInt("AG_DATABASE_POOL_MAX_IDLE", yamlCfg.Database.Pool.MaxIdle),
+				MaxLifetime: getDuration("AG_DATABASE_POOL_MAX_LIFETIME", yamlCfg.Database.Pool.MaxLifetime),
+				MaxIdleTime: getDuration("AG_DATABASE_POOL_MAX_IDLE_TIME", yamlCfg.Database.Pool.MaxIdleTime),
+			},
 		},
 		Auth: AuthConfig{
 			DefaultAdmin: DefaultAdminConfig{
@@ -131,8 +153,18 @@ func Load() *Config {
 				Password: getEnv("AG_ADMIN_PASSWORD", yamlCfg.Auth.DefaultAdmin.Password),
 			},
 		},
+		Pprof: PprofConfig{
+			Port: getInt("AG_PPROF_PORT", yamlCfg.Pprof.Port),
+		},
 	}
 
+	applyDefaults()
+	logConfig()
+
+	return cfg
+}
+
+func applyDefaults() {
 	if cfg.Database.Type == "" {
 		cfg.Database.Type = "sqlite"
 		cfg.Database.Path = "data.db"
@@ -140,14 +172,11 @@ func Load() *Config {
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 18080
 	}
-	if cfg.Server.Mode == "" {
-		cfg.Server.Mode = "debug"
+	if cfg.Server.Session.MaxAge == 0 {
+		cfg.Server.Session.MaxAge = 86400
 	}
-	if cfg.Session.MaxAge == 0 {
-		cfg.Session.MaxAge = 86400
-	}
-	if cfg.Session.SameSite == "" {
-		cfg.Session.SameSite = "lax"
+	if cfg.Server.Session.SameSite == "" {
+		cfg.Server.Session.SameSite = "lax"
 	}
 	if cfg.Auth.DefaultAdmin.Username == "" {
 		cfg.Auth.DefaultAdmin.Username = "admin"
@@ -155,10 +184,51 @@ func Load() *Config {
 	if cfg.Auth.DefaultAdmin.Password == "" {
 		cfg.Auth.DefaultAdmin.Password = "admin"
 	}
+	if cfg.Pprof.Port == 0 {
+		cfg.Pprof.Port = 6060
+	}
 
-	logConfig()
+	poolDefaults := getPoolDefaults(cfg.Database.Type)
+	if cfg.Database.Pool.MaxOpen == 0 {
+		cfg.Database.Pool.MaxOpen = poolDefaults.MaxOpen
+	}
+	if cfg.Database.Pool.MaxIdle == 0 {
+		cfg.Database.Pool.MaxIdle = poolDefaults.MaxIdle
+	}
+	if cfg.Database.Pool.MaxLifetime == 0 {
+		cfg.Database.Pool.MaxLifetime = poolDefaults.MaxLifetime
+	}
+	if cfg.Database.Pool.MaxIdleTime == 0 {
+		cfg.Database.Pool.MaxIdleTime = poolDefaults.MaxIdleTime
+	}
 
-	return cfg
+	if cfg.Database.Type == "sqlite" {
+		if cfg.Database.Pool.MaxOpen > 1 {
+			log.Printf("[Config] Warning: SQLite connection pool constrained to MaxOpen=1")
+			cfg.Database.Pool.MaxOpen = 1
+		}
+		if cfg.Database.Pool.MaxIdle > 1 {
+			log.Printf("[Config] Warning: SQLite connection pool constrained to MaxIdle=1")
+			cfg.Database.Pool.MaxIdle = 1
+		}
+	}
+}
+
+func getPoolDefaults(dbType string) PoolConfig {
+	if dbType == "sqlite" {
+		return PoolConfig{
+			MaxOpen:     1,
+			MaxIdle:     1,
+			MaxLifetime: time.Hour,
+			MaxIdleTime: 5 * time.Minute,
+		}
+	}
+	return PoolConfig{
+		MaxOpen:     20,
+		MaxIdle:     5,
+		MaxLifetime: time.Hour,
+		MaxIdleTime: 5 * time.Minute,
+	}
 }
 
 func Get() *Config {
@@ -185,6 +255,18 @@ func getBool(key string, defaultValue bool) bool {
 	if val := os.Getenv(key); val != "" {
 		if b, err := strconv.ParseBool(val); err == nil {
 			return b
+		}
+	}
+	return defaultValue
+}
+
+func getDuration(key string, defaultValue time.Duration) time.Duration {
+	if val := os.Getenv(key); val != "" {
+		if d, err := time.ParseDuration(val); err == nil {
+			return d
+		}
+		if i, err := strconv.Atoi(val); err == nil {
+			return time.Duration(i) * time.Second
 		}
 	}
 	return defaultValue
@@ -219,9 +301,10 @@ func generateSecret() string {
 
 func logConfig() {
 	log.Println("[Config] Configuration loaded:")
-	log.Printf("  Debug Enabled: %v", cfg.Debug.Enabled)
+	log.Printf("  Debug Gin: %v", cfg.Debug.Gin)
+	log.Printf("  Debug Gorm: %v", cfg.Debug.Gorm)
+	log.Printf("  Debug Provider: %v", cfg.Debug.Provider)
 	log.Printf("  Server Port: %d", cfg.Server.Port)
-	log.Printf("  Server Mode: %s", cfg.Server.Mode)
 	log.Printf("  Trusted Proxies: %v", cfg.Server.TrustedProxies)
 	log.Printf("  Database Type: %s", cfg.Database.Type)
 	if cfg.Database.Type == "sqlite" {
@@ -233,12 +316,15 @@ func logConfig() {
 		log.Printf("  Database Password: %s", maskPassword(cfg.Database.Password))
 		log.Printf("  Database Name: %s", cfg.Database.DBName)
 	}
-	log.Printf("  Session MaxAge: %d", cfg.Session.MaxAge)
-	log.Printf("  Session Secure: %v", cfg.Session.Secure)
-	log.Printf("  Session HttpOnly: %v", cfg.Session.HttpOnly)
-	log.Printf("  Session SameSite: %s", cfg.Session.SameSite)
+	log.Printf("  Database Pool: MaxOpen=%d, MaxIdle=%d, MaxLifetime=%v, MaxIdleTime=%v",
+		cfg.Database.Pool.MaxOpen, cfg.Database.Pool.MaxIdle, cfg.Database.Pool.MaxLifetime, cfg.Database.Pool.MaxIdleTime)
+	log.Printf("  Session MaxAge: %d", cfg.Server.Session.MaxAge)
+	log.Printf("  Session Secure: %v", cfg.Server.Session.Secure)
+	log.Printf("  Session HttpOnly: %v", cfg.Server.Session.HttpOnly)
+	log.Printf("  Session SameSite: %s", cfg.Server.Session.SameSite)
 	log.Printf("  Admin Username: %s", cfg.Auth.DefaultAdmin.Username)
 	log.Printf("  Admin Password: %s", maskPassword(cfg.Auth.DefaultAdmin.Password))
+	log.Printf("  Pprof Port: %d", cfg.Pprof.Port)
 }
 
 func maskPassword(p string) string {

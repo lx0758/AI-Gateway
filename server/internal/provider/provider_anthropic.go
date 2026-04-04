@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -523,7 +524,7 @@ func (m *AnthropicProvider) convertAnthropicResponseToOpenAI(anthropicResp []byt
 	return result, nil
 }
 
-func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer, model string, usage *Usage) int {
+func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer, model string, usage *Usage) {
 	src, dst = recordStream("O2A", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("chatcmpl-%s", m.generateID())
@@ -531,11 +532,17 @@ func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer
 	created := time.Now().Unix()
 	contentBuffer := ""
 	toolCallsBuffer := make(map[int]map[string]interface{})
+	errorCount := 0
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
+				break
+			}
+			errorCount += 1
+			if errorCount >= 3 {
+				log.Printf("Anthropic stream error, error: %v", err)
 				break
 			}
 			continue
@@ -747,7 +754,6 @@ func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer
 	if flusher, ok := dst.(http.Flusher); ok {
 		flusher.Flush()
 	}
-	return tokens
 }
 
 func (m *AnthropicProvider) writeOpenAISSE(w io.Writer, data interface{}) {
@@ -832,11 +838,17 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 func (m *AnthropicProvider) copyAnthropicStreaming(dst io.Writer, src io.Reader, usage *Usage) {
 	src, dst = recordStream("O2A", src, dst)
 	reader := bufio.NewReader(src)
+	errorCount := 0
 
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
+				break
+			}
+			errorCount += 1
+			if errorCount >= 3 {
+				log.Printf("Anthropic stream error, error: %v", err)
 				break
 			}
 			continue
