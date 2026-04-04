@@ -11,12 +11,14 @@
 - **多协议网关**: 当前支持 OpenAI/Anthropic API 代理，未来将支持 MCP 等协议
 - **OpenAI 兼容 API**: 暴露标准的 `/openai/v1/chat/completions` 和 `/openai/v1/models` 接口
 - **Anthropic 兼容 API**: 暴露标准的 `/anthropic/v1/messages` 和 `/anthropic/v1/models` 接口
-- **Web 控制台**: Vue 3 管理界面，支持中英文、暗色模式
 - **多厂商支持**: 支持多种 AI 服务厂商（OpenAI、Anthropic双协议兼容），可轻松扩展
+- **双协议支持**：每个厂商可同时配置 OpenAI 和 Anthropic BaseURL
 - **格式自动转换**: OpenAI ↔ Anthropic 请求/响应格式自动转换
+- **模型映射**：用户使用统一的模型名称，无需关心后端实际模型
 - ~~**智能路由**: 支持多厂商轮询、故障转移和格式匹配优化~~
-- **API Key 管理**: 生成和管理网关 API Key，支持模型访问权限控制
 - **用量统计**: 请求日志和用量仪表盘，实时监控服务调用
+- **API Key 管理**: 生成和管理网关 API Key，支持模型访问权限控制
+- **Web 控制台**: Vue 3 管理界面，支持中英文、暗色模式
 
 ## 外观
 
@@ -27,6 +29,71 @@
 | 日志统计 | 日志统计 | 日志统计 |
 | --- | --- | --- |
 | ![日志统计](docs/日志统计_1.png) | ![日志统计](docs/日志统计_2.png) | ![日志统计](docs/日志统计_3.png) |
+
+## 工作原理
+
+### 请求处理流程
+
+```mermaid
+flowchart TD
+    subgraph 入口["入口 (双协议支持)"]
+        A1["OpenAI 入口<br/>POST /openai/v1/chat/completions<br/>Authorization: Bearer sk-xxx"]
+        A2["Anthropic 入口<br/>POST /anthropic/v1/messages<br/>x-api-key: sk-xxx"]
+    end
+
+    A1 --> B
+    A2 --> B
+
+    B["API Key 认证<br/>验证 Key 有效性和模型权限"]
+    --> C["模型路由<br/>Alias → AliasMapping → Provider → ProviderModel<br/>按 weight 排序"]
+
+    --> D{"协议匹配决策"}
+
+    D -->|"协议相同"| S1
+    D -->|"协议不同"| S2
+
+    subgraph 直通流程["直通流程 (无需转换)"]
+        S1["模型替换<br/>alias → actual_model_id"]
+        --> R1["请求后端 API<br/>透传请求体"]
+        --> RES1["返回响应<br/>流式/非流式"]
+        --> TK1["Token 统计"]
+    end
+
+    subgraph 转换流程["转换流程 (协议转换)"]
+        S2["模型替换<br/>alias → actual_model_id"]
+        --> TR1["请求转换<br/>OpenAI ↔ Anthropic"]
+        --> R2["请求后端 API"]
+        --> TR2["响应转换<br/>Anthropic ↔ OpenAI"]
+        --> RES2["返回响应<br/>流式/非流式"]
+        --> TK2["Token 统计"]
+    end
+
+    TK1 --> I["用量记录<br/>写入 UsageLog"]
+    TK2 --> I
+```
+
+### 路由决策流程(暂未实现负载均衡)
+
+```mermaid
+flowchart TD
+    A["输入: model_name"] --> B["查询 Alias<br/>WHERE name = model_name<br/>AND enabled = true"]
+
+    B --> C{"Alias 存在?"}
+
+    C -->|"No"| D["返回 404<br/>model not found"]
+    C -->|"Yes"| E["查询 AliasMapping<br/>WHERE alias_id = alias.ID<br/>AND enabled = true<br/>ORDER BY weight DESC"]
+
+    E --> F{"Mapping 列表为空?"}
+
+    F -->|"Yes"| G["返回 404<br/>no provider available"]
+    F -->|"No"| H["遍历每个 Mapping"]
+
+    H --> I["检查 Provider.enabled<br/>查询 ProviderModel<br/>WHERE is_available = true"]
+
+    I --> J["构建 Provider 实例<br/>OpenAI BaseURL → OpenAIProvider<br/>Anthropic BaseURL → AnthropicProvider"]
+
+    J --> K["返回 RouteResult 列表<br/>按 weight 降序排列"]
+```
 
 ## 快速开始
 
@@ -188,208 +255,6 @@ AG_DATABASE_DBNAME=ai_gateway \
 ./ai-gateway-server
 ```
 
-#### SQLite 到 PostgreSQL 迁移
-
-1. 导出 SQLite 数据：
-
-```bash
-sqlite3 data.db .dump > backup.sql
-```
-
-2. 创建 PostgreSQL 数据库
-
-3. 调整 SQL 语法（如有必要）
-
-4. 导入数据：
-
-```bash
-psql -U your_username -d ai_gateway -f backup.sql
-```
-
-5. 更新配置切换到 PostgreSQL
-
-### 示例
-
-```bash
-# 使用自定义端口
-AG_SERVER_PORT=3000 \
-./ai-gateway-server
-
-# 生产环境配置
-AG_DEBUG_GIN=false \
-AG_DEBUG_GORM=false \
-AG_SESSION_SECRET=your-secret-key \
-AG_ADMIN_PASSWORD=secure-password \
-./ai-gateway-server
-
-# 启用性能分析
-AG_PPROF_PORT=6060 \
-./ai-gateway-server
-# 访问 http://localhost:6060/debug/pprof/ 进行分析
-```
-
-### IP 配置示例
-
-AI Gateway 支持获取真实客户端 IP 地址，用于追踪请求来源和防止 IP 伪造。以下是不同部署场景的配置示例：
-
-#### 1. 直连部署（无代理）
-
-默认配置即可，无需设置 `AG_SERVER_TRUSTED_PROXIES`：
-
-```bash
-# 直接访问，ClientIP 从 RemoteAddr 获取
-./ai-gateway-server
-```
-
-#### 2. Nginx 反向代理
-
-假设 Nginx 和 AI Gateway 在同一内网（如 `192.168.1.x`）：
-
-**Nginx 配置**：
-```nginx
-location / {
-    proxy_pass http://192.168.1.100:18080;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Real-IP $remote_addr;
-}
-```
-
-**AI Gateway 配置**：
-```bash
-# 信任内网代理（默认值已包含）
-AG_SERVER_TRUSTED_PROXIES="192.168.0.0/16" \
-./ai-gateway-server
-```
-
-#### 3. Cloudflare CDN
-
-Cloudflare 的代理 IP 范围会动态变化，建议使用官方提供的 CIDR 列表：
-
-```bash
-# Cloudflare IPv4 CIDR（需要定期更新）
-AG_SERVER_TRUSTED_PROXIES="173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.96.0/20,197.234.240.0/22,198.41.128.0/17,162.158.0.0/15,104.16.0.0/13,104.24.0.0/14,172.64.0.0/13,131.0.72.0/22" \
-./ai-gateway-server
-```
-
-> CIDR 列表来源：<https://www.cloudflare.com/ips-v4>
-
-#### 4. AWS ALB / 云负载均衡
-
-信任 AWS ALB 的内网 IP：
-
-```bash
-# AWS VPC 内网 CIDR（根据实际情况调整）
-AG_SERVER_TRUSTED_PROXIES="10.0.0.0/8" \
-./ai-gateway-server
-```
-
-#### 5. 多层代理场景
-
-信任多个代理层（Nginx + Cloudflare）：
-
-```bash
-# 同时信任内网 Nginx 和 Cloudflare
-AG_SERVER_TRUSTED_PROXIES="192.168.0.0/16,173.245.48.0/20,...（其他 Cloudflare CIDR）" \
-./ai-gateway-server
-```
-
-#### 验证 IP 配置
-
-启动服务后，查看日志确认 TrustedProxies 配置：
-
-```bash
-# 日志输出示例
-[Config] Trusted Proxies: [192.168.0.0/16]
-```
-
-调用 API 后，检查 UsageLog 中的 `client_ips` 字段：
-
-```bash
-# 查看 logs API
-curl http://localhost:18080/api/v1/usage/logs | jq '.logs[] | {client_ips}'
-```
-
-`client_ips` 字段存储完整的 IP 转发链（逗号分隔），例如：
-- 直连场景：`192.168.1.100`
-- 代理场景：`192.168.1.100, 10.0.0.1, 172.16.0.1`
-
-> **安全提示**: 
-> - 生产环境必须正确配置 `AG_SERVER_TRUSTED_PROXIES`，防止 IP 伪造攻击
-> - 代理 IP 列表需要定期更新（特别是 Cloudflare 等动态 IP）
-> - 禁止信任公网不可信 IP（如 `0.0.0.0/0`）
-
-## 核心设计
-
-- **别名抽象**：用户使用统一的模型名称（别名），无需关心后端实际模型
-- **多后端映射**：一个别名可映射到多个 Provider，实现负载均衡和故障转移
-- **权重路由**：按 weight 值降序排列，优先选择高权重 Provider
-- **双协议支持**：每个 Provider 可同时配置 OpenAI 和 Anthropic BaseURL
-
-## 工作原理
-
-### 请求处理流程
-
-```mermaid
-flowchart TD
-    subgraph 入口["入口 (双协议支持)"]
-        A1["OpenAI 入口<br/>POST /openai/v1/chat/completions<br/>Authorization: Bearer sk-xxx"]
-        A2["Anthropic 入口<br/>POST /anthropic/v1/messages<br/>x-api-key: sk-xxx"]
-    end
-
-    A1 --> B
-    A2 --> B
-
-    B["API Key 认证<br/>验证 Key 有效性和模型权限"]
-    --> C["模型路由<br/>Alias → AliasMapping → Provider → ProviderModel<br/>按 weight 排序"]
-
-    --> D{"协议匹配决策"}
-
-    D -->|"协议相同"| S1
-    D -->|"协议不同"| S2
-
-    subgraph 直通流程["直通流程 (无需转换)"]
-        S1["模型替换<br/>alias → actual_model_id"]
-        --> R1["请求后端 API<br/>透传请求体"]
-        --> RES1["返回响应<br/>流式/非流式"]
-        --> TK1["Token 统计"]
-    end
-
-    subgraph 转换流程["转换流程 (协议转换)"]
-        S2["模型替换<br/>alias → actual_model_id"]
-        --> TR1["请求转换<br/>OpenAI ↔ Anthropic"]
-        --> R2["请求后端 API"]
-        --> TR2["响应转换<br/>Anthropic ↔ OpenAI"]
-        --> RES2["返回响应<br/>流式/非流式"]
-        --> TK2["Token 统计"]
-    end
-
-    TK1 --> I["用量记录<br/>写入 UsageLog"]
-    TK2 --> I
-```
-
-### 路由决策流程(暂未实现负载均衡)
-
-```mermaid
-flowchart TD
-    A["输入: model_name"] --> B["查询 Alias<br/>WHERE name = model_name<br/>AND enabled = true"]
-
-    B --> C{"Alias 存在?"}
-
-    C -->|"No"| D["返回 404<br/>model not found"]
-    C -->|"Yes"| E["查询 AliasMapping<br/>WHERE alias_id = alias.ID<br/>AND enabled = true<br/>ORDER BY weight DESC"]
-
-    E --> F{"Mapping 列表为空?"}
-
-    F -->|"Yes"| G["返回 404<br/>no provider available"]
-    F -->|"No"| H["遍历每个 Mapping"]
-
-    H --> I["检查 Provider.enabled<br/>查询 ProviderModel<br/>WHERE is_available = true"]
-
-    I --> J["构建 Provider 实例<br/>OpenAI BaseURL → OpenAIProvider<br/>Anthropic BaseURL → AnthropicProvider"]
-
-    J --> K["返回 RouteResult 列表<br/>按 weight 降序排列"]
-```
-
 ## API 接口
 
 ### OpenAI 兼容接口 (需要 API Key)
@@ -486,48 +351,35 @@ ai-gateway/
 └── openspec/                   # 设计文档
 ```
 
-## Docker/Alpine 部署
+## 开发
 
-### 构建静态二进制文件（支持 Alpine）
+1. 安装 `Go` 和 `Node.js`
+1. 安装编译工具链: `sudo apt install make gcc`
+1. 在 `Linux` 下交叉编译 `WIndows` 二进制文件需要安装编译工具链: `sudo apt install mingw-w64`
+
+### 整体构建
 
 ```bash
-# 在 Alpine 容器中构建
-docker run --rm -v "$PWD/server:/app" -w /app alpine:latest \
-  sh -c "apk add --no-cache gcc musl-dev go && \
-         CGO_ENABLED=1 go build -ldflags '-linkmode external -extldflags \"-static\"' -o bin/ai-gateway-server ./cmd/server/main.go"
-
-# 或在 Linux 主机上交叉编译
-cd server
-CGO_ENABLED=1 go build -ldflags '-linkmode external -extldflags "-static"' -o bin/ai-gateway-server ./cmd/server/main.go
+make init     # 安装依赖
+make build    # 构建
 ```
-
-### Docker 部署示例
-
-```dockerfile
-FROM alpine:latest
-RUN apk add --no-cache ca-certificates
-COPY ai-gateway-server /usr/local/bin/
-EXPOSE 18080
-CMD ["ai-gateway-server"]
-```
-
-## 开发
 
 ### 前端开发
 
 ```bash
 cd web
-npm install
-npm run dev     # 启动开发服务器
-npm run build   # 构建生产版本
+make init     # 安装依赖
+make dev      # 启动开发服务器
+make build    # 构建生产版本
 ```
 
 ### 后端开发
 
 ```bash
 cd server
-go run ./cmd/server                                     # 运行
-go build -o bin/ai-gateway-server ./cmd/server/main.go  # 构建
+make init     # 安装依赖
+make dev      # 运行
+make build    # 构建
 ```
 
 ## License

@@ -1,6 +1,12 @@
-.PHONY: build build-web build-server run clean test dev
+.PHONY: init build build-web build-server clean
 
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
+
+all: build
+
+init:
+	cd web && $(MAKE) init
+	cd server && $(MAKE) init
 
 build: build-server
 
@@ -9,9 +15,6 @@ build-web:
 
 build-server: build-web
 	cd server && VERSION=$(VERSION) $(MAKE) build
-
-dev:
-	cd server && $(MAKE) dev &
 
 clean:
 	cd server && $(MAKE) clean
