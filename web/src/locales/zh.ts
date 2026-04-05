@@ -31,7 +31,11 @@ export default {
     createdAt: '创建时间',
     updatedAt: '更新时间',
     batchDelete: '批量删除',
-    copied: '已复制'
+    copied: '已复制',
+    available: '可选',
+    selected: '已选',
+    expand: '展开',
+    collapse: '收起'
   },
   login: {
     title: 'AI 网关',
@@ -43,7 +47,7 @@ export default {
   },
   menu: {
     dashboard: '仪表盘',
-    providers: '厂商管理',
+    providers: '模型厂商',
     aliases: '模型别名',
     keys: 'API 密钥',
     usage: '用量统计',
@@ -148,7 +152,7 @@ export default {
     required: '此项为必填'
   },
   modelAlias: {
-    create: '新建别名',
+    create: '添加别名',
     createAlias: '创建别名',
     editAlias: '编辑别名',
     name: '别名',
@@ -160,5 +164,45 @@ export default {
     tokenSummary: 'Token 汇总',
     contextWindow: '上下文窗口',
     capabilities: '能力特性'
+  },
+  mcp: {
+    services: 'MCP服务',
+    addService: '添加 MCP服务',
+    editService: '编辑 MCP服务',
+    name: '服务名称',
+    namePlaceholder: '2-200字符，仅支持 0-9a-zA-Z_-',
+    nameInvalid: '名称只能包含 0-9、a-z、A-Z、_、-，长度 2-200',
+    type: '服务类型',
+    remote: '远程服务',
+    local: '本地服务',
+    url: '服务地址',
+    urlPlaceholder: '例如: https://example.com/mcp/v1',
+    headers: '自定义请求头',
+    command: '启动命令',
+    commandPlaceholder: '例如: uvx mcp-server-fetch',
+    envVars: '环境变量',
+    paramsRemotePlaceholder: 'YAML 格式, 例如: Authorization: Bearer token',
+    paramsLocalPlaceholder: 'YAML 格式, 例如: CONTEXT7_API_KEY: ctx7sk-xxxxx',
+    lastSync: '最后同步',
+    status: '当前状态',
+    testConnection: '测试连接',
+    sync: '同步资源',
+    connectionSuccess: '连接成功',
+    connectionFailed: '连接失败',
+    syncSuccess: '同步成功',
+    syncFailed: '同步失败',
+    tools: '工具',
+    resources: '资源',
+    prompts: '提示词',
+    toolName: '工具名称',
+    toolDescription: '工具描述',
+    inputSchema: '输入模式',
+    resourceUri: '资源 URI',
+    resourceName: '资源名称',
+    promptName: '提示词名称',
+    copyJson: '复制 JSON',
+    warning: '警告',
+    confirmDelete: '确定要删除此 MCP服务吗？相关的工具、资源和提示词也会被删除。',
+    confirmBatchDelete: '确定要删除选中的 {count} 个MCP服务吗？相关的工具、资源和提示词也会被删除。'
   }
 }

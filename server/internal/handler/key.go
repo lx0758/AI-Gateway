@@ -48,6 +48,31 @@ type apiKeyCreateResponse struct {
 	RawKey string         `json:"raw_key"`
 }
 
+type keyMCPToolResponse struct {
+	ID       uint   `json:"id"`
+	ToolID   uint   `json:"tool_id"`
+	ToolName string `json:"tool_name"`
+	MCPID    uint   `json:"mcp_id"`
+	MCPName  string `json:"mcp_name"`
+}
+
+type keyMCPResourceResponse struct {
+	ID           uint   `json:"id"`
+	ResourceID   uint   `json:"resource_id"`
+	ResourceName string `json:"resource_name"`
+	ResourceURI  string `json:"resource_uri"`
+	MCPID        uint   `json:"mcp_id"`
+	MCPName      string `json:"mcp_name"`
+}
+
+type keyMCPPromptResponse struct {
+	ID         uint   `json:"id"`
+	PromptID   uint   `json:"prompt_id"`
+	PromptName string `json:"prompt_name"`
+	MCPID      uint   `json:"mcp_id"`
+	MCPName    string `json:"mcp_name"`
+}
+
 func NewAPIKeyHandler() *APIKeyHandler {
 	return &APIKeyHandler{}
 }
@@ -344,4 +369,235 @@ func (h *APIKeyHandler) Reset(c *gin.Context) {
 		},
 		"raw_key": key.Key,
 	})
+}
+
+func (h *APIKeyHandler) GetMCPTools(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var keyTools []model.KeyMCPTool
+	if err := model.DB.Preload("Tool.MCP").Where("key_id = ?", id).Find(&keyTools).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	result := make([]keyMCPToolResponse, len(keyTools))
+	for i, kt := range keyTools {
+		toolName := ""
+		mcpID := uint(0)
+		mcpName := ""
+		if kt.Tool != nil {
+			toolName = kt.Tool.Name
+			mcpID = kt.Tool.MCPID
+			if kt.Tool.MCP != nil {
+				mcpName = kt.Tool.MCP.Name
+			}
+		}
+		result[i] = keyMCPToolResponse{
+			ID:       kt.ID,
+			ToolID:   kt.ToolID,
+			ToolName: toolName,
+			MCPID:    mcpID,
+			MCPName:  mcpName,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"tools": result})
+}
+
+func (h *APIKeyHandler) UpdateMCPTools(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req struct {
+		ToolIDs []uint `json:"tool_ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var key model.Key
+	if err := model.DB.First(&key, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "key not found"})
+		return
+	}
+
+	model.DB.Where("key_id = ?", id).Delete(&model.KeyMCPTool{})
+
+	for _, toolID := range req.ToolIDs {
+		var tool model.MCPTool
+		if err := model.DB.First(&tool, toolID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "tool not found: " + strconv.FormatUint(uint64(toolID), 10)})
+			return
+		}
+		keyTool := model.KeyMCPTool{
+			KeyID:  key.ID,
+			ToolID: toolID,
+		}
+		model.DB.Create(&keyTool)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "MCP tools updated"})
+}
+
+func (h *APIKeyHandler) GetMCPResources(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var keyResources []model.KeyMCPResource
+	if err := model.DB.Preload("Resource.MCP").Where("key_id = ?", id).Find(&keyResources).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	result := make([]keyMCPResourceResponse, len(keyResources))
+	for i, kr := range keyResources {
+		resourceName := ""
+		resourceURI := ""
+		mcpID := uint(0)
+		mcpName := ""
+		if kr.Resource != nil {
+			resourceName = kr.Resource.Name
+			resourceURI = kr.Resource.URI
+			mcpID = kr.Resource.MCPID
+			if kr.Resource.MCP != nil {
+				mcpName = kr.Resource.MCP.Name
+			}
+		}
+		result[i] = keyMCPResourceResponse{
+			ID:           kr.ID,
+			ResourceID:   kr.ResourceID,
+			ResourceName: resourceName,
+			ResourceURI:  resourceURI,
+			MCPID:        mcpID,
+			MCPName:      mcpName,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"resources": result})
+}
+
+func (h *APIKeyHandler) UpdateMCPResources(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req struct {
+		ResourceIDs []uint `json:"resource_ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var key model.Key
+	if err := model.DB.First(&key, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "key not found"})
+		return
+	}
+
+	model.DB.Where("key_id = ?", id).Delete(&model.KeyMCPResource{})
+
+	for _, resourceID := range req.ResourceIDs {
+		var resource model.MCPResource
+		if err := model.DB.First(&resource, resourceID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "resource not found: " + strconv.FormatUint(uint64(resourceID), 10)})
+			return
+		}
+		keyResource := model.KeyMCPResource{
+			KeyID:      key.ID,
+			ResourceID: resourceID,
+		}
+		model.DB.Create(&keyResource)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "MCP resources updated"})
+}
+
+func (h *APIKeyHandler) GetMCPPrompts(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var keyPrompts []model.KeyMCPPrompt
+	if err := model.DB.Preload("Prompt.MCP").Where("key_id = ?", id).Find(&keyPrompts).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	result := make([]keyMCPPromptResponse, len(keyPrompts))
+	for i, kp := range keyPrompts {
+		promptName := ""
+		mcpID := uint(0)
+		mcpName := ""
+		if kp.Prompt != nil {
+			promptName = kp.Prompt.Name
+			mcpID = kp.Prompt.MCPID
+			if kp.Prompt.MCP != nil {
+				mcpName = kp.Prompt.MCP.Name
+			}
+		}
+		result[i] = keyMCPPromptResponse{
+			ID:         kp.ID,
+			PromptID:   kp.PromptID,
+			PromptName: promptName,
+			MCPID:      mcpID,
+			MCPName:    mcpName,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"prompts": result})
+}
+
+func (h *APIKeyHandler) UpdateMCPPrompts(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req struct {
+		PromptIDs []uint `json:"prompt_ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var key model.Key
+	if err := model.DB.First(&key, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "key not found"})
+		return
+	}
+
+	model.DB.Where("key_id = ?", id).Delete(&model.KeyMCPPrompt{})
+
+	for _, promptID := range req.PromptIDs {
+		var prompt model.MCPPrompt
+		if err := model.DB.First(&prompt, promptID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "prompt not found: " + strconv.FormatUint(uint64(promptID), 10)})
+			return
+		}
+		keyPrompt := model.KeyMCPPrompt{
+			KeyID:    key.ID,
+			PromptID: promptID,
+		}
+		model.DB.Create(&keyPrompt)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "MCP prompts updated"})
 }

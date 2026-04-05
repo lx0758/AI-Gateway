@@ -19,6 +19,8 @@ const routes = [
       { path: 'aliases', name: 'Aliases', component: () => import('@/views/Aliases/index.vue') },
       { path: 'aliases/:id', name: 'AliasDetail', component: () => import('@/views/Aliases/Detail.vue') },
       { path: 'keys', name: 'Keys', component: () => import('@/views/Keys/index.vue') },
+      { path: 'mcps', name: 'MCPs', component: () => import('@/views/MCPs/index.vue') },
+      { path: 'mcps/:id', name: 'MCPDetail', component: () => import('@/views/MCPs/Detail.vue') },
       { path: 'usage', name: 'Usage', component: () => import('@/views/Usage/index.vue') },
       { path: 'settings', name: 'Settings', component: () => import('@/views/Settings/index.vue') }
     ]

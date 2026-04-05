@@ -26,6 +26,10 @@ type User struct {
 	DeletedAt    gorm.DeletedAt
 }
 
+func (User) TableName() string {
+	return "users"
+}
+
 type Provider struct {
 	ID               uint   `gorm:"primaryKey"`
 	Name             string `gorm:"uniqueIndex"`
@@ -40,6 +44,10 @@ type Provider struct {
 	UpdatedAt        time.Time
 	DeletedAt        gorm.DeletedAt
 	Models           []ProviderModel
+}
+
+func (Provider) TableName() string {
+	return "providers"
 }
 
 type ProviderModel struct {
@@ -63,8 +71,12 @@ type ProviderModel struct {
 	DeletedAt      gorm.DeletedAt
 }
 
+func (ProviderModel) TableName() string {
+	return "provider_models"
+}
+
 type Alias struct {
-	ID        uint   `gorm:"primaryKey;tableName:aliases"`
+	ID        uint   `gorm:"primaryKey"`
 	Name      string `gorm:"uniqueIndex;column:name"`
 	Enabled   bool   `gorm:"type:boolean;default:true"`
 	CreatedAt time.Time
@@ -73,8 +85,12 @@ type Alias struct {
 	Mappings  []AliasMapping `gorm:"foreignKey:AliasID;constraint:OnDelete:CASCADE"`
 }
 
+func (Alias) TableName() string {
+	return "aliases"
+}
+
 type AliasMapping struct {
-	ID                uint `gorm:"primaryKey;tableName:alias_mappings"`
+	ID                uint `gorm:"primaryKey"`
 	AliasID           uint `gorm:"index"`
 	ProviderID        uint `gorm:"index"`
 	ProviderModelName string
@@ -86,8 +102,12 @@ type AliasMapping struct {
 	Provider          *Provider `gorm:"foreignKey:ProviderID"`
 }
 
+func (AliasMapping) TableName() string {
+	return "alias_mappings"
+}
+
 type Mapping struct {
-	ID                uint `gorm:"primaryKey;tableName:mappings"`
+	ID                uint `gorm:"primaryKey"`
 	AliasID           uint `gorm:"index"`
 	ProviderID        uint `gorm:"index"`
 	ProviderModelName string
@@ -97,6 +117,10 @@ type Mapping struct {
 	UpdatedAt         time.Time
 	DeletedAt         gorm.DeletedAt
 	Provider          *Provider `gorm:"foreignKey:ProviderID"`
+}
+
+func (Mapping) TableName() string {
+	return "mappings"
 }
 
 type Key struct {
@@ -110,12 +134,20 @@ type Key struct {
 	Models    []KeyModel
 }
 
+func (Key) TableName() string {
+	return "keys"
+}
+
 type KeyModel struct {
 	ID        uint `gorm:"primaryKey"`
 	KeyID     uint `gorm:"index"`
 	AliasID   uint `gorm:"index;constraint:OnDelete:CASCADE"`
 	CreatedAt time.Time
 	Alias     *Alias `gorm:"foreignKey:AliasID"`
+}
+
+func (KeyModel) TableName() string {
+	return "key_models"
 }
 
 type UsageLog struct {
@@ -140,13 +172,142 @@ type UsageLog struct {
 	CreatedAt       time.Time `gorm:"index"`
 }
 
+func (UsageLog) TableName() string {
+	return "usage_logs"
+}
+
 func (u *UsageLog) String() string {
 	return fmt.Sprintf("[%s - %s] %s calling model %s, provider:(%s/%s), method:%s, tokens:(C:%d/I:%d/O:%d/T:%d), time:%dms, status:%s",
-		u.Source, u.ClientIPs, u.KeyName, u.Model, u.ProviderName, u.ActualModelName, u.CallMethod, u.CachedTokens, u.InputTokens, u.OutputTokens, u.TotalTokens, u.LatencyMs, u.Status,
+		u.Source, u.ClientIPs, u.KeyName, u.Model,
+		u.ProviderName, u.ActualModelName, u.CallMethod,
+		u.CachedTokens, u.InputTokens, u.OutputTokens, u.TotalTokens,
+		u.LatencyMs, u.Status,
 	)
 }
 
-func InitDB(dbType, dbPath, dbHost string, dbPort int, dbUser, dbPassword, dbName string, maxOpen, maxIdle int, maxLifetime, maxIdleTime time.Duration, debug bool) error {
+type MCP struct {
+	ID   uint   `gorm:"primaryKey"`
+	Name string `gorm:"uniqueIndex;size:200;not null"`
+	Type string `gorm:"type:varchar(20);not null"`
+
+	Target string `gorm:"type:text"`
+	Params string `gorm:"type:text"`
+
+	Enabled      bool   `gorm:"default:true"`
+	Capabilities string `gorm:"type:text"`
+	LastSyncAt   *time.Time
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+}
+
+func (MCP) TableName() string {
+	return "mcps"
+}
+
+type MCPTool struct {
+	ID          uint   `gorm:"primaryKey"`
+	MCPID       uint   `gorm:"index;not null"`
+	Name        string `gorm:"index;size:200;not null"`
+	Description string `gorm:"type:text"`
+	InputSchema string `gorm:"type:text"`
+	Enabled     bool   `gorm:"default:true"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+
+	MCP *MCP `gorm:"foreignKey:MCPID"`
+}
+
+func (MCPTool) TableName() string {
+	return "mcp_tools"
+}
+
+type MCPResource struct {
+	ID          uint   `gorm:"primaryKey"`
+	MCPID       uint   `gorm:"index;not null"`
+	URI         string `gorm:"type:text;not null"`
+	Name        string `gorm:"size:200"`
+	Description string `gorm:"type:text"`
+	MimeType    string `gorm:"size:100"`
+	Enabled     bool   `gorm:"default:true"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+
+	MCP *MCP `gorm:"foreignKey:MCPID"`
+}
+
+func (MCPResource) TableName() string {
+	return "mcp_resources"
+}
+
+type MCPPrompt struct {
+	ID          uint   `gorm:"primaryKey"`
+	MCPID       uint   `gorm:"index;not null"`
+	Name        string `gorm:"index;size:200;not null"`
+	Description string `gorm:"type:text"`
+	Arguments   string `gorm:"type:text"`
+	Enabled     bool   `gorm:"default:true"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+
+	MCP *MCP `gorm:"foreignKey:MCPID"`
+}
+
+func (MCPPrompt) TableName() string {
+	return "mcp_prompts"
+}
+
+type KeyMCPTool struct {
+	ID     uint     `gorm:"primaryKey"`
+	KeyID  uint     `gorm:"index;not null"`
+	ToolID uint     `gorm:"index;not null"`
+	Tool   *MCPTool `gorm:"foreignKey:ToolID"`
+
+	CreatedAt time.Time
+}
+
+func (KeyMCPTool) TableName() string {
+	return "key_mcp_tools"
+}
+
+type KeyMCPResource struct {
+	ID         uint         `gorm:"primaryKey"`
+	KeyID      uint         `gorm:"index;not null"`
+	ResourceID uint         `gorm:"index;not null"`
+	Resource   *MCPResource `gorm:"foreignKey:ResourceID"`
+
+	CreatedAt time.Time
+}
+
+func (KeyMCPResource) TableName() string {
+	return "key_mcp_resources"
+}
+
+type KeyMCPPrompt struct {
+	ID       uint       `gorm:"primaryKey"`
+	KeyID    uint       `gorm:"index;not null"`
+	PromptID uint       `gorm:"index;not null"`
+	Prompt   *MCPPrompt `gorm:"foreignKey:PromptID"`
+
+	CreatedAt time.Time
+}
+
+func (KeyMCPPrompt) TableName() string {
+	return "key_mcp_prompts"
+}
+
+func InitDB(
+	dbType, dbPath, dbHost string, dbPort int, dbUser, dbPassword, dbName string,
+	maxOpen, maxIdle int, maxLifetime, maxIdleTime time.Duration,
+	debug bool,
+) error {
 	var dialector gorm.Dialector
 	var err error
 
@@ -216,6 +377,13 @@ func autoMigrate() error {
 		&Key{},
 		&KeyModel{},
 		&UsageLog{},
+		&MCP{},
+		&MCPTool{},
+		&MCPResource{},
+		&MCPPrompt{},
+		&KeyMCPTool{},
+		&KeyMCPResource{},
+		&KeyMCPPrompt{},
 	)
 }
 

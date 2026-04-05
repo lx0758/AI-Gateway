@@ -75,6 +75,8 @@ func main() {
 	openAIProxyHandler := handler.NewOpenAIProxyHandler()
 	anthropicProxyHandler := handler.NewAnthropicProxyHandler()
 	usageHandler := handler.NewUsageHandler()
+	mcpProxyHandler := handler.NewMCPProxyHandler()
+	mcpHandler := handler.NewMCPHandler()
 
 	openai := r.Group("/openai/v1")
 	openai.Use(middleware.RequireAPIKey())
@@ -90,6 +92,14 @@ func main() {
 		anthropic.POST("/messages", anthropicProxyHandler.Messages)
 		anthropic.GET("/models", anthropicProxyHandler.ListModels)
 		anthropic.GET("/models/:id", anthropicProxyHandler.GetModel)
+	}
+
+	mcp := r.Group("/mcp/v1")
+	mcp.Use(middleware.RequireAPIKey())
+	{
+		mcp.GET("", mcpProxyHandler.Handle)
+		mcp.POST("", mcpProxyHandler.Handle)
+		mcp.DELETE("", mcpProxyHandler.Handle)
 	}
 
 	api := r.Group("/api/v1")
@@ -137,9 +147,29 @@ func main() {
 			protected.DELETE("/api-keys/:id", apiKeyHandler.Delete)
 			protected.POST("/api-keys/:id/reset", apiKeyHandler.Reset)
 			protected.GET("/api-keys/:id/models", apiKeyHandler.ListModels)
+			protected.GET("/api-keys/:id/mcp-tools", apiKeyHandler.GetMCPTools)
+			protected.PUT("/api-keys/:id/mcp-tools", apiKeyHandler.UpdateMCPTools)
+			protected.GET("/api-keys/:id/mcp-resources", apiKeyHandler.GetMCPResources)
+			protected.PUT("/api-keys/:id/mcp-resources", apiKeyHandler.UpdateMCPResources)
+			protected.GET("/api-keys/:id/mcp-prompts", apiKeyHandler.GetMCPPrompts)
+			protected.PUT("/api-keys/:id/mcp-prompts", apiKeyHandler.UpdateMCPPrompts)
 
 			protected.GET("/usage/logs", usageHandler.Logs)
 			protected.GET("/usage/dashboard", usageHandler.Dashboard)
+
+			protected.GET("/mcps", mcpHandler.List)
+			protected.POST("/mcps", mcpHandler.Create)
+			protected.GET("/mcps/:id", mcpHandler.Get)
+			protected.PUT("/mcps/:id", mcpHandler.Update)
+			protected.DELETE("/mcps/:id", mcpHandler.Delete)
+			protected.POST("/mcps/:id/test", mcpHandler.TestConnection)
+			protected.POST("/mcps/:id/sync", mcpHandler.Sync)
+			protected.GET("/mcps/:id/tools", mcpHandler.ListTools)
+			protected.PUT("/mcps/tools/:id", mcpHandler.UpdateTool)
+			protected.GET("/mcps/:id/resources", mcpHandler.ListResources)
+			protected.PUT("/mcps/resources/:id", mcpHandler.UpdateResource)
+			protected.GET("/mcps/:id/prompts", mcpHandler.ListPrompts)
+			protected.PUT("/mcps/prompts/:id", mcpHandler.UpdatePrompt)
 		}
 	}
 

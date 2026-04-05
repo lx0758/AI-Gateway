@@ -24,6 +24,10 @@
             <el-icon><Grid /></el-icon>
             <template #title>{{ t('menu.aliases') }}</template>
           </el-menu-item>
+          <el-menu-item index="/mcps">
+            <el-icon><Platform /></el-icon>
+            <template #title>{{ t('mcp.services') }}</template>
+          </el-menu-item>
           <el-menu-item index="/keys">
             <el-icon><Key /></el-icon>
             <template #title>{{ t('menu.keys') }}</template>

@@ -22,9 +22,9 @@
         <el-table-column :label="t('modelAlias.capabilities')">
           <template #default="{ row }">
             <div v-if="row.mapping_count > 0" class="capability-tags">
-              <el-tag v-if="row.supports_vision" type="success" size="small" style="margin-right: 4px">Vision</el-tag>
+              <el-tag v-if="row.supports_stream" type="primary" size="small" style="margin-right: 4px">Stream</el-tag>
               <el-tag v-if="row.supports_tools" type="warning" size="small" style="margin-right: 4px">Tools</el-tag>
-              <el-tag v-if="row.supports_stream" type="primary" size="small">Stream</el-tag>
+              <el-tag v-if="row.supports_vision" type="success" size="small">Vision</el-tag>
             </div>
             <span v-else>-</span>
           </template>

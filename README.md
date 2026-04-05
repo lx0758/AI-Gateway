@@ -273,6 +273,22 @@ GET  /anthropic/v1/models          # 模型列表
 POST /anthropic/v1/models/:id      # 模型详情
 ```
 
+### MCP 协议接口 (需要 API Key)
+
+```
+POST /mcp/v1                       # MCP JSON-RPC 2.0 端点
+
+支持的方法:
+- initialize                       # 初始化，返回可用资源
+- tools/list                       # 列出工具
+- tools/call                       # 调用工具
+- resources/list                   # 列出资源
+- resources/read                   # 读取资源
+- prompts/list                     # 列出提示词
+- prompts/get                      # 获取提示词
+- ping                             # 心跳
+```
+
 ### 管理接口 (需要登录)
 
 ```
@@ -298,6 +314,21 @@ POST /api/v1/api-keys       # 创建 API Key
 PUT  /api/v1/api-keys/:id   # 更新 API Key
 DELETE /api/v1/api-keys/:id # 删除 API Key
 POST /api/v1/api-keys/:id/reset # 重置 API Key
+GET  /api/v1/api-keys/:id/models # 获取 Key 的模型权限
+GET  /api/v1/api-keys/:id/mcp-tools # 获取 Key 的 MCP 工具权限
+PUT  /api/v1/api-keys/:id/mcp-tools # 更新 Key 的 MCP 工具权限
+GET  /api/v1/api-keys/:id/mcp-resources # 获取 Key 的 MCP 资源权限
+PUT  /api/v1/api-keys/:id/mcp-resources # 更新 Key 的 MCP 资源权限
+GET  /api/v1/api-keys/:id/mcp-prompts # 获取 Key 的 MCP 提示词权限
+PUT  /api/v1/api-keys/:id/mcp-prompts # 更新 Key 的 MCP 提示词权限
+
+GET  /api/v1/mcp-services   # MCP 服务列表
+POST /api/v1/mcp-services   # 创建 MCP 服务
+GET  /api/v1/mcp-services/:id # 获取 MCP 服务
+PUT  /api/v1/mcp-services/:id # 更新 MCP 服务
+DELETE /api/v1/mcp-services/:id # 删除 MCP 服务
+POST /api/v1/mcp-services/:id/test # 测试 MCP 服务连接
+POST /api/v1/mcp-services/:id/sync # 同步 MCP 服务资源
 
 GET  /api/v1/usage/stats    # 用量统计
 GET  /api/v1/usage/logs     # 用量日志
@@ -324,6 +355,64 @@ curl http://localhost:18080/anthropic/v1/messages \
     "model": "claude-3-opus",
     "max_tokens": 1024,
     "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# MCP 协议调用 - 初始化
+curl http://localhost:18080/mcp/v1 \
+  -H "Authorization: Bearer sk-your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "initialize",
+    "id": 1
+  }'
+
+# MCP 协议调用 - 列出工具
+curl http://localhost:18080/mcp/v1 \
+  -H "Authorization: Bearer sk-your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/list",
+    "id": 2
+  }'
+
+# MCP 协议调用 - 调用工具 (工具名格式: symbol.tool_name)
+curl http://localhost:18080/mcp/v1 \
+  -H "Authorization: Bearer sk-your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "fs.read_file",
+      "arguments": {"path": "/etc/hosts"}
+    },
+    "id": 3
+  }'
+
+# 创建 MCP 服务 (管理接口)
+curl http://localhost:18080/api/v1/mcp-services \
+  -H "Cookie: session-cookie" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Filesystem MCP",
+    "symbol": "fs",
+    "type": "local",
+    "command": "mcp-filesystem-server",
+    "enabled": true
+  }'
+
+# 同步 MCP 服务资源
+curl -X POST http://localhost:18080/api/v1/mcp-services/1/sync \
+  -H "Cookie: session-cookie"
+
+# 配置 API Key 的 MCP 工具权限
+curl -X PUT http://localhost:18080/api/v1/api-keys/1/mcp-tools \
+  -H "Cookie: session-cookie" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_ids": [1, 2, 3]
   }'
 ```
 

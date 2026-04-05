@@ -10,7 +10,7 @@ The system SHALL support configuration via environment variables with `AMP_` pre
 
 #### Scenario: Use default value when environment variable not set
 - **WHEN** environment variable `AMP_SERVER_PORT` is not set
-- **THEN** the server SHALL use default value `8080`
+- **THEN** the server SHALL use default value `18080`
 
 ### Requirement: Configuration Default Values
 

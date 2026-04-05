@@ -1,6 +1,6 @@
 <template>
   <div class="alias-detail">
-    <el-page-header @back="$router.back()">
+    <el-page-header @back="$router.back()" :title="t('menu.aliases')">
       <template #content>
         {{ alias?.alias || t('menu.aliases') }}
       </template>
@@ -48,9 +48,9 @@
         <el-table-column :label="t('modelAlias.capabilities')">
           <template #default="{ row }">
             <div v-if="row.model_info" class="capability-tags">
-              <el-tag v-if="row.model_info.supports_vision" type="success" size="small" style="margin-right: 4px">Vision</el-tag>
+              <el-tag v-if="row.model_info.supports_stream" type="primary" size="small" style="margin-right: 4px">Stream</el-tag>
               <el-tag v-if="row.model_info.supports_tools" type="warning" size="small" style="margin-right: 4px">Tools</el-tag>
-              <el-tag v-if="row.model_info.supports_stream" type="primary" size="small">Stream</el-tag>
+              <el-tag v-if="row.model_info.supports_vision" type="success" size="small">Vision</el-tag>
             </div>
             <span v-else>-</span>
           </template>
