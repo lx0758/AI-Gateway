@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const DEBUG_DIR = "debug"
+const DEBUG_DIR = "debug_model"
 
 var debugEnabled = false
 

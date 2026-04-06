@@ -31,6 +31,7 @@ type DebugConfig struct {
 	Gin      bool
 	Gorm     bool
 	Provider bool
+	MCP      bool
 }
 
 type DatabaseConfig struct {
@@ -120,6 +121,7 @@ func Load() *Config {
 			Gin:      getBool("AG_DEBUG_GIN", yamlCfg.Debug.Gin),
 			Gorm:     getBool("AG_DEBUG_GORM", yamlCfg.Debug.Gorm),
 			Provider: getBool("AG_DEBUG_PROVIDER", yamlCfg.Debug.Provider),
+			MCP:      getBool("AG_DEBUG_MCP", yamlCfg.Debug.MCP),
 		},
 		Server: ServerConfig{
 			Port:           getInt("AG_SERVER_PORT", yamlCfg.Server.Port),
@@ -304,6 +306,7 @@ func logConfig() {
 	log.Printf("  Debug Gin: %v", cfg.Debug.Gin)
 	log.Printf("  Debug Gorm: %v", cfg.Debug.Gorm)
 	log.Printf("  Debug Provider: %v", cfg.Debug.Provider)
+	log.Printf("  Debug MCP: %v", cfg.Debug.MCP)
 	log.Printf("  Server Port: %d", cfg.Server.Port)
 	log.Printf("  Trusted Proxies: %v", cfg.Server.TrustedProxies)
 	log.Printf("  Database Type: %s", cfg.Database.Type)

@@ -10,6 +10,7 @@ import (
 
 	"ai-gateway/internal/config"
 	"ai-gateway/internal/handler"
+	"ai-gateway/internal/mcp"
 	"ai-gateway/internal/middleware"
 	"ai-gateway/internal/model"
 	"ai-gateway/internal/provider"
@@ -43,6 +44,7 @@ func main() {
 	}
 
 	provider.SetDebugMode(cfg.Debug.Provider)
+	mcp.SetDebugMode(cfg.Debug.MCP)
 
 	if cfg.Debug.Gin {
 		gin.SetMode(gin.DebugMode)

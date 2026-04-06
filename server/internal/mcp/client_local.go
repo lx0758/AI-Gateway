@@ -142,12 +142,14 @@ func (c *LocalMCPClient) call(method string, params interface{}, id interface{})
 
 	reqBody = append(reqBody, '\n')
 
-	if _, err := c.stdin.Write(reqBody); err != nil {
+	stdin, stdout := recordLocalStream(c.stdin, c.stdout)
+
+	if _, err := stdin.Write(reqBody); err != nil {
 		c.stop()
 		return nil, fmt.Errorf("failed to write to stdin: %w", err)
 	}
 
-	scanner := bufio.NewScanner(c.stdout)
+	scanner := bufio.NewScanner(stdout)
 	if !scanner.Scan() {
 		errMsg := "failed to read response from process"
 		if err := scanner.Err(); err != nil {

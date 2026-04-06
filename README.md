@@ -145,6 +145,7 @@ debug:
   gin: false      # Gin 框架调试模式
   gorm: false     # GORM SQL 调试日志
   provider: false # Provider 调试日志
+  mcp: false      # MCP 调试日志
 
 pprof:
   port: 6060      # 性能分析端口
@@ -176,7 +177,8 @@ auth:
 |--------|--------|------|
 | `AG_DEBUG_GIN` | `false` | Gin 框架调试模式 |
 | `AG_DEBUG_GORM` | `false` | GORM SQL 调试日志 |
-| `AG_DEBUG_PROVIDER` | `false` | Provider 调试日志记录 |
+| `AG_DEBUG_PROVIDER` | `false` | Provider 调试日志, 请求/响应记录到 `debug_provider/` 目录 |
+| `AG_DEBUG_MCP` | `false` | MCP 调试日志, 请求/响应记录到 `debug_mcp/` 目录 |
 | `AG_SERVER_PORT` | `18080` | 服务端口 |
 | `AG_SERVER_TRUSTED_PROXIES` | `10.0.0.0/8,192.168.0.0/16,172.16.0.0/12` | 信任的代理IP CIDR范围（逗号分隔），用于获取真实客户端IP |
 | `AG_PPROF_PORT` | `6060` | Pprof 性能分析端口 |
@@ -198,14 +200,6 @@ auth:
 | `AG_SERVER_SESSION_SAME_SITE` | `lax` | Cookie SameSite 属性 |
 | `AG_ADMIN_USERNAME` | `admin` | 默认管理员用户名 |
 | `AG_ADMIN_PASSWORD` | `admin` | 默认管理员密码 |
-
-#### 调试模式
-
-调试配置分为三个独立开关：
-
-- `debug.gin: true` 或 `AG_DEBUG_GIN=true`：Gin 框架运行在 DebugMode，输出详细请求日志
-- `debug.gorm: true` 或 `AG_DEBUG_GORM=true`：GORM 输出 SQL 查询日志（Info 级别）
-- `debug.provider: true` 或 `AG_DEBUG_PROVIDER=true`：Provider 记录请求/响应到 `debug/` 目录
 
 ### 数据库配置
 

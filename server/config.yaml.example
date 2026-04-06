@@ -19,8 +19,12 @@ debug:
                         # Environment variable: AG_DEBUG_GORM
   
   provider: false       # Enable Provider debug recording
-                        # When enabled: saves request/response streams to 'debug/' directory
+                        # When enabled: saves request/response streams to 'debug_model/' directory
                         # Environment variable: AG_DEBUG_PROVIDER
+  
+  mcp: false            # Enable Provider debug recording
+                        # When enabled: saves request/response streams to 'debug_mcp/' directory
+                        # Environment variable: AG_DEBUG_MCP
 
 # Pprof Configuration
 # Performance profiling server (for production diagnostics)

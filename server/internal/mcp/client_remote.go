@@ -110,6 +110,7 @@ func (c *RemoteMCPClient) call(method string, params interface{}, id interface{}
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
+	recordRemoteReq(reqBody)
 
 	httpReq, err := http.NewRequest("POST", c.url, bytes.NewBuffer(reqBody))
 	if err != nil {
@@ -128,18 +129,19 @@ func (c *RemoteMCPClient) call(method string, params interface{}, id interface{}
 	}
 	defer resp.Body.Close()
 
+	respBody := recordRemoteResp(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(respBody)
 		return nil, fmt.Errorf("HTTP error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	contentType := resp.Header.Get("Content-Type")
 	if strings.Contains(contentType, "text/event-stream") {
-		return c.parseSSEResponse(resp.Body)
+		return c.parseSSEResponse(respBody)
 	}
 
 	var jsonrpcResp JSONRPCResponse
-	if err := json.NewDecoder(resp.Body).Decode(&jsonrpcResp); err != nil {
+	if err := json.NewDecoder(respBody).Decode(&jsonrpcResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
