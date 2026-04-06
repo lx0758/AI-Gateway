@@ -322,6 +322,15 @@ async function toggleMappingEnabled(mapping: Mapping) {
   margin: 20px 0;
 }
 
+.info-card :deep(.el-descriptions__table) {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.info-card :deep(.el-descriptions__cell) {
+  width: 50%;
+}
+
 .actions {
   margin-top: 20px;
   display: flex;

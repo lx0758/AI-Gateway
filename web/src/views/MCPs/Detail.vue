@@ -4,12 +4,6 @@
       <template #content>
         <span class="text-large font-600 mr-3">{{ service?.name || '-' }}</span>
       </template>
-      <template #extra>
-        <div class="extra-actions">
-          <el-button @click="testConnection" :loading="testing">{{ t('mcp.testConnection') }}</el-button>
-          <el-button type="primary" @click="syncService" :loading="syncing">{{ t('mcp.sync') }}</el-button>
-        </div>
-      </template>
     </el-page-header>
 
     <el-card class="info-card" v-loading="loading">
@@ -31,6 +25,10 @@
           <span v-else>{{ service?.target }}</span>
         </el-descriptions-item>
       </el-descriptions>
+      <div class="actions">
+        <el-button @click="testConnection" :loading="testing">{{ t('mcp.testConnection') }}</el-button>
+        <el-button type="primary" @click="syncService" :loading="syncing">{{ t('mcp.sync') }}</el-button>
+      </div>
     </el-card>
 
     <el-card class="tabs-card">
@@ -353,6 +351,21 @@ async function togglePromptEnabled(prompt: any) {
 .info-card {
   margin-top: 20px;
 }
+
+.info-card :deep(.el-descriptions__table) {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.info-card :deep(.el-descriptions__cell) {
+  width: 50%;
+}
+
+.actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+} 
 
 .tabs-card {
   margin-top: 20px;

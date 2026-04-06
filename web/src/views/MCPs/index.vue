@@ -18,6 +18,21 @@
             <el-tag :type="row.type === 'remote' ? 'success' : 'info'">{{ row.type }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column :label="t('mcp.tools')" width="80">
+          <template #default="{ row }">
+            {{ row.tool_count || 0 }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('mcp.resources')" width="80">
+          <template #default="{ row }">
+            {{ row.resource_count || 0 }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('mcp.prompts')" width="80">
+          <template #default="{ row }">
+            {{ row.prompt_count || 0 }}
+          </template>
+        </el-table-column>
         <el-table-column :label="t('common.status')" width="100">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
@@ -28,10 +43,9 @@
             {{ row.last_sync_at ? new Date(row.last_sync_at).toLocaleString() : '-' }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="250">
+        <el-table-column :label="t('common.action')" width="180">
           <template #default="{ row }">
             <el-button link type="primary" @click="showDialog(row.id)">{{ t('common.edit') }}</el-button>
-            <el-button link type="success" @click="syncService(row.id)">{{ t('mcp.sync') }}</el-button>
             <el-button link type="default" @click="goDetail(row.id)">{{ t('common.detail') }}</el-button>
             <el-button link type="danger" @click="handleDelete(row.id)">{{ t('common.delete') }}</el-button>
           </template>
@@ -204,20 +218,6 @@ async function testConnection(id: number) {
     }
   } catch (e: any) {
     ElMessage.error(e.response?.data?.error || t('mcp.connectionFailed'))
-  }
-}
-
-async function syncService(id: number) {
-  try {
-    const res = await api.post(`/mcps/${id}/sync`)
-    if (res.data.success) {
-      ElMessage.success(t('mcp.syncSuccess'))
-      fetchServices()
-    } else {
-      ElMessage.error(res.data.message || t('mcp.syncFailed'))
-    }
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.error || t('mcp.syncFailed'))
   }
 }
 

@@ -38,16 +38,19 @@ type mcpUpdateRequest struct {
 }
 
 type mcpResponse struct {
-	ID           uint       `json:"id"`
-	Name         string     `json:"name"`
-	Type         string     `json:"type"`
-	Target       string     `json:"target,omitempty"`
-	Params       string     `json:"params,omitempty"`
-	Enabled      bool       `json:"enabled"`
-	Capabilities string     `json:"capabilities,omitempty"`
-	LastSyncAt   *time.Time `json:"last_sync_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID            uint       `json:"id"`
+	Name          string     `json:"name"`
+	Type          string     `json:"type"`
+	Target        string     `json:"target,omitempty"`
+	Params        string     `json:"params,omitempty"`
+	Enabled       bool       `json:"enabled"`
+	Capabilities  string     `json:"capabilities,omitempty"`
+	LastSyncAt    *time.Time `json:"last_sync_at,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	ToolCount     int        `json:"tool_count,omitempty"`
+	ResourceCount int        `json:"resource_count,omitempty"`
+	PromptCount   int        `json:"prompt_count,omitempty"`
 }
 
 type mcpToolResponse struct {
@@ -129,7 +132,7 @@ func (h *MCPHandler) Create(c *gin.Context) {
 		log.Printf("[MCP] failed to sync MCP %d: %v", m.ID, err)
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"mcp": h.toResponse(&m)})
+	c.JSON(http.StatusCreated, gin.H{"mcp": h.toResponse(&m, 0, 0, 0)})
 }
 
 func (h *MCPHandler) List(c *gin.Context) {
@@ -141,7 +144,12 @@ func (h *MCPHandler) List(c *gin.Context) {
 
 	result := make([]mcpResponse, len(mcps))
 	for i, m := range mcps {
-		result[i] = h.toResponse(&m)
+		var toolCount, resourceCount, promptCount int64
+		model.DB.Model(&model.MCPTool{}).Where("mcp_id = ? AND enabled = ?", m.ID, true).Count(&toolCount)
+		model.DB.Model(&model.MCPResource{}).Where("mcp_id = ? AND enabled = ?", m.ID, true).Count(&resourceCount)
+		model.DB.Model(&model.MCPPrompt{}).Where("mcp_id = ? AND enabled = ?", m.ID, true).Count(&promptCount)
+
+		result[i] = h.toResponse(&m, int(toolCount), int(resourceCount), int(promptCount))
 	}
 
 	c.JSON(http.StatusOK, gin.H{"mcps": result})
@@ -160,7 +168,7 @@ func (h *MCPHandler) Get(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"mcp": h.toResponse(&m)})
+	c.JSON(http.StatusOK, gin.H{"mcp": h.toResponse(&m, 0, 0, 0)})
 }
 
 func (h *MCPHandler) Update(c *gin.Context) {
@@ -257,7 +265,7 @@ func (h *MCPHandler) Update(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"mcp": h.toResponse(&m)})
+	c.JSON(http.StatusOK, gin.H{"mcp": h.toResponse(&m, 0, 0, 0)})
 }
 
 func (h *MCPHandler) Delete(c *gin.Context) {
@@ -352,18 +360,21 @@ func (h *MCPHandler) Sync(c *gin.Context) {
 	})
 }
 
-func (h *MCPHandler) toResponse(m *model.MCP) mcpResponse {
+func (h *MCPHandler) toResponse(m *model.MCP, toolCount, resourceCount, promptCount int) mcpResponse {
 	return mcpResponse{
-		ID:           m.ID,
-		Name:         m.Name,
-		Type:         m.Type,
-		Target:       m.Target,
-		Params:       m.Params,
-		Enabled:      m.Enabled,
-		Capabilities: m.Capabilities,
-		LastSyncAt:   m.LastSyncAt,
-		CreatedAt:    m.CreatedAt,
-		UpdatedAt:    m.UpdatedAt,
+		ID:            m.ID,
+		Name:          m.Name,
+		Type:          m.Type,
+		Target:        m.Target,
+		Params:        m.Params,
+		Enabled:       m.Enabled,
+		Capabilities:  m.Capabilities,
+		LastSyncAt:    m.LastSyncAt,
+		CreatedAt:     m.CreatedAt,
+		UpdatedAt:     m.UpdatedAt,
+		ToolCount:     toolCount,
+		ResourceCount: resourceCount,
+		PromptCount:   promptCount,
 	}
 }
 
