@@ -52,6 +52,7 @@ export default {
     mcps: 'MCP服务',
     keys: 'API 密钥',
     model_usage: '模型用量',
+    mcp_usage: 'MCP用量',
     settings: '系统设置'
   },
   dashboard: {
@@ -209,5 +210,35 @@ export default {
     warning: '警告',
     confirmDelete: '确定要删除此 MCP服务吗？相关的工具、资源和提示词也会被删除。',
     confirmBatchDelete: '确定要删除选中的 {count} 个MCP服务吗？相关的工具、资源和提示词也会被删除。'
+  },
+  mcpUsage: {
+    stats: '统计',
+    logs: '日志',
+    totalRequests: '总请求数',
+    successRate: '成功率',
+    totalDataSize: '总数据量',
+    avgLatency: '平均耗时',
+    callCount: '调用次数',
+    dataSize: '数据量',
+    sourceStats: '接入点统计',
+    source: '接入点',
+    ipStats: 'IP 统计',
+    clientIp: '客户端 IP',
+    callTypeStats: '调用类型统计',
+    callType: '调用类型',
+    keyStats: 'Key 统计',
+    keyName: 'Key 名称',
+    mcpStats: 'MCP 服务统计',
+    mcpService: 'MCP 服务',
+    mcpTypeStats: 'MCP 服务类型统计',
+    mcpType: 'MCP 类型',
+    mcpCallTypeStats: 'MCP 调用类型统计',
+    mcpCallTargetStats: 'MCP 调用目标统计',
+    callTarget: '调用目标',
+    latency: '耗时',
+    errorMsg: '错误信息',
+    startTime: '开始时间',
+    endTime: '结束时间',
+    time: '时间'
   }
 }

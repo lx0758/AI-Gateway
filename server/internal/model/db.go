@@ -296,6 +296,39 @@ func (u *ModelLog) String() string {
 	)
 }
 
+type MCPLog struct {
+	ID         uint      `gorm:"primaryKey"`
+	Source     string    `gorm:"column:source"`
+	ClientIPs  string    `gorm:"column:client_ips"`
+	KeyID      uint      `gorm:"index"`
+	KeyName    string    `gorm:"column:key_name"`
+	MCPID      uint      `gorm:"index;column:mcp_id"`
+	MCPName    string    `gorm:"column:mcp_name"`
+	MCPType    string    `gorm:"column:mcp_type"`
+	CallType   string    `gorm:"index;column:call_type"`
+	CallMethod string    `gorm:"column:call_method"`
+	CallTarget string    `gorm:"column:call_target"`
+	InputSize  int       `gorm:"default:0;column:input_size"`
+	OutputSize int       `gorm:"default:0;column:output_size"`
+	LatencyMs  int       `gorm:"default:0;column:latency_ms"`
+	Status     string    `gorm:"column:status"`
+	ErrorMsg   string    `gorm:"type:text;column:error_msg"`
+	CreatedAt  time.Time `gorm:"index;column:created_at"`
+}
+
+func (MCPLog) TableName() string {
+	return "mcp_logs"
+}
+
+func (u *MCPLog) String() string {
+	return fmt.Sprintf("[%s - %s] %s calling MCP %s/%s, type:%s/%s, size:(I:%d/O:%d), time:%dms, status:%s",
+		u.Source, u.ClientIPs, u.KeyName,
+		u.MCPName, u.CallTarget, u.MCPType, u.CallType,
+		u.InputSize, u.OutputSize,
+		u.LatencyMs, u.Status,
+	)
+}
+
 func InitDB(
 	dbType, dbPath, dbHost string, dbPort int, dbUser, dbPassword, dbName string,
 	maxOpen, maxIdle int, maxLifetime, maxIdleTime time.Duration,
@@ -377,6 +410,7 @@ func autoMigrate() error {
 		&KeyMCPResource{},
 		&KeyMCPPrompt{},
 		&ModelLog{},
+		&MCPLog{},
 	)
 }
 

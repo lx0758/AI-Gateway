@@ -344,7 +344,7 @@ const providerModelStats = computed(() => aggregateBy(['provider_name', 'actual_
 
 function aggregateBy(dimensions: string | string[]): any[] {
   const list = logs.value
-  const dimKey = Array.isArray(dimensions) ? dimensions.join('_') : dimensions
+  const SEPARATOR = '\x00'
   const groups: Record<string, {
     count: number;
     cached_tokens: number;
@@ -352,15 +352,18 @@ function aggregateBy(dimensions: string | string[]): any[] {
     output_tokens: number;
     total_tokens: number;
     latency: number;
+    values: string[];
   }> = {}
 
   for (const log of list) {
     let key: string
+    let values: string[]
     if (Array.isArray(dimensions)) {
-      const values = dimensions.map(d => (log as any)[d] || 'unknown')
-      key = values.join('_')
+      values = dimensions.map(d => String((log as any)[d] || 'unknown'))
+      key = values.join(SEPARATOR)
     } else {
-      key = (log as any)[dimensions] || 'unknown'
+      values = [String((log as any)[dimensions] || 'unknown')]
+      key = values[0]
     }
 
     if (!groups[key]) {
@@ -371,6 +374,7 @@ function aggregateBy(dimensions: string | string[]): any[] {
         output_tokens: 0,
         total_tokens: 0,
         latency: 0,
+        values: values,
       }
     }
     groups[key].count++
@@ -393,10 +397,10 @@ function aggregateBy(dimensions: string | string[]): any[] {
       }
       if (Array.isArray(dimensions)) {
         dimensions.forEach((d, i) => {
-          item[d] = key.split('_')[i]
+          item[d] = value.values[i]
         })
       } else {
-        item[dimensions] = key
+        item[dimensions] = value.values[0]
       }
       return item
     })

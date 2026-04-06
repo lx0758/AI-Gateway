@@ -23,6 +23,7 @@ const routes = [
       { path: 'mcps', name: 'MCPs', component: () => import('@/views/MCPs/index.vue') },
       { path: 'mcps/:id', name: 'MCPDetail', component: () => import('@/views/MCPs/Detail.vue') },
       { path: 'model_usage', name: 'ModelUsage', component: () => import('@/views/ModelUsage/index.vue') },
+      { path: 'mcp_usage', name: 'MCPUsage', component: () => import('@/views/MCPUsage/index.vue') },
       { path: 'settings', name: 'Settings', component: () => import('@/views/Settings/index.vue') }
     ]
   }

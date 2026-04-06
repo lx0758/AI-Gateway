@@ -171,6 +171,7 @@ func main() {
 
 			protected.GET("/usage/dashboard", usageHandler.Dashboard)
 			protected.GET("/usage/model-logs", usageHandler.ModelLogs)
+			protected.GET("/usage/mcp-logs", usageHandler.MCPLogs)
 
 			protected.GET("/mcps", mcpHandler.List)
 			protected.POST("/mcps", mcpHandler.Create)

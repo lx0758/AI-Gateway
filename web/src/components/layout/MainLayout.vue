@@ -36,6 +36,10 @@
             <el-icon><TrendCharts /></el-icon>
             <template #title>{{ t('menu.model_usage') }}</template>
           </el-menu-item>
+          <el-menu-item index="/mcp_usage">
+            <el-icon><DataAnalysis /></el-icon>
+            <template #title>{{ t('menu.mcp_usage') }}</template>
+          </el-menu-item>
           <el-menu-item index="/settings">
             <el-icon><Tools /></el-icon>
             <template #title>{{ t('menu.settings') }}</template>

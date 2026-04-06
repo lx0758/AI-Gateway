@@ -3,13 +3,16 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"ai-gateway/internal/mcp"
 	"ai-gateway/internal/model"
+	"ai-gateway/internal/utils"
 )
 
 type MCPProxyHandler struct{}
@@ -465,6 +468,8 @@ func (h *MCPProxyHandler) handleToolsList(c *gin.Context, req *mcp.JSONRPCReques
 
 func (h *MCPProxyHandler) handleToolsCall(c *gin.Context, req *mcp.JSONRPCRequest) *mcp.JSONRPCResponse {
 	apiKey := c.MustGet("api_key").(*model.Key)
+	startTime := time.Now()
+	clientIPs := utils.GetClientIPInfo(c)
 
 	var params struct {
 		Name      string                 `json:"name"`
@@ -513,6 +518,47 @@ func (h *MCPProxyHandler) handleToolsCall(c *gin.Context, req *mcp.JSONRPCReques
 	}
 
 	resp, err := mcpManager.CallTool(&m, toolName, params.Arguments)
+	latencyMs := int(time.Since(startTime).Milliseconds())
+
+	status := "success"
+	errorMsg := ""
+	inputSize := 0
+	outputSize := 0
+
+	if err != nil {
+		status = "error"
+		errorMsg = err.Error()
+	} else {
+		status = "success"
+		if resp != nil {
+			respBytes, _ := json.Marshal(resp)
+			outputSize = len(respBytes)
+		}
+	}
+
+	argsBytes, _ := json.Marshal(params.Arguments)
+	inputSize = len(argsBytes)
+
+	mcpLog := NewMCPLog(
+		"default",
+		clientIPs,
+		apiKey.ID,
+		apiKey.Name,
+		m.ID,
+		m.Name,
+		m.Type,
+		"tool",
+		toolName,
+		"call",
+		inputSize,
+		outputSize,
+		latencyMs,
+		status,
+		errorMsg,
+	)
+	model.DB.Create(&mcpLog)
+	log.Println(mcpLog.String())
+
 	if err != nil {
 		return mcp.NewErrorResponse(req.ID, &mcp.RPCError{
 			Code:    mcp.ErrInternalError.Code,
@@ -564,6 +610,8 @@ func (h *MCPProxyHandler) handleResourcesList(c *gin.Context, req *mcp.JSONRPCRe
 
 func (h *MCPProxyHandler) handleResourcesRead(c *gin.Context, req *mcp.JSONRPCRequest) *mcp.JSONRPCResponse {
 	apiKey := c.MustGet("api_key").(*model.Key)
+	startTime := time.Now()
+	clientIPs := utils.GetClientIPInfo(c)
 
 	var params struct {
 		URI string `json:"uri"`
@@ -619,6 +667,44 @@ func (h *MCPProxyHandler) handleResourcesRead(c *gin.Context, req *mcp.JSONRPCRe
 	}
 
 	resp, err := mcpManager.ReadResource(&m, originalURI)
+	latencyMs := int(time.Since(startTime).Milliseconds())
+
+	status := "success"
+	errorMsg := ""
+	inputSize := 0
+	outputSize := 0
+
+	if err != nil {
+		status = "error"
+		errorMsg = err.Error()
+	} else {
+		status = "success"
+		if resp != nil {
+			respBytes, _ := json.Marshal(resp)
+			outputSize = len(respBytes)
+		}
+	}
+
+	mcpLog := NewMCPLog(
+		"default",
+		clientIPs,
+		apiKey.ID,
+		apiKey.Name,
+		m.ID,
+		m.Name,
+		m.Type,
+		"resource",
+		originalURI,
+		"read",
+		inputSize,
+		outputSize,
+		latencyMs,
+		status,
+		errorMsg,
+	)
+	model.DB.Create(&mcpLog)
+	log.Println(mcpLog.String())
+
 	if err != nil {
 		return mcp.NewErrorResponse(req.ID, &mcp.RPCError{
 			Code:    mcp.ErrInternalError.Code,
@@ -672,6 +758,8 @@ func (h *MCPProxyHandler) handlePromptsList(c *gin.Context, req *mcp.JSONRPCRequ
 
 func (h *MCPProxyHandler) handlePromptsGet(c *gin.Context, req *mcp.JSONRPCRequest) *mcp.JSONRPCResponse {
 	apiKey := c.MustGet("api_key").(*model.Key)
+	startTime := time.Now()
+	clientIPs := utils.GetClientIPInfo(c)
 
 	var params struct {
 		Name      string                 `json:"name"`
@@ -720,6 +808,47 @@ func (h *MCPProxyHandler) handlePromptsGet(c *gin.Context, req *mcp.JSONRPCReque
 	}
 
 	resp, err := mcpManager.GetPrompt(&m, promptName, params.Arguments)
+	latencyMs := int(time.Since(startTime).Milliseconds())
+
+	status := "success"
+	errorMsg := ""
+	inputSize := 0
+	outputSize := 0
+
+	if err != nil {
+		status = "error"
+		errorMsg = err.Error()
+	} else {
+		status = "success"
+		if resp != nil {
+			respBytes, _ := json.Marshal(resp)
+			outputSize = len(respBytes)
+		}
+	}
+
+	argsBytes, _ := json.Marshal(params.Arguments)
+	inputSize = len(argsBytes)
+
+	mcpLog := NewMCPLog(
+		"default",
+		clientIPs,
+		apiKey.ID,
+		apiKey.Name,
+		m.ID,
+		m.Name,
+		m.Type,
+		"prompt",
+		promptName,
+		"get",
+		inputSize,
+		outputSize,
+		latencyMs,
+		status,
+		errorMsg,
+	)
+	model.DB.Create(&mcpLog)
+	log.Println(mcpLog.String())
+
 	if err != nil {
 		return mcp.NewErrorResponse(req.ID, &mcp.RPCError{
 			Code:    mcp.ErrInternalError.Code,

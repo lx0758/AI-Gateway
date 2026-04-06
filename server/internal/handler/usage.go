@@ -210,3 +210,98 @@ func NewModelLog(source string, clientIPs string, keyID uint, keyName, modelName
 		ErrorMsg:        errorMsg,
 	}
 }
+
+func NewMCPLog(source string, clientIPs string, keyID uint, keyName string, mcpID uint, mcpName string, mcpType string, callType string, callTarget string, callMethod string, inputSize int, outputSize int, latencyMs int, status string, errorMsg string) *model.MCPLog {
+	return &model.MCPLog{
+		Source:     source,
+		ClientIPs:  clientIPs,
+		KeyID:      keyID,
+		KeyName:    keyName,
+		MCPID:      mcpID,
+		MCPName:    mcpName,
+		MCPType:    mcpType,
+		CallType:   callType,
+		CallTarget: callTarget,
+		CallMethod: callMethod,
+		InputSize:  inputSize,
+		OutputSize: outputSize,
+		LatencyMs:  latencyMs,
+		Status:     status,
+		ErrorMsg:   errorMsg,
+	}
+}
+
+type mcpLogResponse struct {
+	ID         uint      `json:"id"`
+	Source     string    `json:"source"`
+	ClientIPs  string    `json:"client_ips"`
+	KeyID      uint      `json:"key_id"`
+	KeyName    string    `json:"key_name"`
+	MCPID      uint      `json:"mcp_id"`
+	MCPName    string    `json:"mcp_name"`
+	MCPType    string    `json:"mcp_type"`
+	CallType   string    `json:"call_type"`
+	CallMethod string    `json:"call_method"`
+	CallTarget string    `json:"call_target"`
+	InputSize  int       `json:"input_size"`
+	OutputSize int       `json:"output_size"`
+	LatencyMs  int       `json:"latency_ms"`
+	Status     string    `json:"status"`
+	ErrorMsg   string    `json:"error_msg"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+func (h *UsageHandler) MCPLogs(c *gin.Context) {
+	startDate := c.DefaultQuery("start_date", time.Now().Format("2006-01-02 00:00:00"))
+	endDate := c.DefaultQuery("end_date", time.Now().AddDate(0, 0, 1).Format("2006-01-02 00:00:00"))
+
+	startTime, err := time.Parse("2006-01-02 15:04:05", startDate)
+	if err != nil {
+		startTime, err = time.Parse("2006-01-02", startDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start date format"})
+			return
+		}
+	}
+	endTime, err := time.Parse("2006-01-02 15:04:05", endDate)
+	if err != nil {
+		endTime, err = time.Parse("2006-01-02", endDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end date format"})
+			return
+		}
+	}
+
+	var mcpLogs []model.MCPLog
+	if err := model.DB.Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Order("created_at DESC").
+		Find(&mcpLogs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	logsResponses := make([]mcpLogResponse, len(mcpLogs))
+	for i, log := range mcpLogs {
+		logsResponses[i] = mcpLogResponse{
+			ID:         log.ID,
+			Source:     log.Source,
+			ClientIPs:  log.ClientIPs,
+			KeyID:      log.KeyID,
+			KeyName:    log.KeyName,
+			MCPID:      log.MCPID,
+			MCPName:    log.MCPName,
+			MCPType:    log.MCPType,
+			CallType:   log.CallType,
+			CallMethod: log.CallMethod,
+			CallTarget: log.CallTarget,
+			InputSize:  log.InputSize,
+			OutputSize: log.OutputSize,
+			LatencyMs:  log.LatencyMs,
+			Status:     log.Status,
+			ErrorMsg:   log.ErrorMsg,
+			CreatedAt:  log.CreatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"logs": logsResponses})
+}
