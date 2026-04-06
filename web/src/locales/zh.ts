@@ -97,14 +97,18 @@ export default {
   key: {
     name: '密钥名称',
     key: 'API 密钥',
-    allowedModels: '允许模型',
+    model: '模型',
     expiresAt: '过期时间',
     createKey: '创建 API 密钥',
-    allModels: '所有模型',
+    allModels: '不限制',
+    allowedCount: '允许 {count} 个',
     reset: '重置',
     resetConfirmTitle: '重置 API 密钥',
     resetConfirmMessage: '重置后旧密钥将立即失效，所有使用旧密钥的请求将失败。确定要继续吗？',
-    resetSuccess: '密钥重置成功，请立即保存新的密钥值'
+    resetSuccess: '密钥重置成功，请立即保存新的密钥值',
+    default: '默认',
+    allowOnly: '允许',
+    allowAll: '全部允许'
   },
   usage: {
     stats: '统计',
@@ -196,7 +200,7 @@ export default {
     resources: '资源',
     prompts: '提示词',
     toolName: '工具名称',
-    toolDescription: '工具描述',
+    description: '描述',
     inputSchema: '输入模式',
     resourceUri: '资源 URI',
     resourceName: '资源名称',

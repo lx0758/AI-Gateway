@@ -18,17 +18,17 @@
             <el-tag :type="row.type === 'remote' ? 'success' : 'info'">{{ row.type }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('mcp.tools')" width="80">
+        <el-table-column :label="t('mcp.tools')">
           <template #default="{ row }">
             {{ row.tool_count || 0 }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('mcp.resources')" width="80">
+        <el-table-column :label="t('mcp.resources')">
           <template #default="{ row }">
             {{ row.resource_count || 0 }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('mcp.prompts')" width="80">
+        <el-table-column :label="t('mcp.prompts')">
           <template #default="{ row }">
             {{ row.prompt_count || 0 }}
           </template>

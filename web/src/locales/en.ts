@@ -97,14 +97,18 @@ export default {
   key: {
     name: 'Key Name',
     key: 'API Key',
-    allowedModels: 'Allowed Models',
+    model: 'Models',
     expiresAt: 'Expires At',
     createKey: 'Create API Key',
-    allModels: 'All Models',
+    allModels: 'Unrestricted',
+    allowedCount: '{count} Allowed',
     reset: 'Reset',
     resetConfirmTitle: 'Reset API Key',
     resetConfirmMessage: 'After reset, the old key will immediately become invalid. All requests using the old key will fail. Are you sure to continue?',
-    resetSuccess: 'Key reset successful. Please save the new key immediately'
+    resetSuccess: 'Key reset successful. Please save the new key immediately',
+    default: 'Default',
+    allowOnly: 'Allow',
+    allowAll: 'Allow All'
   },
   usage: {
     stats: 'Statistics',
@@ -196,7 +200,7 @@ export default {
     resources: 'Resources',
     prompts: 'Prompts',
     toolName: 'Tool Name',
-    toolDescription: 'Description',
+    description: 'Description',
     inputSchema: 'Input Schema',
     resourceUri: 'Resource URI',
     resourceName: 'Resource Name',

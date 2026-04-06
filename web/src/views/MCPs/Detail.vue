@@ -36,7 +36,7 @@
         <el-tab-pane :label="t('mcp.tools')" name="tools">
           <el-table :data="tools" stripe v-loading="toolsLoading">
             <el-table-column prop="name" :label="t('mcp.toolName')" width="200" />
-            <el-table-column :label="t('mcp.toolDescription')">
+            <el-table-column :label="t('mcp.description')">
               <template #default="{ row }">
                 <div class="description-cell">
                   <div class="description-text" :class="{ expanded: row._expanded }">
@@ -68,9 +68,26 @@
 
         <el-tab-pane :label="t('mcp.resources')" name="resources">
           <el-table :data="resources" stripe v-loading="resourcesLoading">
-            <el-table-column prop="uri" :label="t('mcp.resourceUri')" width="300" />
             <el-table-column prop="name" :label="t('mcp.resourceName')" width="200" />
-            <el-table-column prop="mime_type" label="MIME Type" width="150" />
+            <el-table-column :label="t('mcp.description')">
+              <template #default="{ row }">
+                <div class="description-cell">
+                  <div class="description-text" :class="{ expanded: row._expanded }">
+                    {{ row.description || '-' }}
+                  </div>
+                  <div class="description-actions">
+                    <el-button v-if="row.description && isLongText(row.description)" link type="primary" size="small" @click="row._expanded = !row._expanded">
+                      {{ row._expanded ? t('common.collapse') : t('common.expand') }}
+                    </el-button>
+                    <el-button v-if="row.description" link type="primary" size="small" @click="copyText(row.description)">
+                      <el-icon><CopyDocument /></el-icon>
+                    </el-button>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="uri" :label="t('mcp.resourceUri')" width="300" />
+            <el-table-column prop="mime_type" label="MIME Type" width="200" />
             <el-table-column :label="t('common.status')" width="100">
               <template #default="{ row }">
                 <el-switch v-model="row.enabled" @change="toggleResourceEnabled(row)" />
@@ -87,7 +104,7 @@
         <el-tab-pane :label="t('mcp.prompts')" name="prompts">
           <el-table :data="prompts" stripe v-loading="promptsLoading">
             <el-table-column prop="name" :label="t('mcp.promptName')" width="200" />
-            <el-table-column :label="t('mcp.toolDescription')">
+            <el-table-column :label="t('mcp.description')">
               <template #default="{ row }">
                 <div class="description-cell">
                   <div class="description-text" :class="{ expanded: row._expanded }">

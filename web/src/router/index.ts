@@ -19,6 +19,7 @@ const routes = [
       { path: 'models', name: 'Models', component: () => import('@/views/Models/index.vue') },
       { path: 'models/:id', name: 'ModelDetail', component: () => import('@/views/Models/Detail.vue') },
       { path: 'keys', name: 'Keys', component: () => import('@/views/Keys/index.vue') },
+      { path: 'keys/:id', name: 'KeyDetail', component: () => import('@/views/Keys/Detail.vue') },
       { path: 'mcps', name: 'MCPs', component: () => import('@/views/MCPs/index.vue') },
       { path: 'mcps/:id', name: 'MCPDetail', component: () => import('@/views/MCPs/Detail.vue') },
       { path: 'model_usage', name: 'ModelUsage', component: () => import('@/views/ModelUsage/index.vue') },
