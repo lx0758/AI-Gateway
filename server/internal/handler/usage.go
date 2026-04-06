@@ -128,17 +128,17 @@ func (h *UsageHandler) ModelLogs(c *gin.Context) {
 	startDate := c.DefaultQuery("start_date", time.Now().Format("2006-01-02 00:00:00"))
 	endDate := c.DefaultQuery("end_date", time.Now().AddDate(0, 0, 1).Format("2006-01-02 00:00:00"))
 
-	startTime, err := time.Parse("2006-01-02 15:04:05", startDate)
+	startTime, err := time.ParseInLocation("2006-01-02 15:04:05", startDate, time.Local)
 	if err != nil {
-		startTime, err = time.Parse("2006-01-02", startDate)
+		startTime, err = time.ParseInLocation("2006-01-02", startDate, time.Local)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start date format"})
 			return
 		}
 	}
-	endTime, err := time.Parse("2006-01-02 15:04:05", endDate)
+	endTime, err := time.ParseInLocation("2006-01-02 15:04:05", endDate, time.Local)
 	if err != nil {
-		endTime, err = time.Parse("2006-01-02", endDate)
+		endTime, err = time.ParseInLocation("2006-01-02", endDate, time.Local)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end date format"})
 			return
@@ -255,17 +255,17 @@ func (h *UsageHandler) MCPLogs(c *gin.Context) {
 	startDate := c.DefaultQuery("start_date", time.Now().Format("2006-01-02 00:00:00"))
 	endDate := c.DefaultQuery("end_date", time.Now().AddDate(0, 0, 1).Format("2006-01-02 00:00:00"))
 
-	startTime, err := time.Parse("2006-01-02 15:04:05", startDate)
+	startTime, err := time.ParseInLocation("2006-01-02 15:04:05", startDate, time.Local)
 	if err != nil {
-		startTime, err = time.Parse("2006-01-02", startDate)
+		startTime, err = time.ParseInLocation("2006-01-02", startDate, time.Local)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start date format"})
 			return
 		}
 	}
-	endTime, err := time.Parse("2006-01-02 15:04:05", endDate)
+	endTime, err := time.ParseInLocation("2006-01-02 15:04:05", endDate, time.Local)
 	if err != nil {
-		endTime, err = time.Parse("2006-01-02", endDate)
+		endTime, err = time.ParseInLocation("2006-01-02", endDate, time.Local)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end date format"})
 			return
