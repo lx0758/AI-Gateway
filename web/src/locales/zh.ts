@@ -48,9 +48,10 @@ export default {
   menu: {
     dashboard: '仪表盘',
     providers: '模型厂商',
-    aliases: '模型别名',
+    models: '模型映射',
+    mcps: 'MCP服务',
     keys: 'API 密钥',
-    usage: '用量统计',
+    model_usage: '模型用量',
     settings: '系统设置'
   },
   dashboard: {
@@ -72,8 +73,8 @@ export default {
     type: 'API 类型',
     apiStyles: '支持格式',
     baseUrl: '接口地址',
-    apiKey: 'API 密钥',
-    apiKeyPlaceholder: '留空则保持当前密钥不变',
+    key: 'API 密钥',
+    keyPlaceholder: '留空则保持当前密钥不变',
     models: '模型',
     testConnection: '测试连接',
     syncModels: '同步模型',
@@ -93,7 +94,7 @@ export default {
     outputPrice: '输出价格',
     capabilities: '能力特性'
   },
-  apiKey: {
+  key: {
     name: '密钥名称',
     key: 'API 密钥',
     allowedModels: '允许模型',
@@ -151,19 +152,19 @@ export default {
     model: '模型',
     required: '此项为必填'
   },
-  modelAlias: {
-    create: '添加别名',
-    createAlias: '创建别名',
-    editAlias: '编辑别名',
-    name: '别名',
-    mappings: '个映射',
-    addMapping: '添加映射',
-    editMapping: '编辑映射',
-    providerType: '厂商类型',
+  models: {
+    create: '添加模型',
+    createModel: '创建模型',
+    editModel: '编辑模型',
+    name: '模型名称',
     mappingCount: '映射数量',
     tokenSummary: 'Token 汇总',
     contextWindow: '上下文窗口',
-    capabilities: '能力特性'
+    capabilities: '能力特性',
+    mappings: '映射列表',
+    addMapping: '添加映射',
+    editMapping: '编辑映射',
+    providerType: '厂商类型'
   },
   mcp: {
     services: 'MCP服务',

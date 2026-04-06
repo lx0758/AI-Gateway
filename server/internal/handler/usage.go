@@ -17,7 +17,92 @@ func NewUsageHandler() *UsageHandler {
 	return &UsageHandler{}
 }
 
-type logsResponse struct {
+func (h *UsageHandler) Dashboard(c *gin.Context) {
+	today := time.Now().Format("2006-01-02")
+	sevenDaysAgo := time.Now().AddDate(0, 0, -7).Format("2006-01-02")
+
+	var todayRequests int64
+	model.DB.Model(&model.ModelLog{}).
+		Where("created_at >= ?", today).
+		Count(&todayRequests)
+
+	var activeProviders int64
+	model.DB.Model(&model.Provider{}).Where("enabled = ?", true).Count(&activeProviders)
+
+	var activeKeys int64
+	model.DB.Model(&model.Key{}).Where("enabled = ?", true).Count(&activeKeys)
+
+	var totalTokens int64
+	model.DB.Model(&model.ModelLog{}).
+		Where("created_at >= ?", sevenDaysAgo).
+		Select("COALESCE(SUM(total_tokens), 0)").Scan(&totalTokens)
+
+	var avgLatency float64
+	model.DB.Model(&model.ModelLog{}).
+		Where("created_at >= ?", sevenDaysAgo).
+		Select("COALESCE(AVG(latency_ms), 0)").Scan(&avgLatency)
+
+	var dailyStats []struct {
+		Date    string `json:"date"`
+		Count   int64  `json:"count"`
+		Success int64  `json:"success"`
+	}
+	model.DB.Raw(`
+		SELECT 
+			DATE(created_at) as date,
+			COUNT(*) as count,
+			SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success
+		FROM model_logs
+		WHERE created_at >= ?
+		GROUP BY DATE(created_at)
+		ORDER BY date
+	`, sevenDaysAgo).Scan(&dailyStats)
+
+	var providerStats []struct {
+		Provider   string  `json:"provider"`
+		Count      int64   `json:"count"`
+		Tokens     int64   `json:"tokens"`
+		AvgLatency float64 `json:"avg_latency"`
+	}
+	model.DB.Raw(`
+		SELECT 
+			p.name as provider, 
+			COUNT(*) as count,
+			COALESCE(SUM(ul.total_tokens), 0) as tokens,
+			COALESCE(AVG(ul.latency_ms), 0) as avg_latency
+		FROM model_logs ul
+		JOIN providers p ON ul.provider_id = p.id
+		WHERE ul.created_at >= ?
+		GROUP BY p.name
+		ORDER BY count DESC
+	`, sevenDaysAgo).Scan(&providerStats)
+
+	var modelStats []struct {
+		Model string `json:"model"`
+		Count int64  `json:"count"`
+	}
+	model.DB.Raw(`
+		SELECT model, COUNT(*) as count
+		FROM model_logs
+		WHERE created_at >= ?
+		GROUP BY model
+		ORDER BY count DESC
+		LIMIT 10
+	`, sevenDaysAgo).Scan(&modelStats)
+
+	c.JSON(http.StatusOK, gin.H{
+		"todayRequests":   todayRequests,
+		"activeProviders": activeProviders,
+		"activeKeys":      activeKeys,
+		"totalTokens":     totalTokens,
+		"avgLatency":      avgLatency,
+		"dailyStats":      dailyStats,
+		"providerStats":   providerStats,
+		"modelStats":      modelStats,
+	})
+}
+
+type modelLogResponse struct {
 	ID              uint      `json:"id"`
 	Source          string    `json:"source"`
 	ClientIPs       string    `json:"client_ips"`
@@ -39,7 +124,7 @@ type logsResponse struct {
 	CreatedAt       time.Time `json:"created_at"`
 }
 
-func (h *UsageHandler) Logs(c *gin.Context) {
+func (h *UsageHandler) ModelLogs(c *gin.Context) {
 	startDate := c.DefaultQuery("start_date", time.Now().Format("2006-01-02 00:00:00"))
 	endDate := c.DefaultQuery("end_date", time.Now().AddDate(0, 0, 1).Format("2006-01-02 00:00:00"))
 
@@ -60,17 +145,17 @@ func (h *UsageHandler) Logs(c *gin.Context) {
 		}
 	}
 
-	var usageLogs []model.UsageLog
+	var modelLogs []model.ModelLog
 	if err := model.DB.Where("created_at >= ? AND created_at <= ?", startTime, endTime).
 		Order("created_at DESC").
-		Find(&usageLogs).Error; err != nil {
+		Find(&modelLogs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	logsResponses := make([]logsResponse, len(usageLogs))
-	for i, log := range usageLogs {
-		logsResponses[i] = logsResponse{
+	logsResponses := make([]modelLogResponse, len(modelLogs))
+	for i, log := range modelLogs {
+		logsResponses[i] = modelLogResponse{
 			ID:              log.ID,
 			Source:          log.Source,
 			ClientIPs:       log.ClientIPs,
@@ -96,92 +181,7 @@ func (h *UsageHandler) Logs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"logs": logsResponses})
 }
 
-func (h *UsageHandler) Dashboard(c *gin.Context) {
-	today := time.Now().Format("2006-01-02")
-	sevenDaysAgo := time.Now().AddDate(0, 0, -7).Format("2006-01-02")
-
-	var todayRequests int64
-	model.DB.Model(&model.UsageLog{}).
-		Where("created_at >= ?", today).
-		Count(&todayRequests)
-
-	var activeProviders int64
-	model.DB.Model(&model.Provider{}).Where("enabled = ?", true).Count(&activeProviders)
-
-	var activeKeys int64
-	model.DB.Model(&model.Key{}).Where("enabled = ?", true).Count(&activeKeys)
-
-	var totalTokens int64
-	model.DB.Model(&model.UsageLog{}).
-		Where("created_at >= ?", sevenDaysAgo).
-		Select("COALESCE(SUM(total_tokens), 0)").Scan(&totalTokens)
-
-	var avgLatency float64
-	model.DB.Model(&model.UsageLog{}).
-		Where("created_at >= ?", sevenDaysAgo).
-		Select("COALESCE(AVG(latency_ms), 0)").Scan(&avgLatency)
-
-	var dailyStats []struct {
-		Date    string `json:"date"`
-		Count   int64  `json:"count"`
-		Success int64  `json:"success"`
-	}
-	model.DB.Raw(`
-		SELECT 
-			DATE(created_at) as date,
-			COUNT(*) as count,
-			SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success
-		FROM usage_logs
-		WHERE created_at >= ?
-		GROUP BY DATE(created_at)
-		ORDER BY date
-	`, sevenDaysAgo).Scan(&dailyStats)
-
-	var providerStats []struct {
-		Provider   string  `json:"provider"`
-		Count      int64   `json:"count"`
-		Tokens     int64   `json:"tokens"`
-		AvgLatency float64 `json:"avg_latency"`
-	}
-	model.DB.Raw(`
-		SELECT 
-			p.name as provider, 
-			COUNT(*) as count,
-			COALESCE(SUM(ul.total_tokens), 0) as tokens,
-			COALESCE(AVG(ul.latency_ms), 0) as avg_latency
-		FROM usage_logs ul
-		JOIN providers p ON ul.provider_id = p.id
-		WHERE ul.created_at >= ?
-		GROUP BY p.name
-		ORDER BY count DESC
-	`, sevenDaysAgo).Scan(&providerStats)
-
-	var modelStats []struct {
-		Model string `json:"model"`
-		Count int64  `json:"count"`
-	}
-	model.DB.Raw(`
-		SELECT model, COUNT(*) as count
-		FROM usage_logs
-		WHERE created_at >= ?
-		GROUP BY model
-		ORDER BY count DESC
-		LIMIT 10
-	`, sevenDaysAgo).Scan(&modelStats)
-
-	c.JSON(http.StatusOK, gin.H{
-		"todayRequests":   todayRequests,
-		"activeProviders": activeProviders,
-		"activeKeys":      activeKeys,
-		"totalTokens":     totalTokens,
-		"avgLatency":      avgLatency,
-		"dailyStats":      dailyStats,
-		"providerStats":   providerStats,
-		"modelStats":      modelStats,
-	})
-}
-
-func NewUsageLog(source string, clientIPs string, keyID uint, keyName, modelName string, result *router.RouteResult, matched bool, usage *provider.Usage, latencyMs int, status string, errorMsg string) *model.UsageLog {
+func NewModelLog(source string, clientIPs string, keyID uint, keyName, modelName string, result *router.RouteResult, matched bool, usage *provider.Usage, latencyMs int, status string, errorMsg string) *model.ModelLog {
 	actualModelName := result.ProviderModel.DisplayName
 	if actualModelName == "" {
 		actualModelName = result.ProviderModel.ModelID
@@ -190,7 +190,7 @@ func NewUsageLog(source string, clientIPs string, keyID uint, keyName, modelName
 	if !matched {
 		callMethod = "convert"
 	}
-	return &model.UsageLog{
+	return &model.ModelLog{
 		Source:          source,
 		ClientIPs:       clientIPs,
 		KeyID:           keyID,

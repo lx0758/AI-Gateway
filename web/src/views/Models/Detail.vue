@@ -1,28 +1,28 @@
 <template>
-  <div class="alias-detail">
-    <el-page-header @back="$router.back()" :title="t('menu.aliases')">
+  <div class="model-detail">
+    <el-page-header @back="$router.back()" :title="t('menu.models')">
       <template #content>
-        {{ alias?.alias || t('menu.aliases') }}
+        {{ model?.model || t('menu.models') }}
       </template>
     </el-page-header>
 
     <el-card class="info-card">
       <el-descriptions :column="2" border>
-        <el-descriptions-item :label="t('modelAlias.name')">{{ alias?.alias || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('models.name')">{{ model?.model || '-' }}</el-descriptions-item>
         <el-descriptions-item :label="t('common.status')">
-          <el-tag :type="aliasEnabled ? 'success' : 'info'" size="small">
-            {{ aliasEnabled ? t('common.enabled') : t('common.disabled') }}
+          <el-tag :type="modelEnabled ? 'success' : 'info'" size="small">
+            {{ modelEnabled ? t('common.enabled') : t('common.disabled') }}
           </el-tag>
         </el-descriptions-item>
       </el-descriptions>
       <div class="actions">
-        <el-button type="success" @click="showMappingDialog()">{{ t('modelAlias.addMapping') }}</el-button>
+        <el-button type="success" @click="showMappingDialog()">{{ t('models.addMapping') }}</el-button>
         <el-button type="danger" @click="handleBatchDelete" :disabled="selectedIds.length === 0">{{ t('common.batchDelete') }} ({{ selectedIds.length }})</el-button>
       </div>
     </el-card>
 
     <el-card v-loading="loading">
-      <template #header>{{ t('modelAlias.mappings') }}</template>
+      <template #header>{{ t('models.mappings') }}</template>
       <el-table 
         :data="mappings" 
         stripe 
@@ -38,14 +38,14 @@
         <el-table-column :label="t('provider.name')" width="180">
           <template #default="{ row }">{{ row.provider?.name }}</template>
         </el-table-column>
-        <el-table-column :label="t('modelAlias.providerType')" width="120">
+        <el-table-column :label="t('models.providerType')" width="120">
           <template #default="{ row }">
             <el-tag v-if="row.provider?.openai_base_url" type="success" size="small" style="margin-right: 4px">OpenAI</el-tag>
             <el-tag v-if="row.provider?.anthropic_base_url" type="primary" size="small">Anthropic</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="provider_model_name" :label="t('modelMapping.actualModel')" />
-        <el-table-column :label="t('modelAlias.capabilities')">
+        <el-table-column :label="t('models.capabilities')">
           <template #default="{ row }">
             <div v-if="row.model_info" class="capability-tags">
               <el-tag v-if="row.model_info.supports_stream" type="primary" size="small" style="margin-right: 4px">Stream</el-tag>
@@ -55,7 +55,7 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('modelAlias.contextWindow')">
+        <el-table-column :label="t('models.contextWindow')">
           <template #default="{ row }">
             <el-tooltip v-if="row.model_info && (row.model_info.context_window > 0 || row.model_info.max_output > 0)" 
               :content="`${row.model_info.context_window.toLocaleString()} / ${row.model_info.max_output.toLocaleString()}`" 
@@ -80,7 +80,7 @@
       </el-table>
     </el-card>
 
-    <el-dialog v-model="mappingDialogVisible" :title="editingMapping ? t('modelAlias.editMapping') : t('modelAlias.addMapping')" width="500px">
+    <el-dialog v-model="mappingDialogVisible" :title="editingMapping ? t('models.editMapping') : t('models.addMapping')" width="500px">
       <el-form :model="mappingForm" :rules="mappingRules" ref="mappingFormRef" label-width="auto" v-loading="mappingDialogLoading">
         <el-form-item :label="t('provider.name')" prop="provider_id">
           <el-select v-model="mappingForm.provider_id" @change="loadProviderModels" style="width: 100%" filterable>
@@ -144,14 +144,14 @@ interface Mapping {
   model_info?: ModelInfo
 }
 
-interface Alias {
+interface Model {
   id: number
-  alias: string
+  model: string
   enabled: boolean
 }
 
-const alias = ref<Alias | null>(null)
-const aliasEnabled = ref(true)
+const model = ref<Model | null>(null)
+const modelEnabled = ref(true)
 const mappings = ref<Mapping[]>([])
 const providers = ref<any[]>([])
 const providerModels = ref<any[]>([])
@@ -165,7 +165,7 @@ const mappingFormRef = ref()
 let providersLoaded = false
 let sortableInstance: Sortable | null = null
 
-const aliasId = route.params.id as string
+const modelId = route.params.id as string
 
 const mappingForm = reactive({
   provider_id: null as number | null,
@@ -180,16 +180,16 @@ const mappingRules = computed(() => ({
 }))
 
 onMounted(() => {
-  fetchAlias()
+  fetchModel()
 })
 
-async function fetchAlias() {
+async function fetchModel() {
   loading.value = true
   try {
-    const res = await api.get(`/aliases/${aliasId}`)
-    alias.value = res.data.alias
-    aliasEnabled.value = res.data.alias.enabled
-    mappings.value = res.data.alias.mappings || []
+    const res = await api.get(`/models/${modelId}`)
+    model.value = res.data.model
+    modelEnabled.value = res.data.model.enabled
+    mappings.value = res.data.model.mappings || []
     
     setTimeout(() => {
       initSortable()
@@ -219,7 +219,7 @@ function initSortable() {
       const order = newMappings.map(m => m.id)
       
       try {
-        await api.put(`/aliases/${aliasId}/mappings/order`, { order })
+        await api.put(`/models/${modelId}/mappings/order`, { order })
         mappings.value = newMappings
         mappings.value.forEach((m, i) => {
           m.weight = mappings.value.length - 1 - i
@@ -227,7 +227,7 @@ function initSortable() {
         ElMessage.success(t('common.success'))
       } catch (e: any) {
         ElMessage.error(e.response?.data?.error || t('common.error'))
-        fetchAlias()
+        fetchModel()
       }
     }
   })
@@ -274,13 +274,13 @@ async function handleMappingSubmit() {
   submitting.value = true
   try {
     if (editingMapping.value) {
-      await api.put(`/aliases/${aliasId}/mappings/${editingMapping.value.id}`, mappingForm)
+      await api.put(`/models/${modelId}/mappings/${editingMapping.value.id}`, mappingForm)
     } else {
-      await api.post(`/aliases/${aliasId}/mappings`, mappingForm)
+      await api.post(`/models/${modelId}/mappings`, mappingForm)
     }
     ElMessage.success(t('common.success'))
     mappingDialogVisible.value = false
-    fetchAlias()
+    fetchModel()
   } catch (e: any) {
     ElMessage.error(e.response?.data?.error || t('common.error'))
   } finally {
@@ -290,31 +290,31 @@ async function handleMappingSubmit() {
 
 async function handleDeleteMapping(mappingId: number) {
   await ElMessageBox.confirm(t('common.confirm'), t('common.delete'), { type: 'warning' })
-  await api.delete(`/aliases/${aliasId}/mappings/${mappingId}`)
+  await api.delete(`/models/${modelId}/mappings/${mappingId}`)
   ElMessage.success(t('common.success'))
-  fetchAlias()
+  fetchModel()
 }
 
 async function handleBatchDelete() {
   if (selectedIds.value.length === 0) return
   await ElMessageBox.confirm(t('common.confirm') + ` (${selectedIds.value.length} items)`, t('common.batchDelete'), { type: 'warning' })
   try {
-    await Promise.all(selectedIds.value.map(id => api.delete(`/aliases/${aliasId}/mappings/${id}`)))
+    await Promise.all(selectedIds.value.map(id => api.delete(`/models/${modelId}/mappings/${id}`)))
     ElMessage.success(t('common.success'))
     selectedIds.value = []
-    fetchAlias()
+    fetchModel()
   } catch (e: any) {
     ElMessage.error(e.response?.data?.error || t('common.error'))
   }
 }
 
 async function toggleMappingEnabled(mapping: Mapping) {
-  await api.put(`/aliases/${aliasId}/mappings/${mapping.id}`, { enabled: mapping.enabled })
+  await api.put(`/models/${modelId}/mappings/${mapping.id}`, { enabled: mapping.enabled })
 }
 </script>
 
 <style scoped>
-.alias-detail {
+.model-detail {
   padding: 20px;
 }
 

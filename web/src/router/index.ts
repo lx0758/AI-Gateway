@@ -16,12 +16,12 @@ const routes = [
       { path: '', name: 'Dashboard', component: () => import('@/views/Dashboard/index.vue') },
       { path: 'providers', name: 'Providers', component: () => import('@/views/Providers/index.vue') },
       { path: 'providers/:id', name: 'ProviderDetail', component: () => import('@/views/Providers/Detail.vue') },
-      { path: 'aliases', name: 'Aliases', component: () => import('@/views/Aliases/index.vue') },
-      { path: 'aliases/:id', name: 'AliasDetail', component: () => import('@/views/Aliases/Detail.vue') },
+      { path: 'models', name: 'Models', component: () => import('@/views/Models/index.vue') },
+      { path: 'models/:id', name: 'ModelDetail', component: () => import('@/views/Models/Detail.vue') },
       { path: 'keys', name: 'Keys', component: () => import('@/views/Keys/index.vue') },
       { path: 'mcps', name: 'MCPs', component: () => import('@/views/MCPs/index.vue') },
       { path: 'mcps/:id', name: 'MCPDetail', component: () => import('@/views/MCPs/Detail.vue') },
-      { path: 'usage', name: 'Usage', component: () => import('@/views/Usage/index.vue') },
+      { path: 'model_usage', name: 'ModelUsage', component: () => import('@/views/ModelUsage/index.vue') },
       { path: 'settings', name: 'Settings', component: () => import('@/views/Settings/index.vue') }
     ]
   }

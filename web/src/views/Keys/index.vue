@@ -1,28 +1,28 @@
 <template>
-  <div class="api-keys-page">
+  <div class="keys-page">
     <el-card>
       <template #header>
         <div class="card-header">
           <span>{{ t('menu.keys') }}</span>
           <div class="header-actions">
             <el-button type="danger" @click="handleBatchDelete" :disabled="selectedIds.length === 0">{{ t('common.batchDelete') }} ({{ selectedIds.length }})</el-button>
-            <el-button type="primary" @click="showDialog()">{{ t('apiKey.createKey') }}</el-button>
+            <el-button type="primary" @click="showDialog()">{{ t('key.createKey') }}</el-button>
           </div>
         </div>
       </template>
       <el-table :data="keys" stripe v-loading="loading" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="name" :label="t('apiKey.name')" width="180" />
-        <el-table-column prop="key" :label="t('apiKey.key')" width="240" />
-        <el-table-column :label="t('apiKey.allowedModels')">
+        <el-table-column prop="name" :label="t('key.name')" width="180" />
+        <el-table-column prop="key" :label="t('key.key')" width="240" />
+        <el-table-column :label="t('key.allowedModels')">
           <template #default="{ row }">
             <template v-if="row.models && row.models.length > 0">
               <el-tag v-for="m in row.models.slice(0, 3)" :key="m.id" size="small" style="margin-right: 4px">
-                {{ m.alias_name }}
+                {{ m.model_name }}
               </el-tag>
               <el-tag v-if="row.models.length > 3" size="small" type="info">+{{ row.models.length - 3 }}</el-tag>
             </template>
-            <span v-else style="color: #999">{{ t('apiKey.allModels') }}</span>
+            <span v-else style="color: #999">{{ t('key.allModels') }}</span>
           </template>
         </el-table-column>
         <el-table-column :label="t('common.status')" width="150">
@@ -33,22 +33,22 @@
         <el-table-column :label="t('common.action')" width="180">
           <template #default="{ row }">
             <el-button link type="primary" @click="showDialog(row)">{{ t('common.edit') }}</el-button>
-            <el-button link type="warning" @click="handleReset(row.id)">{{ t('apiKey.reset') }}</el-button>
+            <el-button link type="warning" @click="handleReset(row.id)">{{ t('key.reset') }}</el-button>
             <el-button link type="danger" @click="handleDelete(row.id)">{{ t('common.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editingId ? t('common.edit') : t('apiKey.createKey')" width="700px">
+    <el-dialog v-model="dialogVisible" :title="editingId ? t('common.edit') : t('key.createKey')" width="700px">
       <el-tabs v-model="activeTab">
-        <el-tab-pane :label="t('apiKey.allowedModels')" name="models">
+        <el-tab-pane :label="t('key.allowedModels')" name="models">
           <el-form :model="form" ref="formRef" label-width="auto">
-            <el-form-item :label="t('apiKey.name')" required>
+            <el-form-item :label="t('key.name')" required>
               <el-input v-model="form.name" />
             </el-form-item>
-            <el-form-item :label="t('apiKey.allowedModels')">
-              <el-select v-model="form.models" multiple style="width: 100%" :placeholder="t('apiKey.allModels')" filterable>
+            <el-form-item :label="t('key.allowedModels')">
+              <el-select v-model="form.models" multiple style="width: 100%" :placeholder="t('key.allModels')" filterable>
                 <el-option v-for="m in availableModels" :key="m.id" :label="m.name" :value="m.id" />
               </el-select>
             </el-form-item>
@@ -101,7 +101,7 @@
     </el-dialog>
 
     <el-dialog v-model="keyDialogVisible" title="API Key">
-      <p>{{ t('apiKey.key') }}:</p>
+      <p>{{ t('key.key') }}:</p>
       <el-input v-model="newKey" readonly>
         <template #append>
           <el-button @click="copyKey">Copy</el-button>
@@ -155,7 +155,7 @@ onMounted(() => {
 async function fetchKeys() {
   loading.value = true
   try {
-    const res = await api.get('/api-keys')
+    const res = await api.get('/keys')
     keys.value = res.data.keys || []
   } finally {
     loading.value = false
@@ -164,8 +164,8 @@ async function fetchKeys() {
 
 async function fetchAvailableModels() {
   try {
-    const res = await api.get('/aliases')
-    availableModels.value = (res.data.aliases || []).map((a: any) => ({ id: a.id, name: a.alias }))
+    const res = await api.get('/models')
+    availableModels.value = (res.data.models || []).map((m: any) => ({ id: m.id, name: m.model }))
   } catch (e) {
     console.error(e)
   }
@@ -186,7 +186,7 @@ async function showDialog(key?: any) {
   if (key) {
     Object.assign(form, {
       name: key.name || '',
-      models: key.models?.map((m: any) => m.alias_id) || []
+      models: key.models?.map((m: any) => m.model_id) || []
     })
     
     // Load MCP permissions
@@ -209,9 +209,9 @@ async function showDialog(key?: any) {
 async function loadMCPPermissions(keyId: number) {
   try {
     const [toolsRes, resourcesRes, promptsRes] = await Promise.all([
-      api.get(`/api-keys/${keyId}/mcp-tools`),
-      api.get(`/api-keys/${keyId}/mcp-resources`),
-      api.get(`/api-keys/${keyId}/mcp-prompts`)
+      api.get(`/keys/${keyId}/mcp-tools`),
+      api.get(`/keys/${keyId}/mcp-resources`),
+      api.get(`/keys/${keyId}/mcp-prompts`)
     ])
     
     selectedMCPTools.value = (toolsRes.data.tools || []).map((t: any) => t.tool_id)
@@ -293,23 +293,23 @@ async function handleSubmit() {
   try {
     if (editingId.value) {
       await Promise.all([
-        api.put(`/api-keys/${editingId.value}`, form),
-        api.put(`/api-keys/${editingId.value}/mcp-tools`, { tool_ids: selectedMCPTools.value }),
-        api.put(`/api-keys/${editingId.value}/mcp-resources`, { resource_ids: selectedMCPResources.value }),
-        api.put(`/api-keys/${editingId.value}/mcp-prompts`, { prompt_ids: selectedMCPPrompts.value })
+        api.put(`/keys/${editingId.value}`, form),
+        api.put(`/keys/${editingId.value}/mcp-tools`, { tool_ids: selectedMCPTools.value }),
+        api.put(`/keys/${editingId.value}/mcp-resources`, { resource_ids: selectedMCPResources.value }),
+        api.put(`/keys/${editingId.value}/mcp-prompts`, { prompt_ids: selectedMCPPrompts.value })
       ])
       ElMessage.success(t('common.success'))
       dialogVisible.value = false
     } else {
-      const res = await api.post('/api-keys', form)
+      const res = await api.post('/keys', form)
       const keyId = res.data.key.id
       
       // Save MCP permissions for new key
       if (selectedMCPTools.value.length > 0 || selectedMCPResources.value.length > 0 || selectedMCPPrompts.value.length > 0) {
         await Promise.all([
-          api.put(`/api-keys/${keyId}/mcp-tools`, { tool_ids: selectedMCPTools.value }),
-          api.put(`/api-keys/${keyId}/mcp-resources`, { resource_ids: selectedMCPResources.value }),
-          api.put(`/api-keys/${keyId}/mcp-prompts`, { prompt_ids: selectedMCPPrompts.value })
+          api.put(`/keys/${keyId}/mcp-tools`, { tool_ids: selectedMCPTools.value }),
+          api.put(`/keys/${keyId}/mcp-resources`, { resource_ids: selectedMCPResources.value }),
+          api.put(`/keys/${keyId}/mcp-prompts`, { prompt_ids: selectedMCPPrompts.value })
         ])
       }
       
@@ -326,7 +326,7 @@ async function handleSubmit() {
 }
 
 async function toggleEnabled(row: any) {
-  await api.put(`/api-keys/${row.id}`, { enabled: row.enabled })
+  await api.put(`/keys/${row.id}`, { enabled: row.enabled })
 }
 
 function copyKey() {
@@ -336,23 +336,23 @@ function copyKey() {
 
 async function handleDelete(id: number) {
   await ElMessageBox.confirm(t('common.confirm'), t('common.delete'), { type: 'warning' })
-  await api.delete(`/api-keys/${id}`)
+  await api.delete(`/keys/${id}`)
   ElMessage.success(t('common.success'))
   fetchKeys()
 }
 
 async function handleReset(id: number) {
   await ElMessageBox.confirm(
-    t('apiKey.resetConfirmMessage'),
-    t('apiKey.resetConfirmTitle'),
+    t('key.resetConfirmMessage'),
+    t('key.resetConfirmTitle'),
     { type: 'warning' }
   )
   try {
-    const res = await api.post(`/api-keys/${id}/reset`)
+    const res = await api.post(`/keys/${id}/reset`)
     newKey.value = res.data.raw_key
     keyDialogVisible.value = true
     fetchKeys()
-    ElMessage.success(t('apiKey.resetSuccess'))
+    ElMessage.success(t('key.resetSuccess'))
   } catch (e: any) {
     ElMessage.error(e.response?.data?.error || t('common.error'))
   }
@@ -362,7 +362,7 @@ async function handleBatchDelete() {
   if (selectedIds.value.length === 0) return
   await ElMessageBox.confirm(t('common.confirm') + ` (${selectedIds.value.length} items)`, t('common.batchDelete'), { type: 'warning' })
   try {
-    await Promise.all(selectedIds.value.map(id => api.delete(`/api-keys/${id}`)))
+    await Promise.all(selectedIds.value.map(id => api.delete(`/keys/${id}`)))
     ElMessage.success(t('common.success'))
     selectedIds.value = []
     fetchKeys()
@@ -373,7 +373,7 @@ async function handleBatchDelete() {
 </script>
 
 <style scoped>
-.api-keys-page { padding: 20px; }
+.keys-page { padding: 20px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .header-actions { display: flex; gap: 10px; }
 </style>

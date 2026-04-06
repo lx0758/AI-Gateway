@@ -20,21 +20,21 @@
             <el-icon><Connection /></el-icon>
             <template #title>{{ t('menu.providers') }}</template>
           </el-menu-item>
-          <el-menu-item index="/aliases">
+          <el-menu-item index="/models">
             <el-icon><Grid /></el-icon>
-            <template #title>{{ t('menu.aliases') }}</template>
+            <template #title>{{ t('menu.models') }}</template>
           </el-menu-item>
           <el-menu-item index="/mcps">
             <el-icon><Platform /></el-icon>
-            <template #title>{{ t('mcp.services') }}</template>
+            <template #title>{{ t('menu.mcps') }}</template>
           </el-menu-item>
           <el-menu-item index="/keys">
             <el-icon><Key /></el-icon>
             <template #title>{{ t('menu.keys') }}</template>
           </el-menu-item>
-          <el-menu-item index="/usage">
+          <el-menu-item index="/model_usage">
             <el-icon><TrendCharts /></el-icon>
-            <template #title>{{ t('menu.usage') }}</template>
+            <template #title>{{ t('menu.model_usage') }}</template>
           </el-menu-item>
           <el-menu-item index="/settings">
             <el-icon><Tools /></el-icon>

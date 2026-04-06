@@ -51,8 +51,8 @@
         <el-form-item :label="'Anthropic BaseURL'">
           <el-input v-model="form.anthropic_base_url" placeholder="https://api.anthropic.com/v1" />
         </el-form-item>
-        <el-form-item :label="t('provider.apiKey')" prop="api_key">
-          <el-input v-model="form.api_key" type="password" show-password :placeholder="editingId ? t('provider.apiKeyPlaceholder') : ''" />
+        <el-form-item :label="t('provider.key')" prop="api_key">
+          <el-input v-model="form.api_key" type="password" show-password :placeholder="editingId ? t('provider.keyPlaceholder') : ''" />
         </el-form-item>
       </el-form>
       <template #footer>

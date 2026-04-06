@@ -76,7 +76,7 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 
 	clientIPs := utils.GetClientIPInfo(c)
 
-	usageLog := NewUsageLog(
+	modelLog := NewModelLog(
 		"openai",
 		clientIPs,
 		keyID.(uint),
@@ -89,19 +89,19 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 		status,
 		errorMsg,
 	)
-	model.DB.Create(&usageLog)
-	log.Println(usageLog.String())
+	model.DB.Create(&modelLog)
+	log.Println(modelLog.String())
 }
 
 func (h *OpenAIProxyHandler) ListModels(c *gin.Context) {
-	var aliases []model.Alias
-	model.DB.Find(&aliases)
+	var models []model.Model
+	model.DB.Find(&models)
 
-	var models []map[string]interface{}
+	var result []map[string]interface{}
 
-	for _, a := range aliases {
-		models = append(models, map[string]interface{}{
-			"id":       a.Name,
+	for _, m := range models {
+		result = append(result, map[string]interface{}{
+			"id":       m.Name,
 			"object":   "model",
 			"owned_by": "ai-gateway",
 		})
@@ -109,21 +109,21 @@ func (h *OpenAIProxyHandler) ListModels(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"object": "list",
-		"data":   models,
+		"data":   result,
 	})
 }
 
 func (h *OpenAIProxyHandler) GetModel(c *gin.Context) {
 	modelID := c.Param("id")
 
-	var alias model.Alias
-	if err := model.DB.Where("name = ?", modelID).First(&alias).Error; err != nil {
+	var m model.Model
+	if err := model.DB.Where("name = ?", modelID).First(&m).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":       alias.Name,
+		"id":       m.Name,
 		"object":   "model",
 		"owned_by": "ai-gateway",
 	})

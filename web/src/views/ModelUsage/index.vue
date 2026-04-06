@@ -415,7 +415,7 @@ async function fetchLogs() {
       params.start_date = dateRange.value[0]
       params.end_date = dateRange.value[1]
     }
-    const res = await api.get('/usage/logs', { params })
+    const res = await api.get('/usage/model-logs', { params })
     logs.value = res.data.logs || []
   } catch (e) {
     console.error(e)

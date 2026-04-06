@@ -74,7 +74,7 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 
 	clientIPs := utils.GetClientIPInfo(c)
 
-	usageLog := NewUsageLog(
+	modelLog := NewModelLog(
 		"anthropic",
 		clientIPs,
 		keyID.(uint),
@@ -87,27 +87,27 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 		status,
 		errorMsg,
 	)
-	model.DB.Create(&usageLog)
+	model.DB.Create(&modelLog)
 
-	log.Println(usageLog.String())
+	log.Println(modelLog.String())
 }
 
 func (h *AnthropicProxyHandler) ListModels(c *gin.Context) {
-	var aliases []model.Alias
-	model.DB.Find(&aliases)
+	var models []model.Model
+	model.DB.Find(&models)
 
-	var models []map[string]interface{}
+	var result []map[string]interface{}
 
-	for _, a := range aliases {
-		models = append(models, map[string]interface{}{
-			"id":           a.Name,
+	for _, m := range models {
+		result = append(result, map[string]interface{}{
+			"id":           m.Name,
 			"type":         "model",
-			"display_name": a.Name,
+			"display_name": m.Name,
 		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data":     models,
+		"data":     result,
 		"has_more": false,
 	})
 }
@@ -115,15 +115,15 @@ func (h *AnthropicProxyHandler) ListModels(c *gin.Context) {
 func (h *AnthropicProxyHandler) GetModel(c *gin.Context) {
 	modelID := c.Param("id")
 
-	var alias model.Alias
-	if err := model.DB.Where("name = ?", modelID).First(&alias).Error; err != nil {
+	var m model.Model
+	if err := model.DB.Where("name = ?", modelID).First(&m).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "model not found"}})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":           alias.Name,
+		"id":           m.Name,
 		"type":         "model",
-		"display_name": alias.Name,
+		"display_name": m.Name,
 	})
 }

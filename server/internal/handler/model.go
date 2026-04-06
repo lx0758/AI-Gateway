@@ -10,14 +10,14 @@ import (
 	"ai-gateway/internal/model"
 )
 
-type AliasHandler struct{}
+type ModelHandler struct{}
 
-type createAliasRequest struct {
+type createModelRequest struct {
 	Name    string `json:"name" binding:"required"`
 	Enabled bool   `json:"enabled"`
 }
 
-type updateAliasRequest struct {
+type updateModelRequest struct {
 	Name    *string `json:"name"`
 	Enabled *bool   `json:"enabled"`
 }
@@ -40,9 +40,9 @@ type updateMappingsOrderRequest struct {
 	Order []uint `json:"order" binding:"required"`
 }
 
-type aliasResponse struct {
+type modelResponse struct {
 	ID               uint              `json:"id"`
-	Alias            string            `json:"alias"`
+	Model            string            `json:"model"`
 	Enabled          bool              `json:"enabled"`
 	MappingCount     int               `json:"mapping_count"`
 	MinContextWindow int               `json:"min_context_window"`
@@ -79,19 +79,19 @@ type providerBasicResponse struct {
 	AnthropicBaseURL string `json:"anthropic_base_url"`
 }
 
-func NewAliasHandler() *AliasHandler {
-	return &AliasHandler{}
+func NewModelHandler() *ModelHandler {
+	return &ModelHandler{}
 }
 
-func (h *AliasHandler) List(c *gin.Context) {
-	var aliases []model.Alias
-	if err := model.DB.Preload("Mappings.Provider").Find(&aliases).Error; err != nil {
+func (h *ModelHandler) List(c *gin.Context) {
+	var models []model.Model
+	if err := model.DB.Preload("Mappings.Provider").Find(&models).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	result := make([]aliasResponse, len(aliases))
-	for i, a := range aliases {
+	result := make([]modelResponse, len(models))
+	for i, a := range models {
 		mappings := make([]mappingResponse, len(a.Mappings))
 		for j, m := range a.Mappings {
 			mappings[j] = toMappingResponse(m)
@@ -100,9 +100,9 @@ func (h *AliasHandler) List(c *gin.Context) {
 		minContext, minOutput := calculateMinTokens(a.Mappings)
 		supportsVision, supportsTools, supportsStream := calculateCapabilitiesIntersection(a.Mappings)
 
-		result[i] = aliasResponse{
+		result[i] = modelResponse{
 			ID:               a.ID,
-			Alias:            a.Name,
+			Model:            a.Name,
 			Enabled:          a.Enabled,
 			MappingCount:     len(a.Mappings),
 			MinContextWindow: minContext,
@@ -115,82 +115,82 @@ func (h *AliasHandler) List(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"aliases": result})
+	c.JSON(http.StatusOK, gin.H{"models": result})
 }
 
-func (h *AliasHandler) Get(c *gin.Context) {
+func (h *ModelHandler) Get(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	var alias model.Alias
-	if err := model.DB.First(&alias, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "alias not found"})
+	var m model.Model
+	if err := model.DB.First(&m, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}
 
-	var mappings []model.AliasMapping
-	model.DB.Preload("Provider").Where("alias_id = ?", alias.ID).Order("weight DESC").Find(&mappings)
+	var mappings []model.ModelMapping
+	model.DB.Preload("Provider").Where("model_id = ?", m.ID).Order("weight DESC").Find(&mappings)
 
 	mappingResponses := make([]mappingResponse, len(mappings))
-	for j, m := range mappings {
-		mappingResponses[j] = toMappingResponse(m)
+	for j, mm := range mappings {
+		mappingResponses[j] = toMappingResponse(mm)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"alias": aliasResponse{
-		ID:        alias.ID,
-		Alias:     alias.Name,
-		Enabled:   alias.Enabled,
-		CreatedAt: alias.CreatedAt.Format("2006-01-02 15:04:05"),
+	c.JSON(http.StatusOK, gin.H{"model": modelResponse{
+		ID:        m.ID,
+		Model:     m.Name,
+		Enabled:   m.Enabled,
+		CreatedAt: m.CreatedAt.Format("2006-01-02 15:04:05"),
 		Mappings:  mappingResponses,
 	}})
 }
 
-func (h *AliasHandler) Create(c *gin.Context) {
-	var req createAliasRequest
+func (h *ModelHandler) Create(c *gin.Context) {
+	var req createModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	alias := model.Alias{
+	m := model.Model{
 		Name:    req.Name,
 		Enabled: true,
 	}
 	if !req.Enabled {
-		alias.Enabled = false
+		m.Enabled = false
 	}
 
-	if err := model.DB.Create(&alias).Error; err != nil {
+	if err := model.DB.Create(&m).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"alias": aliasResponse{
-		ID:           alias.ID,
-		Alias:        alias.Name,
-		Enabled:      alias.Enabled,
+	c.JSON(http.StatusCreated, gin.H{"model": modelResponse{
+		ID:           m.ID,
+		Model:        m.Name,
+		Enabled:      m.Enabled,
 		MappingCount: 0,
-		CreatedAt:    alias.CreatedAt.Format("2006-01-02 15:04:05"),
+		CreatedAt:    m.CreatedAt.Format("2006-01-02 15:04:05"),
 	}})
 }
 
-func (h *AliasHandler) Update(c *gin.Context) {
+func (h *ModelHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	var alias model.Alias
-	if err := model.DB.First(&alias, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "alias not found"})
+	var m model.Model
+	if err := model.DB.First(&m, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}
 
-	var req updateAliasRequest
+	var req updateModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -205,80 +205,80 @@ func (h *AliasHandler) Update(c *gin.Context) {
 	}
 
 	if len(updates) > 0 {
-		if err := model.DB.Model(&alias).Updates(updates).Error; err != nil {
+		if err := model.DB.Model(&m).Updates(updates).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 	}
 
-	model.DB.First(&alias, id)
+	model.DB.First(&m, id)
 
-	var mappings []model.AliasMapping
-	model.DB.Preload("Provider").Where("alias_id = ?", alias.ID).Order("weight DESC").Find(&mappings)
+	var mappings []model.ModelMapping
+	model.DB.Preload("Provider").Where("model_id = ?", m.ID).Order("weight DESC").Find(&mappings)
 
 	mappingResponses := make([]mappingResponse, len(mappings))
-	for j, m := range mappings {
-		mappingResponses[j] = toMappingResponse(m)
+	for j, mm := range mappings {
+		mappingResponses[j] = toMappingResponse(mm)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"alias": aliasResponse{
-		ID:        alias.ID,
-		Alias:     alias.Name,
-		Enabled:   alias.Enabled,
-		CreatedAt: alias.CreatedAt.Format("2006-01-02 15:04:05"),
+	c.JSON(http.StatusOK, gin.H{"model": modelResponse{
+		ID:        m.ID,
+		Model:     m.Name,
+		Enabled:   m.Enabled,
+		CreatedAt: m.CreatedAt.Format("2006-01-02 15:04:05"),
 		Mappings:  mappingResponses,
 	}})
 }
 
-func (h *AliasHandler) Delete(c *gin.Context) {
+func (h *ModelHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	if err := model.DB.Delete(&model.Alias{}, id).Error; err != nil {
+	if err := model.DB.Delete(&model.Model{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "alias deleted"})
+	c.JSON(http.StatusOK, gin.H{"message": "model deleted"})
 }
 
-func (h *AliasHandler) ListMappings(c *gin.Context) {
+func (h *ModelHandler) ListMappings(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	var alias model.Alias
-	if err := model.DB.First(&alias, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "alias not found"})
+	var m model.Model
+	if err := model.DB.First(&m, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}
 
-	var mappings []model.AliasMapping
-	model.DB.Preload("Provider").Where("alias_id = ?", alias.ID).Order("weight DESC").Find(&mappings)
+	var mappings []model.ModelMapping
+	model.DB.Preload("Provider").Where("model_id = ?", m.ID).Order("weight DESC").Find(&mappings)
 
 	result := make([]mappingResponse, len(mappings))
-	for i, m := range mappings {
-		result[i] = toMappingResponse(m)
+	for i, mm := range mappings {
+		result[i] = toMappingResponse(mm)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"mappings": result})
 }
 
-func (h *AliasHandler) CreateMapping(c *gin.Context) {
+func (h *ModelHandler) CreateMapping(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	var alias model.Alias
-	if err := model.DB.First(&alias, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "alias not found"})
+	var m model.Model
+	if err := model.DB.First(&m, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}
 
@@ -300,8 +300,8 @@ func (h *AliasHandler) CreateMapping(c *gin.Context) {
 		return
 	}
 
-	mapping := model.AliasMapping{
-		AliasID:           alias.ID,
+	mapping := model.ModelMapping{
+		ModelID:           m.ID,
 		ProviderID:        req.ProviderID,
 		ProviderModelName: req.ProviderModelName,
 		Weight:            req.Weight,
@@ -324,10 +324,10 @@ func (h *AliasHandler) CreateMapping(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"mapping": toMappingResponse(mapping)})
 }
 
-func (h *AliasHandler) UpdateMapping(c *gin.Context) {
-	aliasID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+func (h *ModelHandler) UpdateMapping(c *gin.Context) {
+	modelID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid model id"})
 		return
 	}
 
@@ -337,8 +337,8 @@ func (h *AliasHandler) UpdateMapping(c *gin.Context) {
 		return
 	}
 
-	var mapping model.AliasMapping
-	if err := model.DB.Where("id = ? AND alias_id = ?", mappingID, aliasID).First(&mapping).Error; err != nil {
+	var mapping model.ModelMapping
+	if err := model.DB.Where("id = ? AND model_id = ?", mappingID, modelID).First(&mapping).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "mapping not found"})
 		return
 	}
@@ -389,10 +389,10 @@ func (h *AliasHandler) UpdateMapping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"mapping": toMappingResponse(mapping)})
 }
 
-func (h *AliasHandler) DeleteMapping(c *gin.Context) {
-	aliasID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+func (h *ModelHandler) DeleteMapping(c *gin.Context) {
+	modelID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid model id"})
 		return
 	}
 
@@ -402,7 +402,7 @@ func (h *AliasHandler) DeleteMapping(c *gin.Context) {
 		return
 	}
 
-	if err := model.DB.Where("id = ? AND alias_id = ?", mappingID, aliasID).Delete(&model.AliasMapping{}).Error; err != nil {
+	if err := model.DB.Where("id = ? AND model_id = ?", mappingID, modelID).Delete(&model.ModelMapping{}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -410,16 +410,16 @@ func (h *AliasHandler) DeleteMapping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "mapping deleted"})
 }
 
-func (h *AliasHandler) UpdateMappingsOrder(c *gin.Context) {
-	aliasID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+func (h *ModelHandler) UpdateMappingsOrder(c *gin.Context) {
+	modelID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid model id"})
 		return
 	}
 
-	var alias model.Alias
-	if err := model.DB.First(&alias, aliasID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "alias not found"})
+	var m model.Model
+	if err := model.DB.First(&m, modelID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
 		return
 	}
 
@@ -437,8 +437,8 @@ func (h *AliasHandler) UpdateMappingsOrder(c *gin.Context) {
 	totalMappings := len(req.Order)
 	for i, mappingID := range req.Order {
 		weight := totalMappings - 1 - i
-		if err := model.DB.Model(&model.AliasMapping{}).
-			Where("id = ? AND alias_id = ?", mappingID, aliasID).
+		if err := model.DB.Model(&model.ModelMapping{}).
+			Where("id = ? AND model_id = ?", mappingID, modelID).
 			Update("weight", weight).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to update mapping %d: %v", mappingID, err)})
 			return
@@ -448,7 +448,7 @@ func (h *AliasHandler) UpdateMappingsOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "mappings order updated"})
 }
 
-func toMappingResponse(m model.AliasMapping) mappingResponse {
+func toMappingResponse(m model.ModelMapping) mappingResponse {
 	var providerResp *providerBasicResponse
 	if m.Provider != nil {
 		providerResp = &providerBasicResponse{
@@ -482,7 +482,7 @@ func toMappingResponse(m model.AliasMapping) mappingResponse {
 	}
 }
 
-func calculateMinTokens(mappings []model.AliasMapping) (int, int) {
+func calculateMinTokens(mappings []model.ModelMapping) (int, int) {
 	minContext := 0
 	minOutput := 0
 	hasEnabled := false
@@ -517,7 +517,7 @@ func calculateMinTokens(mappings []model.AliasMapping) (int, int) {
 	return minContext, minOutput
 }
 
-func calculateCapabilitiesIntersection(mappings []model.AliasMapping) (bool, bool, bool) {
+func calculateCapabilitiesIntersection(mappings []model.ModelMapping) (bool, bool, bool) {
 	supportsVision := true
 	supportsTools := true
 	supportsStream := true

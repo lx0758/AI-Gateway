@@ -12,15 +12,15 @@ import (
 	"ai-gateway/internal/model"
 )
 
-type APIKeyHandler struct{}
+type KeyHandler struct{}
 
-type createAPIKeyRequest struct {
+type createKeyRequest struct {
 	Name      string  `json:"name" binding:"required"`
 	Models    []uint  `json:"models"`
 	ExpiresAt *string `json:"expires_at"`
 }
 
-type updateAPIKeyRequest struct {
+type updateKeyRequest struct {
 	Name      *string `json:"name"`
 	Models    []uint  `json:"models"`
 	ExpiresAt *string `json:"expires_at"`
@@ -29,11 +29,11 @@ type updateAPIKeyRequest struct {
 
 type keyModelResponse struct {
 	ID        uint   `json:"id"`
-	AliasID   uint   `json:"alias_id"`
-	AliasName string `json:"alias_name"`
+	ModelID   uint   `json:"model_id"`
+	ModelName string `json:"model_name"`
 }
 
-type apiKeyResponse struct {
+type keyResponse struct {
 	ID        uint               `json:"id"`
 	Key       string             `json:"key"`
 	Name      string             `json:"name"`
@@ -43,9 +43,9 @@ type apiKeyResponse struct {
 	Models    []keyModelResponse `json:"models,omitempty"`
 }
 
-type apiKeyCreateResponse struct {
-	Key    apiKeyResponse `json:"key"`
-	RawKey string         `json:"raw_key"`
+type keyCreateResponse struct {
+	Key    keyResponse `json:"key"`
+	RawKey string      `json:"raw_key"`
 }
 
 type keyMCPToolResponse struct {
@@ -73,24 +73,24 @@ type keyMCPPromptResponse struct {
 	MCPName    string `json:"mcp_name"`
 }
 
-func NewAPIKeyHandler() *APIKeyHandler {
-	return &APIKeyHandler{}
+func NewKeyHandler() *KeyHandler {
+	return &KeyHandler{}
 }
 
-func generateAPIKey() string {
+func generateKey() string {
 	bytes := make([]byte, 24)
 	rand.Read(bytes)
 	return "sk-" + hex.EncodeToString(bytes)
 }
 
-func (h *APIKeyHandler) List(c *gin.Context) {
+func (h *KeyHandler) List(c *gin.Context) {
 	var keys []model.Key
-	if err := model.DB.Preload("Models.Alias").Find(&keys).Error; err != nil {
+	if err := model.DB.Preload("Models.Model").Find(&keys).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	result := make([]apiKeyResponse, len(keys))
+	result := make([]keyResponse, len(keys))
 	for i, k := range keys {
 		maskedKey := k.Key
 		if len(maskedKey) > 8 {
@@ -99,18 +99,18 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 
 		models := make([]keyModelResponse, len(k.Models))
 		for j, m := range k.Models {
-			aliasName := ""
-			if m.Alias != nil {
-				aliasName = m.Alias.Name
+			modelName := ""
+			if m.Model != nil {
+				modelName = m.Model.Name
 			}
 			models[j] = keyModelResponse{
 				ID:        m.ID,
-				AliasID:   m.AliasID,
-				AliasName: aliasName,
+				ModelID:   m.ModelID,
+				ModelName: modelName,
 			}
 		}
 
-		result[i] = apiKeyResponse{
+		result[i] = keyResponse{
 			ID:        k.ID,
 			Key:       maskedKey,
 			Name:      k.Name,
@@ -124,8 +124,8 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"keys": result})
 }
 
-func (h *APIKeyHandler) Create(c *gin.Context) {
-	var req createAPIKeyRequest
+func (h *KeyHandler) Create(c *gin.Context) {
+	var req createKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -140,7 +140,7 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 	}
 
 	key := model.Key{
-		Key:       generateAPIKey(),
+		Key:       generateKey(),
 		Name:      req.Name,
 		ExpiresAt: expiresAt,
 		Enabled:   true,
@@ -151,36 +151,36 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		return
 	}
 
-	for _, aliasID := range req.Models {
-		var alias model.Alias
-		if err := model.DB.First(&alias, aliasID).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "alias not found: " + strconv.FormatUint(uint64(aliasID), 10)})
+	for _, modelID := range req.Models {
+		var m model.Model
+		if err := model.DB.First(&m, modelID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "model not found: " + strconv.FormatUint(uint64(modelID), 10)})
 			return
 		}
 		akm := model.KeyModel{
 			KeyID:   key.ID,
-			AliasID: aliasID,
+			ModelID: modelID,
 		}
 		model.DB.Create(&akm)
 	}
 
-	model.DB.Preload("Models.Alias").First(&key, key.ID)
+	model.DB.Preload("Models.Model").First(&key, key.ID)
 
 	models := make([]keyModelResponse, len(key.Models))
 	for j, m := range key.Models {
-		aliasName := ""
-		if m.Alias != nil {
-			aliasName = m.Alias.Name
+		modelName := ""
+		if m.Model != nil {
+			modelName = m.Model.Name
 		}
 		models[j] = keyModelResponse{
 			ID:        m.ID,
-			AliasID:   m.AliasID,
-			AliasName: aliasName,
+			ModelID:   m.ModelID,
+			ModelName: modelName,
 		}
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"key": apiKeyResponse{
+		"key": keyResponse{
 			ID:        key.ID,
 			Key:       key.Key,
 			Name:      key.Name,
@@ -193,7 +193,7 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 	})
 }
 
-func (h *APIKeyHandler) Delete(c *gin.Context) {
+func (h *KeyHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -210,7 +210,7 @@ func (h *APIKeyHandler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "key deleted"})
 }
 
-func (h *APIKeyHandler) Update(c *gin.Context) {
+func (h *KeyHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -223,7 +223,7 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req updateAPIKeyRequest
+	var req updateKeyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -251,33 +251,33 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 
 	if req.Models != nil {
 		model.DB.Where("key_id = ?", key.ID).Delete(&model.KeyModel{})
-		for _, aliasID := range req.Models {
-			var alias model.Alias
-			if err := model.DB.First(&alias, aliasID).Error; err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "alias not found: " + strconv.FormatUint(uint64(aliasID), 10)})
+		for _, modelID := range req.Models {
+			var m model.Model
+			if err := model.DB.First(&m, modelID).Error; err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "model not found: " + strconv.FormatUint(uint64(modelID), 10)})
 				return
 			}
-			akm := model.KeyModel{KeyID: key.ID, AliasID: aliasID}
+			akm := model.KeyModel{KeyID: key.ID, ModelID: modelID}
 			model.DB.Create(&akm)
 		}
 	}
 
-	model.DB.Preload("Models.Alias").First(&key, id)
+	model.DB.Preload("Models.Model").First(&key, id)
 
 	models := make([]keyModelResponse, len(key.Models))
 	for j, m := range key.Models {
-		aliasName := ""
-		if m.Alias != nil {
-			aliasName = m.Alias.Name
+		modelName := ""
+		if m.Model != nil {
+			modelName = m.Model.Name
 		}
 		models[j] = keyModelResponse{
 			ID:        m.ID,
-			AliasID:   m.AliasID,
-			AliasName: aliasName,
+			ModelID:   m.ModelID,
+			ModelName: modelName,
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"key": apiKeyResponse{
+	c.JSON(http.StatusOK, gin.H{"key": keyResponse{
 		ID:        key.ID,
 		Key:       key.Key,
 		Name:      key.Name,
@@ -288,7 +288,7 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	}})
 }
 
-func (h *APIKeyHandler) ListModels(c *gin.Context) {
+func (h *KeyHandler) ListModels(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -296,28 +296,28 @@ func (h *APIKeyHandler) ListModels(c *gin.Context) {
 	}
 
 	var models []model.KeyModel
-	if err := model.DB.Preload("Alias").Where("key_id = ?", id).Find(&models).Error; err != nil {
+	if err := model.DB.Preload("Model").Where("key_id = ?", id).Find(&models).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	result := make([]keyModelResponse, len(models))
 	for i, m := range models {
-		aliasName := ""
-		if m.Alias != nil {
-			aliasName = m.Alias.Name
+		modelName := ""
+		if m.Model != nil {
+			modelName = m.Model.Name
 		}
 		result[i] = keyModelResponse{
 			ID:        m.ID,
-			AliasID:   m.AliasID,
-			AliasName: aliasName,
+			ModelID:   m.ModelID,
+			ModelName: modelName,
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"models": result})
 }
 
-func (h *APIKeyHandler) Reset(c *gin.Context) {
+func (h *KeyHandler) Reset(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -330,25 +330,25 @@ func (h *APIKeyHandler) Reset(c *gin.Context) {
 		return
 	}
 
-	newKey := generateAPIKey()
+	newKey := generateKey()
 
 	if err := model.DB.Model(&key).Update("key", newKey).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	model.DB.Preload("Models.Alias").First(&key, id)
+	model.DB.Preload("Models.Model").First(&key, id)
 
 	models := make([]keyModelResponse, len(key.Models))
 	for j, m := range key.Models {
-		aliasName := ""
-		if m.Alias != nil {
-			aliasName = m.Alias.Name
+		modelName := ""
+		if m.Model != nil {
+			modelName = m.Model.Name
 		}
 		models[j] = keyModelResponse{
 			ID:        m.ID,
-			AliasID:   m.AliasID,
-			AliasName: aliasName,
+			ModelID:   m.ModelID,
+			ModelName: modelName,
 		}
 	}
 
@@ -358,7 +358,7 @@ func (h *APIKeyHandler) Reset(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"key": apiKeyResponse{
+		"key": keyResponse{
 			ID:        key.ID,
 			Key:       maskedKey,
 			Name:      key.Name,
@@ -371,7 +371,7 @@ func (h *APIKeyHandler) Reset(c *gin.Context) {
 	})
 }
 
-func (h *APIKeyHandler) GetMCPTools(c *gin.Context) {
+func (h *KeyHandler) GetMCPTools(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -408,7 +408,7 @@ func (h *APIKeyHandler) GetMCPTools(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"tools": result})
 }
 
-func (h *APIKeyHandler) UpdateMCPTools(c *gin.Context) {
+func (h *KeyHandler) UpdateMCPTools(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -447,7 +447,7 @@ func (h *APIKeyHandler) UpdateMCPTools(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "MCP tools updated"})
 }
 
-func (h *APIKeyHandler) GetMCPResources(c *gin.Context) {
+func (h *KeyHandler) GetMCPResources(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -487,7 +487,7 @@ func (h *APIKeyHandler) GetMCPResources(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"resources": result})
 }
 
-func (h *APIKeyHandler) UpdateMCPResources(c *gin.Context) {
+func (h *KeyHandler) UpdateMCPResources(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -526,7 +526,7 @@ func (h *APIKeyHandler) UpdateMCPResources(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "MCP resources updated"})
 }
 
-func (h *APIKeyHandler) GetMCPPrompts(c *gin.Context) {
+func (h *KeyHandler) GetMCPPrompts(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -563,7 +563,7 @@ func (h *APIKeyHandler) GetMCPPrompts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"prompts": result})
 }
 
-func (h *APIKeyHandler) UpdateMCPPrompts(c *gin.Context) {
+func (h *KeyHandler) UpdateMCPPrompts(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})

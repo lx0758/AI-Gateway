@@ -48,9 +48,10 @@ export default {
   menu: {
     dashboard: 'Dashboard',
     providers: 'Model Providers',
-    aliases: 'Model Aliases',
+    models: 'Model Mappings',
+    mcps: 'MCP Services',
     keys: 'API Keys',
-    usage: 'Usage Statistics',
+    model_usage: 'Model Usage',
     settings: 'Settings'
   },
   dashboard: {
@@ -72,8 +73,8 @@ export default {
     type: 'API Type',
     apiStyles: 'API Styles',
     baseUrl: 'Base URL',
-    apiKey: 'API Key',
-    apiKeyPlaceholder: 'Leave empty to keep current key',
+    key: 'API Key',
+    keyPlaceholder: 'Leave empty to keep current key',
     models: 'Models',
     testConnection: 'Test Connection',
     syncModels: 'Sync Models',
@@ -93,7 +94,7 @@ export default {
     outputPrice: 'Output Price',
     capabilities: 'Capabilities'
   },
-  apiKey: {
+  key: {
     name: 'Key Name',
     key: 'API Key',
     allowedModels: 'Allowed Models',
@@ -151,19 +152,19 @@ export default {
     model: 'Model',
     required: 'Required'
   },
-  modelAlias: {
-    create: 'New Alias',
-    createAlias: 'Create Alias',
-    editAlias: 'Edit Alias',
-    name: 'Name',
-    mappings: 'mappings',
-    addMapping: 'Add Mapping',
-    editMapping: 'Edit Mapping',
-    providerType: 'Provider Type',
+  models: {
+    create: 'New Model',
+    createModel: 'Create Model',
+    editModel: 'Edit Model',
+    name: 'Model Name',
     mappingCount: 'Mapping Count',
     tokenSummary: 'Token Summary',
     contextWindow: 'Context Window',
-    capabilities: 'Capabilities'
+    capabilities: 'Capabilities',
+    mappings: 'Mappings',
+    addMapping: 'Add Mapping',
+    editMapping: 'Edit Mapping',
+    providerType: 'Provider Type'
   },
   mcp: {
     services: 'MCP Services',
