@@ -263,6 +263,10 @@ async function handleBatchDelete() {
 </script>
 
 <style scoped>
+.mcp-services {
+  padding: 20px;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;

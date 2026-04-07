@@ -18,31 +18,66 @@ func NewUsageHandler() *UsageHandler {
 }
 
 func (h *UsageHandler) Dashboard(c *gin.Context) {
-	today := time.Now().Format("2006-01-02")
 	sevenDaysAgo := time.Now().AddDate(0, 0, -7).Format("2006-01-02")
 
-	var todayRequests int64
-	model.DB.Model(&model.ModelLog{}).
-		Where("created_at >= ?", today).
-		Count(&todayRequests)
+	// 资产统计
+	var totalProviders int64
+	model.DB.Model(&model.Provider{}).Count(&totalProviders)
 
 	var activeProviders int64
 	model.DB.Model(&model.Provider{}).Where("enabled = ?", true).Count(&activeProviders)
 
+	var totalModels int64
+	model.DB.Model(&model.Model{}).Count(&totalModels)
+
+	var activeModels int64
+	model.DB.Model(&model.Model{}).Where("enabled = ?", true).Count(&activeModels)
+
+	var totalProviderModels int64
+	model.DB.Model(&model.ProviderModel{}).Count(&totalProviderModels)
+
+	var activeProviderModels int64
+	model.DB.Raw(`
+		SELECT COUNT(DISTINCT pm.id)
+		FROM provider_models pm
+		JOIN providers p ON pm.provider_id = p.id
+		WHERE pm.is_available = ? AND p.enabled = ?
+	`, true, true).Scan(&activeProviderModels)
+
+	var totalMCPs int64
+	model.DB.Model(&model.MCP{}).Count(&totalMCPs)
+
+	var activeMCPs int64
+	model.DB.Model(&model.MCP{}).Where("enabled = ?", true).Count(&activeMCPs)
+
+	var totalKeys int64
+	model.DB.Model(&model.Key{}).Count(&totalKeys)
+
 	var activeKeys int64
 	model.DB.Model(&model.Key{}).Where("enabled = ?", true).Count(&activeKeys)
 
-	var totalTokens int64
+	// Model API 统计 (过去7天)
+	var modelTotalRequests int64
 	model.DB.Model(&model.ModelLog{}).
 		Where("created_at >= ?", sevenDaysAgo).
-		Select("COALESCE(SUM(total_tokens), 0)").Scan(&totalTokens)
+		Count(&modelTotalRequests)
 
-	var avgLatency float64
+	var modelSuccessCount int64
+	model.DB.Model(&model.ModelLog{}).
+		Where("created_at >= ? AND status = ?", sevenDaysAgo, "success").
+		Count(&modelSuccessCount)
+
+	var modelTotalTokens int64
 	model.DB.Model(&model.ModelLog{}).
 		Where("created_at >= ?", sevenDaysAgo).
-		Select("COALESCE(AVG(latency_ms), 0)").Scan(&avgLatency)
+		Select("COALESCE(SUM(total_tokens), 0)").Scan(&modelTotalTokens)
 
-	var dailyStats []struct {
+	var modelAvgLatency float64
+	model.DB.Model(&model.ModelLog{}).
+		Where("created_at >= ?", sevenDaysAgo).
+		Select("COALESCE(AVG(latency_ms), 0)").Scan(&modelAvgLatency)
+
+	var modelDailyStats []struct {
 		Date    string `json:"date"`
 		Count   int64  `json:"count"`
 		Success int64  `json:"success"`
@@ -56,7 +91,21 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		WHERE created_at >= ?
 		GROUP BY DATE(created_at)
 		ORDER BY date
-	`, sevenDaysAgo).Scan(&dailyStats)
+	`, sevenDaysAgo).Scan(&modelDailyStats)
+
+	var modelTokenDailyStats []struct {
+		Date        string `json:"date"`
+		TotalTokens int64  `json:"total_tokens"`
+	}
+	model.DB.Raw(`
+		SELECT 
+			DATE(created_at) as date,
+			COALESCE(SUM(total_tokens), 0) as total_tokens
+		FROM model_logs
+		WHERE created_at >= ?
+		GROUP BY DATE(created_at)
+		ORDER BY date
+	`, sevenDaysAgo).Scan(&modelTokenDailyStats)
 
 	var providerStats []struct {
 		Provider   string  `json:"provider"`
@@ -68,11 +117,11 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		SELECT 
 			p.name as provider, 
 			COUNT(*) as count,
-			COALESCE(SUM(ul.total_tokens), 0) as tokens,
-			COALESCE(AVG(ul.latency_ms), 0) as avg_latency
-		FROM model_logs ul
-		JOIN providers p ON ul.provider_id = p.id
-		WHERE ul.created_at >= ?
+			COALESCE(SUM(ml.total_tokens), 0) as tokens,
+			COALESCE(AVG(ml.latency_ms), 0) as avg_latency
+		FROM model_logs ml
+		JOIN providers p ON ml.provider_id = p.id
+		WHERE ml.created_at >= ?
 		GROUP BY p.name
 		ORDER BY count DESC
 	`, sevenDaysAgo).Scan(&providerStats)
@@ -90,15 +139,135 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		LIMIT 10
 	`, sevenDaysAgo).Scan(&modelStats)
 
+	// MCP 资产统计
+	var totalMCPTools int64
+	var totalMCPResources int64
+	var totalMCPPrompts int64
+	var activeMCPTools int64
+	var activeMCPResources int64
+	var activeMCPPrompts int64
+	model.DB.Table("mcp_tools").Count(&totalMCPTools)
+	model.DB.Table("mcp_resources").Count(&totalMCPResources)
+	model.DB.Table("mcp_prompts").Count(&totalMCPPrompts)
+	model.DB.Raw(`
+		SELECT COUNT(DISTINCT mt.id)
+		FROM mcp_tools mt
+		JOIN mcps m ON mt.mcp_id = m.id
+		WHERE mt.enabled = ? AND m.enabled = ?
+	`, true, true).Scan(&activeMCPTools)
+	model.DB.Raw(`
+		SELECT COUNT(DISTINCT mr.id)
+		FROM mcp_resources mr
+		JOIN mcps m ON mr.mcp_id = m.id
+		WHERE mr.enabled = ? AND m.enabled = ?
+	`, true, true).Scan(&activeMCPResources)
+	model.DB.Raw(`
+		SELECT COUNT(DISTINCT mp.id)
+		FROM mcp_prompts mp
+		JOIN mcps m ON mp.mcp_id = m.id
+		WHERE mp.enabled = ? AND m.enabled = ?
+	`, true, true).Scan(&activeMCPPrompts)
+
+	// MCP 服务统计 (过去7天)
+	var mcpTotalRequests int64
+	model.DB.Model(&model.MCPLog{}).
+		Where("created_at >= ?", sevenDaysAgo).
+		Count(&mcpTotalRequests)
+
+	var mcpSuccessCount int64
+	model.DB.Model(&model.MCPLog{}).
+		Where("created_at >= ? AND status = ?", sevenDaysAgo, "success").
+		Count(&mcpSuccessCount)
+
+	var mcpTotalSize int64
+	model.DB.Model(&model.MCPLog{}).
+		Where("created_at >= ?", sevenDaysAgo).
+		Select("COALESCE(SUM(input_size + output_size), 0)").Scan(&mcpTotalSize)
+
+	var mcpAvgLatency float64
+	model.DB.Model(&model.MCPLog{}).
+		Where("created_at >= ?", sevenDaysAgo).
+		Select("COALESCE(AVG(latency_ms), 0)").Scan(&mcpAvgLatency)
+
+	var mcpDailyStats []struct {
+		Date    string `json:"date"`
+		Count   int64  `json:"count"`
+		Success int64  `json:"success"`
+	}
+	model.DB.Raw(`
+		SELECT 
+			DATE(created_at) as date,
+			COUNT(*) as count,
+			SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success
+		FROM mcp_logs
+		WHERE created_at >= ?
+		GROUP BY DATE(created_at)
+		ORDER BY date
+	`, sevenDaysAgo).Scan(&mcpDailyStats)
+
+	var mcpTypeStats []struct {
+		MCPType string `json:"mcp_type"`
+		Count   int64  `json:"count"`
+	}
+	model.DB.Raw(`
+		SELECT mcp_type, COUNT(*) as count
+		FROM mcp_logs
+		WHERE created_at >= ?
+		GROUP BY mcp_type
+		ORDER BY count DESC
+	`, sevenDaysAgo).Scan(&mcpTypeStats)
+
+	var mcpServiceStats []struct {
+		MCPName string `json:"mcp_name"`
+		Count   int64  `json:"count"`
+	}
+	model.DB.Raw(`
+		SELECT mcp_name, COUNT(*) as count
+		FROM mcp_logs
+		WHERE created_at >= ?
+		GROUP BY mcp_name
+		ORDER BY count DESC
+		LIMIT 10
+	`, sevenDaysAgo).Scan(&mcpServiceStats)
+
 	c.JSON(http.StatusOK, gin.H{
-		"todayRequests":   todayRequests,
-		"activeProviders": activeProviders,
-		"activeKeys":      activeKeys,
-		"totalTokens":     totalTokens,
-		"avgLatency":      avgLatency,
-		"dailyStats":      dailyStats,
-		"providerStats":   providerStats,
-		"modelStats":      modelStats,
+		"assets": gin.H{
+			"totalProviders":       totalProviders,
+			"activeProviders":      activeProviders,
+			"totalModels":          totalModels,
+			"activeModels":         activeModels,
+			"totalProviderModels":  totalProviderModels,
+			"activeProviderModels": activeProviderModels,
+			"totalMCPs":            totalMCPs,
+			"activeMCPs":           activeMCPs,
+			"totalKeys":            totalKeys,
+			"activeKeys":           activeKeys,
+			"totalMCPTools":        totalMCPTools,
+			"activeMCPTools":       activeMCPTools,
+			"totalMCPResources":    totalMCPResources,
+			"activeMCPResources":   activeMCPResources,
+			"totalMCPPrompts":      totalMCPPrompts,
+			"activeMCPPrompts":     activeMCPPrompts,
+		},
+		"modelUsage": gin.H{
+			"totalRequests":   modelTotalRequests,
+			"successCount":    modelSuccessCount,
+			"totalTokens":     modelTotalTokens,
+			"avgLatency":      modelAvgLatency,
+			"dailyStats":      modelDailyStats,
+			"tokenDailyStats": modelTokenDailyStats,
+			"providerStats":   providerStats,
+			"modelStats":      modelStats,
+		},
+		"mcpUsage": gin.H{
+			"totalRequests": mcpTotalRequests,
+			"successCount":  mcpSuccessCount,
+			"totalSize":     mcpTotalSize,
+			"avgLatency":    mcpAvgLatency,
+			"dailyStats":    mcpDailyStats,
+			"typeStats":     mcpTypeStats,
+			"serviceStats":  mcpServiceStats,
+		},
 	})
 }
 
