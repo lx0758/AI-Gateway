@@ -145,7 +145,7 @@
 
     <el-card class="logs-card">
       <template #header>{{ t('mcpUsage.logs') }}</template>
-      <el-table :data="logs" stripe v-loading="loading" size="small">
+      <el-table :data="paginatedLogs" stripe v-loading="loading" size="small">
         <el-table-column :label="t('mcpUsage.time')" width="160">
           <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
         </el-table-column>
@@ -202,7 +202,15 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-      </el-table>
+       </el-table>
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[100, 200, 500, 1000]"
+        :total="logs.length"
+        layout="total, sizes, prev, pager, next, jumper"
+        style="margin-top: 16px; justify-content: flex-end"
+      />
     </el-card>
   </div>
 </template>
@@ -239,6 +247,29 @@ interface LogItem {
 
 const logs = ref<LogItem[]>([])
 const loading = ref(false)
+const currentPage = ref(1)
+const pageSize = ref(100)
+
+const paginatedLogs = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return logs.value.slice(start, end)
+})
+
+const stats = ref({
+  totalRequests: 0,
+  successRate: 0,
+  totalSize: 0,
+  avgLatency: 0
+})
+
+const sourceStats = ref<any[]>([])
+const ipStats = ref<any[]>([])
+const keyStats = ref<any[]>([])
+const mcpStats = ref<any[]>([])
+const mcpTypeStats = ref<any[]>([])
+const mcpCallTypeStats = ref<any[]>([])
+const mcpCallTargetStats = ref<any[]>([])
 
 function getDefaultDateRange(): string[] {
   const now = new Date()
@@ -259,139 +290,101 @@ function formatSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-const stats = computed(() => {
-  const list = logs.value
+interface AggregationResult {
+  count: number
+  input_size: number
+  output_size: number
+  total_size: number
+  latency: number
+  [key: string]: any
+}
+
+function computeAllAggregations(list: LogItem[]) {
+  const SEPARATOR = '\x00'
+  
   if (list.length === 0) {
-    return {
-      totalRequests: 0,
-      successRate: 0,
-      totalSize: 0,
-      avgLatency: 0,
-    }
+    stats.value = { totalRequests: 0, successRate: 0, totalSize: 0, avgLatency: 0 }
+    sourceStats.value = []
+    ipStats.value = []
+    keyStats.value = []
+    mcpStats.value = []
+    mcpTypeStats.value = []
+    mcpCallTypeStats.value = []
+    mcpCallTargetStats.value = []
+    return
   }
-  const totalRequests = list.length
+
   const successCount = list.filter(l => l.status === 'success').length
-  const successRate = (successCount / totalRequests) * 100
   const totalSize = list.reduce((sum, l) => sum + (l.input_size || 0) + (l.output_size || 0), 0)
   const avgLatency = list.reduce((sum, l) => sum + (l.latency_ms || 0), 0) / list.length
-  return {
-    totalRequests,
-    successRate,
+
+  stats.value = {
+    totalRequests: list.length,
+    successRate: (successCount / list.length) * 100,
     totalSize,
     avgLatency
   }
-})
 
-const sourceStats = computed(() => aggregateBy('source'))
-const keyStats = computed(() => aggregateBy('key_name'))
-const mcpStats = computed(() => aggregateBy(['mcp_name', 'mcp_type']))
-const mcpTypeStats = computed(() => aggregateBy('mcp_type'))
-const mcpCallTypeStats = computed(() => aggregateBy('call_type'))
-const mcpCallTargetStats = computed(() => aggregateBy(['call_type', 'call_target', 'mcp_name']))
-
-const ipStats = computed(() => {
-  const list = logs.value
-  const groups: Record<string, {
-    count: number;
-    input_size: number;
-    output_size: number;
-    total_size: number;
-    latency: number;
-    full_chain: string;
-  }> = {}
+  const sourceGroups: Record<string, AggregationResult> = {}
+  const ipGroups: Record<string, AggregationResult & { full_chain: string }> = {}
+  const keyGroups: Record<string, AggregationResult> = {}
+  const mcpGroups: Record<string, AggregationResult> = {}
+  const mcpTypeGroups: Record<string, AggregationResult> = {}
+  const mcpCallTypeGroups: Record<string, AggregationResult> = {}
+  const mcpCallTargetGroups: Record<string, AggregationResult> = {}
 
   for (const log of list) {
-    const chain = log.client_ips || 'unknown'
-    const firstIP = chain.split(',')[0].trim()
-    if (!groups[firstIP]) {
-      groups[firstIP] = {
-        count: 0,
-        input_size: 0,
-        output_size: 0,
-        total_size: 0,
-        latency: 0,
-        full_chain: chain,
-      }
-    }
-    groups[firstIP].count++
-    groups[firstIP].input_size += log.input_size || 0
-    groups[firstIP].output_size += log.output_size || 0
-    groups[firstIP].total_size += (log.input_size || 0) + (log.output_size || 0)
-    groups[firstIP].latency += log.latency_ms || 0
-  }
-
-  return Object.entries(groups)
-    .map(([key, value]) => ({
-      client_ips: key,
-      full_chain: value.full_chain,
-      count: value.count,
-      input_size: value.input_size,
-      output_size: value.output_size,
-      total_size: value.total_size,
-      avg_latency: value.count > 0 ? value.latency / value.count : 0,
-    }))
-    .sort((a, b) => b.count - a.count)
-})
-
-function aggregateBy(dimensions: string | string[]): any[] {
-  const list = logs.value
-  const SEPARATOR = '\x00'
-  const groups: Record<string, {
-    count: number;
-    input_size: number;
-    output_size: number;
-    total_size: number;
-    latency: number;
-    values: string[];
-  }> = {}
-
-  for (const log of list) {
-    let key: string
-    let values: string[]
-    if (Array.isArray(dimensions)) {
-      values = dimensions.map(d => String((log as any)[d] || 'unknown'))
-      key = values.join(SEPARATOR)
-    } else {
-      values = [String((log as any)[dimensions] || 'unknown')]
-      key = values[0]
+    const inc = (g: AggregationResult) => {
+      g.count++
+      g.input_size += log.input_size || 0
+      g.output_size += log.output_size || 0
+      g.total_size += (log.input_size || 0) + (log.output_size || 0)
+      g.latency += log.latency_ms || 0
     }
 
-    if (!groups[key]) {
-      groups[key] = { 
-        count: 0,
-        input_size: 0,
-        output_size: 0,
-        total_size: 0,
-        latency: 0,
-        values: values,
-      }
-    }
-    groups[key].count++
-    groups[key].input_size += log.input_size || 0
-    groups[key].output_size += log.output_size || 0
-    groups[key].total_size += (log.input_size || 0) + (log.output_size || 0)
-    groups[key].latency += log.latency_ms || 0
-  }
-
-  return Object.entries(groups)
-    .map(([key, value]) => {
-      const item: any = {
-        count: value.count,
-        input_size: value.input_size,
-        output_size: value.output_size,
-        total_size: value.total_size,
-        avg_latency: value.count > 0 ? value.latency / value.count : 0
-      }
-      if (Array.isArray(dimensions)) {
-        dimensions.forEach((d, i) => {
-          item[d] = value.values[i]
-        })
-      } else {
-        item[dimensions] = value.values[0]
-      }
-      return item
+    const make = (): AggregationResult => ({
+      count: 0, input_size: 0, output_size: 0, total_size: 0, latency: 0
     })
-    .sort((a, b) => b.count - a.count)
+
+    if (!sourceGroups[log.source]) sourceGroups[log.source] = { ...make(), source: log.source }
+    inc(sourceGroups[log.source])
+
+    const firstIP = (log.client_ips || 'unknown').split(',')[0].trim()
+    if (!ipGroups[firstIP]) ipGroups[firstIP] = { ...make(), client_ips: firstIP, full_chain: log.client_ips }
+    inc(ipGroups[firstIP])
+
+    if (!keyGroups[log.key_name]) keyGroups[log.key_name] = { ...make(), key_name: log.key_name }
+    inc(keyGroups[log.key_name])
+
+    const mcpKey = [log.mcp_name, log.mcp_type].join(SEPARATOR)
+    if (!mcpGroups[mcpKey]) mcpGroups[mcpKey] = { ...make(), mcp_name: log.mcp_name, mcp_type: log.mcp_type }
+    inc(mcpGroups[mcpKey])
+
+    if (!mcpTypeGroups[log.mcp_type]) mcpTypeGroups[log.mcp_type] = { ...make(), mcp_type: log.mcp_type }
+    inc(mcpTypeGroups[log.mcp_type])
+
+    if (!mcpCallTypeGroups[log.call_type]) mcpCallTypeGroups[log.call_type] = { ...make(), call_type: log.call_type }
+    inc(mcpCallTypeGroups[log.call_type])
+
+    const mcpCallTargetKey = [log.call_type, log.call_target, log.mcp_name].join(SEPARATOR)
+    if (!mcpCallTargetGroups[mcpCallTargetKey]) {
+      mcpCallTargetGroups[mcpCallTargetKey] = { ...make(), call_type: log.call_type, call_target: log.call_target, mcp_name: log.mcp_name }
+    }
+    inc(mcpCallTargetGroups[mcpCallTargetKey])
+  }
+
+  const toResult = (groups: Record<string, AggregationResult>) => 
+    Object.values(groups)
+      .map(g => ({ ...g, avg_latency: g.count > 0 ? g.latency / g.count : 0 }))
+      .sort((a, b) => b.count - a.count)
+
+  sourceStats.value = toResult(sourceGroups)
+  ipStats.value = toResult(ipGroups as any)
+  keyStats.value = toResult(keyGroups)
+  mcpStats.value = toResult(mcpGroups)
+  mcpTypeStats.value = toResult(mcpTypeGroups)
+  mcpCallTypeStats.value = toResult(mcpCallTypeGroups)
+  mcpCallTargetStats.value = toResult(mcpCallTargetGroups)
 }
 
 onMounted(() => {
@@ -407,7 +400,10 @@ async function fetchLogs() {
       params.end_date = dateRange.value[1]
     }
     const res = await api.get('/usage/mcp-logs', { params })
-    logs.value = res.data.logs || []
+    const data = res.data.logs || []
+    logs.value = data
+    currentPage.value = 1
+    computeAllAggregations(data)
   } catch (e) {
     console.error(e)
   } finally {

@@ -148,8 +148,8 @@
 
     <el-card class="logs-card">
       <template #header>{{ t('usage.logs') }}</template>
-      <el-table :data="logs" stripe v-loading="loading" size="small">
-        <el-table-column :label="t('usage.time') || '时间'" width="160">
+      <el-table :data="paginatedLogs" stripe v-loading="loading" size="small">
+        <el-table-column :label="t('usage.time') || '时间'" width="180">
           <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
         </el-table-column>
         <el-table-column prop="source" :label="t('usage.source') || '来源'" width="100">
@@ -166,12 +166,12 @@
           </template>
         </el-table-column>
         <el-table-column prop="key_name" :label="t('usage.key') || 'Key'" width="100" />
-        <el-table-column prop="model" :label="t('usage.model') || '模型'" width="150">
+        <el-table-column prop="model" :label="t('usage.model') || '模型'" width="120">
           <template #default="{ row }">
             <span>{{ row.model }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('usage.providerModel') || '厂商/模型'" width="250">
+        <el-table-column :label="t('usage.providerModel') || '厂商/模型'" width="150">
           <template #default="{ row }">
             <el-tag size="small" type="info">{{ row.provider_name }}/{{ row.actual_model_name }}</el-tag>
           </template>
@@ -181,7 +181,7 @@
             <el-tag size="small" type="info">{{ row.call_method }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="'Tokens'" width="200">
+        <el-table-column :label="'Tokens'" width="240">
           <template #default="{ row }">C:{{ formatTokens(row.cached_tokens) }}/I:{{ formatTokens(row.input_tokens) }}/O:{{ formatTokens(row.output_tokens) }}/T:{{ formatTokens(row.total_tokens) }}</template>
         </el-table-column>
         <el-table-column prop="latency_ms" :label="t('usage.latency') || '耗时'" width="80">
@@ -205,7 +205,15 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-      </el-table>
+       </el-table>
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[100, 200, 500, 1000]"
+        :total="logs.length"
+        layout="total, sizes, prev, pager, next, jumper"
+        style="margin-top: 16px; justify-content: flex-end"
+      />
     </el-card>
   </div>
 </template>
@@ -244,6 +252,29 @@ interface LogItem {
 
 const logs = ref<LogItem[]>([])
 const loading = ref(false)
+const currentPage = ref(1)
+const pageSize = ref(100)
+
+const paginatedLogs = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return logs.value.slice(start, end)
+})
+
+const stats = ref({
+  totalRequests: 0,
+  successRate: 0,
+  totalTokens: 0,
+  avgLatency: 0
+})
+
+const sourceStats = ref<any[]>([])
+const ipStats = ref<any[]>([])
+const callMethodStats = ref<any[]>([])
+const keyStats = ref<any[]>([])
+const modelStats = ref<any[]>([])
+const providerStats = ref<any[]>([])
+const providerModelStats = ref<any[]>([])
 
 function getDefaultDateRange(): string[] {
   const now = new Date()
@@ -256,155 +287,102 @@ function getDefaultDateRange(): string[] {
 
 const dateRange = ref<string[]>(getDefaultDateRange())
 
-const stats = computed(() => {
-  const list = logs.value
+interface AggregationResult {
+  count: number
+  cached_tokens: number
+  input_tokens: number
+  output_tokens: number
+  total_tokens: number
+  latency: number
+  [key: string]: any
+}
+
+function computeAllAggregations(list: LogItem[]) {
+  const SEPARATOR = '\x00'
+  
   if (list.length === 0) {
-    return {
-      totalRequests: 0,
-      successRate: 0,
-      cachedTokens: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      avgLatency: 0,
-    }
+    stats.value = { totalRequests: 0, successRate: 0, totalTokens: 0, avgLatency: 0 }
+    sourceStats.value = []
+    ipStats.value = []
+    callMethodStats.value = []
+    keyStats.value = []
+    modelStats.value = []
+    providerStats.value = []
+    providerModelStats.value = []
+    return
   }
-  const totalRequests = list.length
+
   const successCount = list.filter(l => l.status === 'success').length
-  const successRate = (successCount / totalRequests) * 100
-  const cachedTokens = list.reduce((sum, l) => sum + (l.cached_tokens || 0), 0)
-  const inputTokens = list.reduce((sum, l) => sum + (l.input_tokens || 0), 0)
-  const outputTokens = list.reduce((sum, l) => sum + (l.output_tokens || 0), 0)
   const totalTokens = list.reduce((sum, l) => sum + (l.total_tokens || 0), 0)
   const avgLatency = list.reduce((sum, l) => sum + (l.latency_ms || 0), 0) / list.length
-  return {
-    totalRequests,
-    successRate,
-    cachedTokens,
-    inputTokens,
-    outputTokens,
+
+  stats.value = {
+    totalRequests: list.length,
+    successRate: (successCount / list.length) * 100,
     totalTokens,
     avgLatency
   }
-})
 
-const sourceStats = computed(() => aggregateBy('source'))
-const callMethodStats = computed(() => aggregateBy('call_method'))
-const keyStats = computed(() => aggregateBy('key_name'))
-const ipStats = computed(() => {
-  const list = logs.value
-  const groups: Record<string, {
-    count: number;
-    cached_tokens: number;
-    input_tokens: number;
-    output_tokens: number;
-    total_tokens: number;
-    latency: number;
-    full_chain: string;
-  }> = {}
+  const sourceGroups: Record<string, AggregationResult> = {}
+  const ipGroups: Record<string, AggregationResult & { full_chain: string }> = {}
+  const callMethodGroups: Record<string, AggregationResult> = {}
+  const keyGroups: Record<string, AggregationResult> = {}
+  const modelGroups: Record<string, AggregationResult> = {}
+  const providerGroups: Record<string, AggregationResult> = {}
+  const providerModelGroups: Record<string, AggregationResult> = {}
 
   for (const log of list) {
-    const chain = log.client_ips || 'unknown'
-    const firstIP = chain.split(',')[0].trim()
-    if (!groups[firstIP]) {
-      groups[firstIP] = {
-        count: 0,
-        cached_tokens: 0,
-        input_tokens: 0,
-        output_tokens: 0,
-        total_tokens: 0,
-        latency: 0,
-        full_chain: chain,
-      }
-    }
-    groups[firstIP].count++
-    groups[firstIP].cached_tokens += log.cached_tokens || 0
-    groups[firstIP].input_tokens += log.input_tokens || 0
-    groups[firstIP].output_tokens += log.output_tokens || 0
-    groups[firstIP].total_tokens += log.total_tokens || 0
-    groups[firstIP].latency += log.latency_ms || 0
-  }
-
-  return Object.entries(groups)
-    .map(([key, value]) => ({
-      client_ips: key,
-      full_chain: value.full_chain,
-      count: value.count,
-      cached_tokens: value.cached_tokens,
-      input_tokens: value.input_tokens,
-      output_tokens: value.output_tokens,
-      total_tokens: value.total_tokens,
-      avg_latency: value.count > 0 ? value.latency / value.count : 0,
-    }))
-    .sort((a, b) => b.count - a.count)
-})
-const modelStats = computed(() => aggregateBy('model'))
-const providerStats = computed(() => aggregateBy('provider_name'))
-const providerModelStats = computed(() => aggregateBy(['provider_name', 'actual_model_name']))
-
-function aggregateBy(dimensions: string | string[]): any[] {
-  const list = logs.value
-  const SEPARATOR = '\x00'
-  const groups: Record<string, {
-    count: number;
-    cached_tokens: number;
-    input_tokens: number;
-    output_tokens: number;
-    total_tokens: number;
-    latency: number;
-    values: string[];
-  }> = {}
-
-  for (const log of list) {
-    let key: string
-    let values: string[]
-    if (Array.isArray(dimensions)) {
-      values = dimensions.map(d => String((log as any)[d] || 'unknown'))
-      key = values.join(SEPARATOR)
-    } else {
-      values = [String((log as any)[dimensions] || 'unknown')]
-      key = values[0]
+    const inc = (g: AggregationResult) => {
+      g.count++
+      g.cached_tokens += log.cached_tokens || 0
+      g.input_tokens += log.input_tokens || 0
+      g.output_tokens += log.output_tokens || 0
+      g.total_tokens += log.total_tokens || 0
+      g.latency += log.latency_ms || 0
     }
 
-    if (!groups[key]) {
-      groups[key] = { 
-        count: 0,
-        cached_tokens: 0,
-        input_tokens: 0,
-        output_tokens: 0,
-        total_tokens: 0,
-        latency: 0,
-        values: values,
-      }
-    }
-    groups[key].count++
-    groups[key].cached_tokens += log.cached_tokens || 0
-    groups[key].input_tokens += log.input_tokens || 0
-    groups[key].output_tokens += log.output_tokens || 0
-    groups[key].total_tokens += log.total_tokens || 0
-    groups[key].latency += log.latency_ms || 0
-  }
-
-  return Object.entries(groups)
-    .map(([key, value]) => {
-      const item: any = {
-        count: value.count,
-        cached_tokens: value.cached_tokens,
-        input_tokens: value.input_tokens,
-        output_tokens: value.output_tokens,
-        total_tokens: value.total_tokens,
-        avg_latency: value.count > 0 ? value.latency / value.count : 0
-      }
-      if (Array.isArray(dimensions)) {
-        dimensions.forEach((d, i) => {
-          item[d] = value.values[i]
-        })
-      } else {
-        item[dimensions] = value.values[0]
-      }
-      return item
+    const make = (): AggregationResult => ({
+      count: 0, cached_tokens: 0, input_tokens: 0, output_tokens: 0, total_tokens: 0, latency: 0
     })
-    .sort((a, b) => b.count - a.count)
+
+    if (!sourceGroups[log.source]) sourceGroups[log.source] = { ...make(), source: log.source }
+    inc(sourceGroups[log.source])
+
+    const firstIP = (log.client_ips || 'unknown').split(',')[0].trim()
+    if (!ipGroups[firstIP]) ipGroups[firstIP] = { ...make(), client_ips: firstIP, full_chain: log.client_ips }
+    inc(ipGroups[firstIP])
+
+    if (!callMethodGroups[log.call_method]) callMethodGroups[log.call_method] = { ...make(), call_method: log.call_method }
+    inc(callMethodGroups[log.call_method])
+
+    if (!keyGroups[log.key_name]) keyGroups[log.key_name] = { ...make(), key_name: log.key_name }
+    inc(keyGroups[log.key_name])
+
+    if (!modelGroups[log.model]) modelGroups[log.model] = { ...make(), model: log.model }
+    inc(modelGroups[log.model])
+
+    if (!providerGroups[log.provider_name]) providerGroups[log.provider_name] = { ...make(), provider_name: log.provider_name }
+    inc(providerGroups[log.provider_name])
+
+    const pmKey = [log.provider_name, log.actual_model_name].join(SEPARATOR)
+    if (!providerModelGroups[pmKey]) {
+      providerModelGroups[pmKey] = { ...make(), provider_name: log.provider_name, actual_model_name: log.actual_model_name }
+    }
+    inc(providerModelGroups[pmKey])
+  }
+
+  const toResult = (groups: Record<string, AggregationResult>) => 
+    Object.values(groups)
+      .map(g => ({ ...g, avg_latency: g.count > 0 ? g.latency / g.count : 0 }))
+      .sort((a, b) => b.count - a.count)
+
+  sourceStats.value = toResult(sourceGroups)
+  ipStats.value = toResult(ipGroups as any)
+  callMethodStats.value = toResult(callMethodGroups)
+  keyStats.value = toResult(keyGroups)
+  modelStats.value = toResult(modelGroups)
+  providerStats.value = toResult(providerGroups)
+  providerModelStats.value = toResult(providerModelGroups)
 }
 
 onMounted(() => {
@@ -420,7 +398,10 @@ async function fetchLogs() {
       params.end_date = dateRange.value[1]
     }
     const res = await api.get('/usage/model-logs', { params })
-    logs.value = res.data.logs || []
+    const data = res.data.logs || []
+    logs.value = data
+    currentPage.value = 1
+    computeAllAggregations(data)
   } catch (e) {
     console.error(e)
   } finally {
@@ -452,14 +433,5 @@ function copyError(errorMsg: string) {
 .error-text { 
   color: var(--el-color-danger); 
   font-size: 12px;
-}
-</style>
-
-<style>
-.date-range-picker {
-  width: 160px !important;
-}
-.date-range-picker .el-input__wrapper {
-  width: 160px !important;
 }
 </style>
