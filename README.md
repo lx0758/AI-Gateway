@@ -3,32 +3,34 @@
 
 **此项目是作者学习大模型接口的副产物，最早的核心功能仅仅是实现 OpenAI/Anthropic API 的相互转换。**
 **目前转换功能能处理文字内容（包括 “context”、“thinking”、“tools”），多模态转换从未尝试过。**
+**MCP服务建议添加适合公用的远程服务，虽然能够支持 `Local` MCP，但内存需求会变大。**
 
-统一的 AI 服务网关平台。聚合多个大模型厂商的 API，未来将扩展支持 MCP/ACP 等协议代理，打造多协议 AI 服务接入中心。
+统一的 AI 服务网关平台。聚合多个大模型厂商的 API，支持 MCP/ACP 协议代理，多协议 AI 服务接入中心。
 
 ## 特性
 
-- **多协议网关**: 当前支持 OpenAI/Anthropic API 代理，未来将支持 MCP 等协议
+- **多协议网关**: 当前支持 OpenAI/Anthropic API 代理，已经支持 MCP 协议
 - **OpenAI 兼容 API**: 暴露标准的 `/openai/v1/chat/completions` 和 `/openai/v1/models` 接口
 - **Anthropic 兼容 API**: 暴露标准的 `/anthropic/v1/messages` 和 `/anthropic/v1/models` 接口
+- **MCP 兼容 API**: 暴露标准的 `/mcp/v1` 接口
 - **多厂商支持**: 支持多种 AI 服务厂商（OpenAI、Anthropic双协议兼容），可轻松扩展
 - **双协议支持**：每个厂商可同时配置 OpenAI 和 Anthropic BaseURL
 - **格式自动转换**: OpenAI ↔ Anthropic 请求/响应格式自动转换
 - **模型映射**：用户使用统一的模型名称，无需关心后端实际模型
 - ~~**智能路由**: 支持多厂商轮询、故障转移和格式匹配优化~~
 - **用量统计**: 请求日志和用量仪表盘，实时监控服务调用
-- **API Key 管理**: 生成和管理网关 API Key，支持模型访问权限控制
+- **API Key 管理**: 生成和管理网关 API Key，支持模型、MCP访问权限控制
 - **Web 控制台**: Vue 3 管理界面，支持中英文、暗色模式
 
 ## 外观
 
-| 仪表盘 | 厂商列表 | 厂商模型 | 模型映射 | 密钥管理 |
-| --- | --- | --- | --- | --- |
-| ![仪表盘](docs/仪表盘.png) | ![厂商列表](docs/厂商列表.png) | ![厂商模型](docs/厂商模型.png) | ![模型映射](docs/模型映射.png) | ![密钥管理](docs/密钥管理.png) |
-
-| 日志统计 | 日志统计 | 日志统计 |
-| --- | --- | --- |
-| ![日志统计](docs/日志统计_1.png) | ![日志统计](docs/日志统计_2.png) | ![日志统计](docs/日志统计_3.png) |
+| 仪表盘 | 厂商列表 | 厂商模型 | 模型映射 |
+| --- | --- | --- | --- |
+| ![仪表盘](images/仪表盘.png) | ![厂商列表](images/厂商列表.png) | ![厂商模型](images/厂商模型.png) | ![模型映射](images/模型映射.png) |
+| 秘钥管理 | 秘钥详情 | MCP服务 | MCP详情 |
+| ![秘钥管理](images/秘钥管理.png) | ![秘钥详情](images/秘钥详情.png) | ![MCP服务](images/MCP服务.png) | ![MCP详情](images/MCP详情.png) |
+| 模型用量-1 | 模型用量-2 | 模型用量-3 | MCP用量-1 |
+| ![模型用量_1](images/模型用量_1.png) | ![模型用量_2](images/模型用量_2.png) | ![模型用量_3](images/模型用量_3.png) | ![MCP用量_1](images/MCP用量_1.png) |
 
 ## 工作原理
 
@@ -286,47 +288,52 @@ POST /mcp/v1                       # MCP JSON-RPC 2.0 端点
 ### 管理接口 (需要登录)
 
 ```
-POST /api/v1/auth/login     # 登录
-POST /api/v1/auth/logout    # 登出
-GET  /api/v1/auth/me        # 当前用户
-PUT  /api/v1/auth/password  # 修改密码
+POST /api/v1/auth/login                 # 登录
+POST /api/v1/auth/logout                # 登出
+GET  /api/v1/auth/me                    # 当前用户
+PUT  /api/v1/auth/password              # 修改密码
 
-GET  /api/v1/providers      # 厂商列表
-POST /api/v1/providers      # 创建厂商
-PUT  /api/v1/providers/:id  # 更新厂商
-DELETE /api/v1/providers/:id # 删除厂商
-POST /api/v1/providers/:id/test  # 测试连接
-POST /api/v1/providers/:id/sync  # 同步模型
+GET  /api/v1/providers                  # 厂商列表
+POST /api/v1/providers                  # 创建厂商
+PUT  /api/v1/providers/:id              # 更新厂商
+DELETE /api/v1/providers/:id            # 删除厂商
+POST /api/v1/providers/:id/test         # 测试连接
+POST /api/v1/providers/:id/sync         # 同步模型
 
-GET  /api/v1/aliases        # 模型别名列表
-POST /api/v1/aliases        # 创建别名
-PUT  /api/v1/aliases/:id    # 更新别名
-DELETE /api/v1/aliases/:id  # 删除别名
+GET  /api/v1/aliases                    # 模型别名列表
+POST /api/v1/aliases                    # 创建别名
+PUT  /api/v1/aliases/:id                # 更新别名
+DELETE /api/v1/aliases/:id              # 删除别名
 
-GET  /api/v1/api-keys       # API Key 列表
-POST /api/v1/api-keys       # 创建 API Key
-PUT  /api/v1/api-keys/:id   # 更新 API Key
-DELETE /api/v1/api-keys/:id # 删除 API Key
-POST /api/v1/api-keys/:id/reset # 重置 API Key
-GET  /api/v1/api-keys/:id/models # 获取 Key 的模型权限
-GET  /api/v1/api-keys/:id/mcp-tools # 获取 Key 的 MCP 工具权限
-PUT  /api/v1/api-keys/:id/mcp-tools # 更新 Key 的 MCP 工具权限
-GET  /api/v1/api-keys/:id/mcp-resources # 获取 Key 的 MCP 资源权限
-PUT  /api/v1/api-keys/:id/mcp-resources # 更新 Key 的 MCP 资源权限
-GET  /api/v1/api-keys/:id/mcp-prompts # 获取 Key 的 MCP 提示词权限
-PUT  /api/v1/api-keys/:id/mcp-prompts # 更新 Key 的 MCP 提示词权限
+GET  /api/v1/keys                       # API Key 列表
+POST /api/v1/keys                       # 创建 API Key
+PUT  /api/v1/keys/:id                   # 更新 API Key
+DELETE /api/v1/keys/:id                 # 删除 API Key
+POST /api/v1/keys/:id/reset             # 重置 API Key
+GET  /api/v1/keys/:id/models            # 获取 Key 的模型权限
+PUT  /api/v1/keys/:id/models            # 更新 Key 的模型权限
+DELETE  /api/v1/keys/:id/models         # 全部允许 Key 的模型权限
+GET  /api/v1/keys/:id/mcp-tools         # 获取 Key 的 MCP 工具权限
+PUT  /api/v1/keys/:id/mcp-tools         # 更新 Key 的 MCP 工具权限
+DELETE  /api/v1/keys/:id/mcp-tools      # 全部允许 Key 的 MCP 工具权限
+GET  /api/v1/keys/:id/mcp-resources     # 获取 Key 的 MCP 资源权限
+PUT  /api/v1/keys/:id/mcp-resources     # 更新 Key 的 MCP 资源权限
+DELETE  /api/v1/keys/:id/mcp-resources  # 全部允许 Key 的 MCP 资源权限
+GET  /api/v1/keys/:id/mcp-prompts       # 获取 Key 的 MCP 提示词权限
+PUT  /api/v1/keys/:id/mcp-prompts       # 更新 Key 的 MCP 提示词权限
+DELETE  /api/v1/keys/:id/mcp-prompts    # 全部允许 Key 的 MCP 提示词权限
 
-GET  /api/v1/mcp-services   # MCP 服务列表
-POST /api/v1/mcp-services   # 创建 MCP 服务
-GET  /api/v1/mcp-services/:id # 获取 MCP 服务
-PUT  /api/v1/mcp-services/:id # 更新 MCP 服务
-DELETE /api/v1/mcp-services/:id # 删除 MCP 服务
-POST /api/v1/mcp-services/:id/test # 测试 MCP 服务连接
-POST /api/v1/mcp-services/:id/sync # 同步 MCP 服务资源
+GET  /api/v1/mcp-services               # MCP 服务列表
+POST /api/v1/mcp-services               # 创建 MCP 服务
+GET  /api/v1/mcp-services/:id           # 获取 MCP 服务
+PUT  /api/v1/mcp-services/:id           # 更新 MCP 服务
+DELETE /api/v1/mcp-services/:id         # 删除 MCP 服务
+POST /api/v1/mcp-services/:id/test      # 测试 MCP 服务连接
+POST /api/v1/mcp-services/:id/sync      # 同步 MCP 服务资源
 
-GET  /api/v1/usage/stats    # 用量统计
-GET  /api/v1/usage/logs     # 用量日志
-GET  /api/v1/usage/dashboard # 仪表盘数据
+GET  /api/v1/usage/dashboard            # 仪表盘数据
+GET  /api/v1/usage/model-logs           # 用量统计
+GET  /api/v1/usage/mcp-logs             # 用量日志
 ```
 
 ## 使用示例
@@ -384,30 +391,6 @@ curl http://localhost:18080/mcp/v1 \
     },
     "id": 3
   }'
-
-# 创建 MCP 服务 (管理接口)
-curl http://localhost:18080/api/v1/mcp-services \
-  -H "Cookie: session-cookie" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Filesystem MCP",
-    "symbol": "fs",
-    "type": "local",
-    "command": "mcp-filesystem-server",
-    "enabled": true
-  }'
-
-# 同步 MCP 服务资源
-curl -X POST http://localhost:18080/api/v1/mcp-services/1/sync \
-  -H "Cookie: session-cookie"
-
-# 配置 API Key 的 MCP 工具权限
-curl -X PUT http://localhost:18080/api/v1/api-keys/1/mcp-tools \
-  -H "Cookie: session-cookie" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tool_ids": [1, 2, 3]
-  }'
 ```
 
 ## 项目结构
@@ -426,10 +409,13 @@ ai-gateway/
 │   ├── internal/
 │   │   ├── config/             # 配置加载
 │   │   ├── handler/            # HTTP 处理器
+│   │   ├── mcp/                # MCP实现
 │   │   ├── middleware/         # 中间件
 │   │   ├── model/              # 数据模型
 │   │   ├── provider/           # 厂商实现
 │   │   ├── router/             # 模型路由
+│   │   ├── utils/              # 工具函数
+│   ├── res/                    # 静态资源
 │   └── go.mod
 └── openspec/                   # 设计文档
 ```
