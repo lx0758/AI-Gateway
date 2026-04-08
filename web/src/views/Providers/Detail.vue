@@ -28,10 +28,10 @@
 
     <el-card v-loading="loading">
       <template #header>{{ t('provider.models') }}</template>
-      <el-table :data="models" stripe @row-click="showModelDetail" @selection-change="handleSelectionChange" class="clickable-table">
+      <el-table :data="models" stripe @row-click="showModelDetail" @selection-change="handleSelectionChange" class="clickable-table" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="model_id" :label="t('provider.modelId')" width="180" />
-        <el-table-column prop="display_name" :label="t('common.name')" />
+        <el-table-column prop="model_id" :label="t('provider.modelId')" width="180" sortable />
+        <el-table-column prop="display_name" :label="t('common.name')" sortable />
         <el-table-column :label="t('provider.capabilities')" width="200">
           <template #default="{ row }">
             <div class="capability-tags">
@@ -41,7 +41,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column :label="t('provider.contextWindow')" width="150" >
+        <el-table-column :label="t('provider.contextWindow')" width="150" prop="context_window" sortable>
           <template #default="{ row }">
             <el-tooltip v-if="row.context_window > 0 || row.max_output > 0" 
               :content="`${row.context_window.toLocaleString()} / ${row.max_output.toLocaleString()}`" 
@@ -51,22 +51,22 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('provider.price')" width="100" >
+        <el-table-column :label="t('provider.price')" width="100" sortable :sort-method="sortByPrice">
           <template #default="{ row }">
             {{ row.input_price }} / {{ row.output_price }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('provider.source')" width="100">
+        <el-table-column :label="t('provider.source')" width="100" prop="source" sortable>
           <template #default="{ row }">
             <el-tag :type="row.source === 'manual' ? 'warning' : 'info'" size="small">
               {{ row.source === 'manual' ? 'Manual' : 'Sync' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="100">
+        <el-table-column :label="t('common.status')" width="100" prop="is_available" sortable>
           <template #default="{ row }">
             <el-tag :type="row.is_available ? 'success' : 'danger'" size="small">
-              {{ row.is_available ? t('common.enabled') : t('common.disabled') }}
+              {{ row.is_available ? t('provider.available') : t('provider.unavailable') }}
             </el-tag>
           </template>
         </el-table-column>
@@ -187,6 +187,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { formatDateTime, formatContextDisplay } from '@/utils/format'
+import { getSortConfig, setSortConfig } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -202,6 +203,7 @@ const detailModel = ref<any>(null)
 const submitting = ref(false)
 const editingModel = ref<any>(null)
 const formRef = ref()
+const defaultSort = getSortConfig('provider-models', 'model_id')
 
 const providerId = route.params.id as string
 
@@ -230,7 +232,7 @@ async function fetchProvider() {
   try {
     const res = await api.get(`/providers/${providerId}`)
     provider.value = res.data.provider
-    models.value = (res.data.provider?.models || []).sort((a: any, b: any) => a.model_id.localeCompare(b.model_id))
+    models.value = res.data.provider?.models || []
   } catch (e) {
     console.error(e)
   } finally {
@@ -335,6 +337,18 @@ async function handleBatchDelete() {
   } catch (e: any) {
     ElMessage.error(e.response?.data?.error || t('common.error'))
   }
+}
+
+function handleSortChange({ prop, order }: any) {
+  if (prop && order) {
+    setSortConfig('provider-models', { prop, order })
+  }
+}
+
+function sortByPrice(a: any, b: any): number {
+  const priceA = (a.input_price || 0) + (a.output_price || 0)
+  const priceB = (b.input_price || 0) + (b.output_price || 0)
+  return priceA - priceB
 }
 </script>
 

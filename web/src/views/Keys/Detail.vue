@@ -33,11 +33,11 @@
       <el-tabs v-model="activeTab">
         <el-tab-pane :label="t('key.model')" name="models">
           <div class="tab-actions">
-            <el-button @click="clearModels" :loading="clearingModels">{{ t('key.allowAll') }}</el-button>
+            <el-button @click="clearModels" :loading="clearingModels" :disabled="!key?.enabled">{{ t('key.allowAll') }}</el-button>
           </div>
-          <el-table :data="models" stripe v-loading="modelsLoading">
-            <el-table-column prop="name" :label="t('models.name')" width="200" />
-            <el-table-column :label="t('models.mappingCount')" width="120">
+          <el-table :data="models" stripe v-loading="modelsLoading" :default-sort="modelsDefaultSort" @sort-change="(e: any) => handleSortChange('key-models', e)">
+            <el-table-column prop="name" :label="t('models.name')" width="200" sortable />
+            <el-table-column :label="t('models.mappingCount')" width="120" prop="mapping_count" sortable>
               <template #default="{ row }">
                 {{ row.mapping_count || 0 }}
               </template>
@@ -52,7 +52,7 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('models.contextWindow')" width="150">
+            <el-table-column :label="t('models.contextWindow')" width="150" prop="min_context_window" sortable>
               <template #default="{ row }">
                 <el-tooltip v-if="row.min_context_window > 0 || row.min_max_output > 0"
                   :content="`${row.min_context_window?.toLocaleString() || 0} / ${row.min_max_output?.toLocaleString() || 0}`"
@@ -62,9 +62,15 @@
                 <span v-else>-</span>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.status')" width="180">
+            <el-table-column :label="t('common.status')" width="180" prop="selected" sortable>
               <template #default="{ row }">
-                <el-radio-group v-model="row.selected" @change="toggleModel(row)">
+                <el-tooltip v-if="!key?.enabled" :content="t('key.keyDisabled')" placement="top">
+                  <el-radio-group v-model="row.selected" disabled>
+                    <el-radio :label="false">{{ t('key.default') }}</el-radio>
+                    <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
+                  </el-radio-group>
+                </el-tooltip>
+                <el-radio-group v-else v-model="row.selected" @change="toggleModel(row)">
                   <el-radio :label="false">{{ t('key.default') }}</el-radio>
                   <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
                 </el-radio-group>
@@ -75,15 +81,15 @@
 
         <el-tab-pane :label="t('mcp.tools')" name="tools">
           <div class="tab-actions">
-            <el-button @click="clearTools" :loading="clearingTools">{{ t('key.allowAll') }}</el-button>
+            <el-button @click="clearTools" :loading="clearingTools" :disabled="!key?.enabled">{{ t('key.allowAll') }}</el-button>
           </div>
-          <el-table :data="tools" stripe v-loading="toolsLoading">
-            <el-table-column :label="t('mcp.toolName')" width="300" >
+          <el-table :data="tools" stripe v-loading="toolsLoading" :default-sort="toolsDefaultSort" @sort-change="(e: any) => handleSortChange('key-tools', e)">
+            <el-table-column :label="t('mcp.toolName')" width="300" prop="name" sortable>
               <template #default="{ row }">
                 <div>{{ row.mcp_name }}.{{ row.name }}</div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('mcp.description')">
+            <el-table-column :label="t('mcp.description')" prop="description" sortable>
               <template #default="{ row }">
                 <div class="description-cell">
                   <div class="description-text" :class="{ expanded: row._expanded }">
@@ -100,9 +106,15 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.status')" width="180">
+            <el-table-column :label="t('common.status')" width="180" prop="selected" sortable>
               <template #default="{ row }">
-                <el-radio-group v-model="row.selected" @change="toggleTool(row)">
+                <el-tooltip v-if="!key?.enabled" :content="t('key.keyDisabled')" placement="top">
+                  <el-radio-group v-model="row.selected" disabled>
+                    <el-radio :label="false">{{ t('key.default') }}</el-radio>
+                    <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
+                  </el-radio-group>
+                </el-tooltip>
+                <el-radio-group v-else v-model="row.selected" @change="toggleTool(row)">
                   <el-radio :label="false">{{ t('key.default') }}</el-radio>
                   <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
                 </el-radio-group>
@@ -113,15 +125,15 @@
 
         <el-tab-pane :label="t('mcp.resources')" name="resources">
           <div class="tab-actions">
-            <el-button @click="clearResources" :loading="clearingResources">{{ t('key.allowAll') }}</el-button>
+            <el-button @click="clearResources" :loading="clearingResources" :disabled="!key?.enabled">{{ t('key.allowAll') }}</el-button>
           </div>
-          <el-table :data="resources" stripe v-loading="resourcesLoading">
-            <el-table-column :label="t('mcp.resourceName')" width="300" >
+          <el-table :data="resources" stripe v-loading="resourcesLoading" :default-sort="resourcesDefaultSort" @sort-change="(e: any) => handleSortChange('key-resources', e)">
+            <el-table-column :label="t('mcp.resourceName')" width="300" prop="name" sortable>
               <template #default="{ row }">
                 <div>{{ row.mcp_name }}.{{ row.name }}</div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('mcp.description')">
+            <el-table-column :label="t('mcp.description')" prop="description" sortable>
               <template #default="{ row }">
                 <div class="description-cell">
                   <div class="description-text" :class="{ expanded: row._expanded }">
@@ -138,11 +150,17 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="uri" :label="t('mcp.resourceUri')" width="300" />
-            <el-table-column prop="mime_type" label="MIME Type" width="200" />
-            <el-table-column :label="t('common.status')" width="180">
+            <el-table-column prop="uri" :label="t('mcp.resourceUri')" width="300" sortable />
+            <el-table-column prop="mime_type" label="MIME Type" width="200" sortable />
+            <el-table-column :label="t('common.status')" width="180" prop="selected" sortable>
               <template #default="{ row }">
-                <el-radio-group v-model="row.selected" @change="toggleResource(row)">
+                <el-tooltip v-if="!key?.enabled" :content="t('key.keyDisabled')" placement="top">
+                  <el-radio-group v-model="row.selected" disabled>
+                    <el-radio :label="false">{{ t('key.default') }}</el-radio>
+                    <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
+                  </el-radio-group>
+                </el-tooltip>
+                <el-radio-group v-else v-model="row.selected" @change="toggleResource(row)">
                   <el-radio :label="false">{{ t('key.default') }}</el-radio>
                   <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
                 </el-radio-group>
@@ -153,15 +171,15 @@
 
         <el-tab-pane :label="t('mcp.prompts')" name="prompts">
           <div class="tab-actions">
-            <el-button @click="clearPrompts" :loading="clearingPrompts">{{ t('key.allowAll') }}</el-button>
+            <el-button @click="clearPrompts" :loading="clearingPrompts" :disabled="!key?.enabled">{{ t('key.allowAll') }}</el-button>
           </div>
-          <el-table :data="prompts" stripe v-loading="promptsLoading">
-            <el-table-column :label="t('mcp.promptName')" width="300" >
+          <el-table :data="prompts" stripe v-loading="promptsLoading" :default-sort="promptsDefaultSort" @sort-change="(e: any) => handleSortChange('key-prompts', e)">
+            <el-table-column :label="t('mcp.promptName')" width="300" prop="name" sortable>
               <template #default="{ row }">
                 <div>{{ row.mcp_name }}.{{ row.name }}</div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('mcp.description')">
+            <el-table-column :label="t('mcp.description')" prop="description" sortable>
               <template #default="{ row }">
                 <div class="description-cell">
                   <div class="description-text" :class="{ expanded: row._expanded }">
@@ -178,9 +196,15 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.status')" width="180">
+            <el-table-column :label="t('common.status')" width="180" prop="selected" sortable>
               <template #default="{ row }">
-                <el-radio-group v-model="row.selected" @change="togglePrompt(row)">
+                <el-tooltip v-if="!key?.enabled" :content="t('key.keyDisabled')" placement="top">
+                  <el-radio-group v-model="row.selected" disabled>
+                    <el-radio :label="false">{{ t('key.default') }}</el-radio>
+                    <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
+                  </el-radio-group>
+                </el-tooltip>
+                <el-radio-group v-else v-model="row.selected" @change="togglePrompt(row)">
                   <el-radio :label="false">{{ t('key.default') }}</el-radio>
                   <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
                 </el-radio-group>
@@ -210,6 +234,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { CopyDocument } from '@element-plus/icons-vue'
 import api from '@/api'
 import { formatContextDisplay } from '@/utils/format'
+import { getSortConfig, setSortConfig } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -237,6 +262,11 @@ const clearingModels = ref(false)
 const clearingTools = ref(false)
 const clearingResources = ref(false)
 const clearingPrompts = ref(false)
+
+const modelsDefaultSort = getSortConfig('key-models', 'name')
+const toolsDefaultSort = getSortConfig('key-tools', 'name')
+const resourcesDefaultSort = getSortConfig('key-resources', 'name')
+const promptsDefaultSort = getSortConfig('key-prompts', 'name')
 
 onMounted(() => {
   fetchKey()
@@ -458,6 +488,12 @@ function isLongText(text: string): boolean {
   if (!text) return false
   const lines = text.split('\n')
   return lines.length > 5 || text.length > 300
+}
+
+function handleSortChange(key: string, { prop, order }: any) {
+  if (prop && order) {
+    setSortConfig(key, { prop, order })
+  }
 }
 </script>
 

@@ -10,35 +10,35 @@
           </div>
         </div>
       </template>
-      <el-table :data="services" stripe v-loading="loading" @selection-change="handleSelectionChange">
+      <el-table :data="services" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="name" :label="t('mcp.name')" width="200" />
-        <el-table-column :label="t('mcp.type')">
+        <el-table-column prop="name" :label="t('mcp.name')" width="200" sortable />
+        <el-table-column :label="t('mcp.type')" prop="type" sortable>
           <template #default="{ row }">
             <el-tag :type="row.type === 'remote' ? 'success' : 'info'">{{ row.type }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('mcp.tools')">
+        <el-table-column :label="t('mcp.tools')" prop="tool_count" sortable>
           <template #default="{ row }">
             {{ row.tool_count || 0 }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('mcp.resources')">
+        <el-table-column :label="t('mcp.resources')" prop="resource_count" sortable>
           <template #default="{ row }">
             {{ row.resource_count || 0 }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('mcp.prompts')">
+        <el-table-column :label="t('mcp.prompts')" prop="prompt_count" sortable>
           <template #default="{ row }">
             {{ row.prompt_count || 0 }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="100">
+        <el-table-column :label="t('common.status')" width="100" prop="enabled" sortable>
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
         </el-table-column>
-        <el-table-column prop="last_sync_at" :label="t('mcp.lastSync')" width="180">
+        <el-table-column prop="last_sync_at" :label="t('mcp.lastSync')" width="180" sortable :sort-method="(a: any, b: any) => sortByDate(a, b, 'last_sync_at')">
           <template #default="{ row }">
             {{ row.last_sync_at ? new Date(row.last_sync_at).toLocaleString() : '-' }}
           </template>
@@ -91,6 +91,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
+import { getSortConfig, setSortConfig, sortByDate } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -103,6 +104,7 @@ const editingId = ref<number | null>(null)
 const submitting = ref(false)
 const formRef = ref()
 const selectedIds = ref<number[]>([])
+const defaultSort = getSortConfig('mcps', 'name')
 
 const form = reactive({
   name: '',
@@ -258,6 +260,12 @@ async function handleBatchDelete() {
     if (e !== 'cancel') {
       ElMessage.error(e.response?.data?.error || t('common.error'))
     }
+  }
+}
+
+function handleSortChange({ prop, order }: any) {
+  if (prop && order) {
+    setSortConfig('mcps', { prop, order })
   }
 }
 </script>

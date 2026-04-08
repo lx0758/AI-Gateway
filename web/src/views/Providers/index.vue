@@ -10,9 +10,9 @@
           </div>
         </div>
       </template>
-      <el-table :data="providers" stripe v-loading="loading" @selection-change="handleSelectionChange">
+      <el-table :data="providers" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="name" :label="t('provider.name')" width="220" />
+        <el-table-column prop="name" :label="t('provider.name')" width="220" sortable />
         <el-table-column :label="t('provider.apiStyles')">
           <template #default="{ row }">
             <el-tag v-if="row.openai_base_url" type="success" style="margin-right: 4px">OpenAI</el-tag>
@@ -20,12 +20,12 @@
             <span v-if="!row.openai_base_url && !row.anthropic_base_url">-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('provider.models')" width="120">
+        <el-table-column :label="t('provider.models')" width="120" prop="models" sortable :sort-method="(a: any, b: any) => sortByArrayLength(a, b, 'models')">
           <template #default="{ row }">
             {{ row.models?.length || 0 }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="120">
+        <el-table-column :label="t('common.status')" width="120" prop="enabled" sortable>
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
@@ -69,6 +69,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
+import { getSortConfig, setSortConfig, sortByArrayLength } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -81,6 +82,7 @@ const dialogLoading = ref(false)
 const editingId = ref<number | null>(null)
 const submitting = ref(false)
 const formRef = ref()
+const defaultSort = getSortConfig('providers', 'name')
 
 const form = reactive({
   name: '',
@@ -110,7 +112,7 @@ async function fetchProviders() {
   loading.value = true
   try {
     const res = await api.get('/providers')
-    providers.value = (res.data.providers || []).sort((a: any, b: any) => a.name.localeCompare(b.name))
+    providers.value = res.data.providers || []
   } finally {
     loading.value = false
   }
@@ -196,6 +198,12 @@ async function toggleEnabled(row: any) {
 
 function goDetail(id: number) {
   router.push(`/providers/${id}`)
+}
+
+function handleSortChange({ prop, order }: any) {
+  if (prop && order) {
+    setSortConfig('providers', { prop, order })
+  }
 }
 </script>
 

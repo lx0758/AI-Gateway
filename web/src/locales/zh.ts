@@ -112,7 +112,10 @@ export default {
     addModel: '添加模型',
     inputPrice: '输入价格',
     outputPrice: '输出价格',
-    capabilities: '能力特性'
+    capabilities: '能力特性',
+    providerDisabled: '厂商已禁用',
+    available: '可用',
+    unavailable: '不可用'
   },
   key: {
     name: '密钥名称',
@@ -128,7 +131,8 @@ export default {
     resetSuccess: '密钥重置成功，请立即保存新的密钥值',
     default: '默认',
     allowOnly: '允许',
-    allowAll: '全部允许'
+    allowAll: '全部允许',
+    keyDisabled: '密钥已禁用'
   },
   usage: {
     stats: '统计',
@@ -188,7 +192,8 @@ export default {
     mappings: '映射列表',
     addMapping: '添加映射',
     editMapping: '编辑映射',
-    providerType: '厂商类型'
+    providerType: '厂商类型',
+    modelDisabled: '模型已禁用'
   },
   mcp: {
     services: 'MCP服务',
@@ -228,7 +233,8 @@ export default {
     copyJson: '复制 JSON',
     warning: '警告',
     confirmDelete: '确定要删除此 MCP服务吗？相关的工具、资源和提示词也会被删除。',
-    confirmBatchDelete: '确定要删除选中的 {count} 个MCP服务吗？相关的工具、资源和提示词也会被删除。'
+    confirmBatchDelete: '确定要删除选中的 {count} 个MCP服务吗？相关的工具、资源和提示词也会被删除。',
+    serviceDisabled: '服务已禁用'
   },
   mcpUsage: {
     stats: '统计',

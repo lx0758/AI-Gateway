@@ -111,7 +111,10 @@ export default {
     addModel: 'Add Model',
     inputPrice: 'Input Price',
     outputPrice: 'Output Price',
-    capabilities: 'Capabilities'
+    capabilities: 'Capabilities',
+    providerDisabled: 'Provider is disabled',
+    available: 'Available',
+    unavailable: 'Unavailable'
   },
   key: {
     name: 'Key Name',
@@ -127,7 +130,8 @@ export default {
     resetSuccess: 'Key reset successful. Please save the new key immediately',
     default: 'Default',
     allowOnly: 'Allow',
-    allowAll: 'Allow All'
+    allowAll: 'Allow All',
+    keyDisabled: 'Key is disabled'
   },
   usage: {
     stats: 'Statistics',
@@ -187,7 +191,8 @@ export default {
     mappings: 'Mappings',
     addMapping: 'Add Mapping',
     editMapping: 'Edit Mapping',
-    providerType: 'Provider Type'
+    providerType: 'Provider Type',
+    modelDisabled: 'Model is disabled'
   },
   mcp: {
     services: 'MCP Services',
@@ -227,6 +232,7 @@ export default {
     copyJson: 'Copy JSON',
     warning: 'Warning',
     confirmDelete: 'Are you sure you want to delete this MCP service? Associated tools, resources, and prompts will also be deleted.',
-    confirmBatchDelete: 'Are you sure you want to delete {count} selected MCP services? Associated tools, resources, and prompts will also be deleted.'
+    confirmBatchDelete: 'Are you sure you want to delete {count} selected MCP services? Associated tools, resources, and prompts will also be deleted.',
+    serviceDisabled: 'Service is disabled'
   }
 }

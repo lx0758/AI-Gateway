@@ -68,7 +68,10 @@
         <el-table-column prop="weight" :label="t('modelMapping.weight')" width="120" />
         <el-table-column :label="t('common.status')" width="120">
           <template #default="{ row }">
-            <el-switch v-model="row.enabled" @change="toggleMappingEnabled(row)" />
+            <el-tooltip v-if="!modelEnabled" :content="t('models.modelDisabled')" placement="top">
+              <el-switch :model-value="false" disabled />
+            </el-tooltip>
+            <el-switch v-else v-model="row.enabled" @change="toggleMappingEnabled(row)" />
           </template>
         </el-table-column>
         <el-table-column :label="t('common.action')" width="120">

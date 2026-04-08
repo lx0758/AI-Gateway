@@ -11,10 +11,10 @@
         </div>
       </template>
 
-      <el-table :data="models" stripe v-loading="loading" @selection-change="handleSelectionChange">
+      <el-table :data="models" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="name" :label="t('models.name')" width="220" />
-        <el-table-column :label="t('models.mappingCount')" width="120">
+        <el-table-column prop="name" :label="t('models.name')" width="220" sortable />
+        <el-table-column :label="t('models.mappingCount')" width="120" prop="mapping_count" sortable>
           <template #default="{ row }">
             {{ row.mapping_count }}
           </template>
@@ -29,7 +29,7 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('models.tokenSummary')">
+        <el-table-column :label="t('models.tokenSummary')" prop="min_context_window" sortable>
           <template #default="{ row }">
             <el-tooltip v-if="row.min_context_window > 0 || row.min_max_output > 0" 
               :content="`${row.min_context_window.toLocaleString()} / ${row.min_max_output.toLocaleString()}`" 
@@ -39,7 +39,7 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="120">
+        <el-table-column :label="t('common.status')" width="120" prop="enabled" sortable>
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleModelEnabled(row)" />
           </template>
@@ -80,6 +80,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/api'
 import { formatContextDisplay } from '@/utils/format'
+import { getSortConfig, setSortConfig } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -103,6 +104,7 @@ const modelDialogVisible = ref(false)
 const submitting = ref(false)
 const editingModel = ref<Model | null>(null)
 const modelFormRef = ref()
+const defaultSort = getSortConfig('models', 'name')
 
 const modelForm = reactive({
   name: '',
@@ -197,6 +199,12 @@ async function toggleModelEnabled(model: Model) {
 
 function goDetail(id: number) {
   router.push(`/models/${id}`)
+}
+
+function handleSortChange({ prop, order }: any) {
+  if (prop && order) {
+    setSortConfig('models', { prop, order })
+  }
 }
 </script>
 
