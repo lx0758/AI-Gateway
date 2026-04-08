@@ -129,13 +129,13 @@ func (h *KeyHandler) List(c *gin.Context) {
 		model.DB.Model(&model.KeyMCPPrompt{}).Where("key_id = ?", k.ID).Count(&mcppromptsCount)
 
 		result[i] = keyListItemResponse{
-			ID:        k.ID,
-			Key:       maskedKey,
-			Name:      k.Name,
-			Enabled:   k.Enabled,
-			ExpiresAt: k.ExpiresAt,
-			CreatedAt: k.CreatedAt,
-			Models:    models,
+			ID:                k.ID,
+			Key:               maskedKey,
+			Name:              k.Name,
+			Enabled:           k.Enabled,
+			ExpiresAt:         k.ExpiresAt,
+			CreatedAt:         k.CreatedAt,
+			Models:            models,
 			MCPToolsCount:     int(mcpToolsCount),
 			MCPResourcesCount: int(mcpResourcesCount),
 			MCPPromptsCount:   int(mcppromptsCount),
@@ -329,7 +329,7 @@ func (h *KeyHandler) ListModels(c *gin.Context) {
 	}
 
 	var allModels []model.Model
-	if err := model.DB.Preload("Mappings.Provider").Where("enabled = ?", true).Find(&allModels).Error; err != nil {
+	if err := model.DB.Where("enabled = ?", true).Find(&allModels).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -344,13 +344,20 @@ func (h *KeyHandler) ListModels(c *gin.Context) {
 
 	result := make([]modelWithStatusResponse, len(allModels))
 	for i, m := range allModels {
-		minContext, minOutput := calculateMinTokens(m.Mappings)
-		supportsVision, supportsTools, supportsStream := calculateCapabilitiesIntersection(m.Mappings)
+		var mappings []model.ModelMapping
+		model.DB.Preload("Provider").
+			Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
+			Where("model_id = ? AND model_mappings.enabled = ?", m.ID, true).
+			Order("weight DESC").
+			Find(&mappings)
+
+		minContext, minOutput := calculateMinTokens(mappings)
+		supportsVision, supportsTools, supportsStream := calculateCapabilitiesIntersection(mappings)
 
 		result[i] = modelWithStatusResponse{
 			ID:               m.ID,
 			Name:             m.Name,
-			MappingCount:     len(m.Mappings),
+			MappingCount:     len(mappings),
 			MinContextWindow: minContext,
 			MinMaxOutput:     minOutput,
 			SupportsVision:   supportsVision,

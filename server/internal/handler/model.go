@@ -85,33 +85,40 @@ func NewModelHandler() *ModelHandler {
 
 func (h *ModelHandler) List(c *gin.Context) {
 	var models []model.Model
-	if err := model.DB.Preload("Mappings.Provider").Find(&models).Error; err != nil {
+	if err := model.DB.Find(&models).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	result := make([]modelResponse, len(models))
 	for i, a := range models {
-		mappings := make([]mappingResponse, len(a.Mappings))
-		for j, m := range a.Mappings {
-			mappings[j] = toMappingResponse(m)
+		var mappings []model.ModelMapping
+		model.DB.Preload("Provider").
+			Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
+			Where("model_id = ?", a.ID).
+			Order("weight DESC").
+			Find(&mappings)
+
+		mappingResponses := make([]mappingResponse, len(mappings))
+		for j, m := range mappings {
+			mappingResponses[j] = toMappingResponse(m)
 		}
 
-		minContext, minOutput := calculateMinTokens(a.Mappings)
-		supportsVision, supportsTools, supportsStream := calculateCapabilitiesIntersection(a.Mappings)
+		minContext, minOutput := calculateMinTokens(mappings)
+		supportsVision, supportsTools, supportsStream := calculateCapabilitiesIntersection(mappings)
 
 		result[i] = modelResponse{
 			ID:               a.ID,
 			Model:            a.Name,
 			Enabled:          a.Enabled,
-			MappingCount:     len(a.Mappings),
+			MappingCount:     len(mappings),
 			MinContextWindow: minContext,
 			MinMaxOutput:     minOutput,
 			SupportsVision:   supportsVision,
 			SupportsTools:    supportsTools,
 			SupportsStream:   supportsStream,
 			CreatedAt:        a.CreatedAt.Format("2006-01-02 15:04:05"),
-			Mappings:         mappings,
+			Mappings:         mappingResponses,
 		}
 	}
 
@@ -132,7 +139,11 @@ func (h *ModelHandler) Get(c *gin.Context) {
 	}
 
 	var mappings []model.ModelMapping
-	model.DB.Preload("Provider").Where("model_id = ?", m.ID).Order("weight DESC").Find(&mappings)
+	model.DB.Preload("Provider").
+		Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
+		Where("model_id = ?", m.ID).
+		Order("weight DESC").
+		Find(&mappings)
 
 	mappingResponses := make([]mappingResponse, len(mappings))
 	for j, mm := range mappings {
@@ -214,7 +225,11 @@ func (h *ModelHandler) Update(c *gin.Context) {
 	model.DB.First(&m, id)
 
 	var mappings []model.ModelMapping
-	model.DB.Preload("Provider").Where("model_id = ?", m.ID).Order("weight DESC").Find(&mappings)
+	model.DB.Preload("Provider").
+		Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
+		Where("model_id = ?", m.ID).
+		Order("weight DESC").
+		Find(&mappings)
 
 	mappingResponses := make([]mappingResponse, len(mappings))
 	for j, mm := range mappings {
@@ -259,7 +274,11 @@ func (h *ModelHandler) ListMappings(c *gin.Context) {
 	}
 
 	var mappings []model.ModelMapping
-	model.DB.Preload("Provider").Where("model_id = ?", m.ID).Order("weight DESC").Find(&mappings)
+	model.DB.Preload("Provider").
+		Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
+		Where("model_id = ?", m.ID).
+		Order("weight DESC").
+		Find(&mappings)
 
 	result := make([]mappingResponse, len(mappings))
 	for i, mm := range mappings {
@@ -492,6 +511,10 @@ func calculateMinTokens(mappings []model.ModelMapping) (int, int) {
 			continue
 		}
 
+		if m.Provider == nil || !m.Provider.Enabled {
+			continue
+		}
+
 		hasEnabled = true
 		var pm model.ProviderModel
 		if err := model.DB.Where("provider_id = ? AND model_id = ?", m.ProviderID, m.ProviderModelName).First(&pm).Error; err != nil {
@@ -525,6 +548,10 @@ func calculateCapabilitiesIntersection(mappings []model.ModelMapping) (bool, boo
 
 	for _, m := range mappings {
 		if !m.Enabled {
+			continue
+		}
+
+		if m.Provider == nil || !m.Provider.Enabled {
 			continue
 		}
 
