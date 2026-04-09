@@ -104,6 +104,7 @@ func (h *ModelHandler) List(c *gin.Context) {
 			mappingResponses[j] = toMappingResponse(m)
 		}
 
+		enabledCount := calculateEnabledCount(mappings)
 		minContext, minOutput := calculateMinTokens(mappings)
 		supportsVision, supportsTools, supportsStream := calculateCapabilitiesIntersection(mappings)
 
@@ -111,7 +112,7 @@ func (h *ModelHandler) List(c *gin.Context) {
 			ID:               a.ID,
 			Model:            a.Name,
 			Enabled:          a.Enabled,
-			MappingCount:     len(mappings),
+			MappingCount:     enabledCount,
 			MinContextWindow: minContext,
 			MinMaxOutput:     minOutput,
 			SupportsVision:   supportsVision,
@@ -499,6 +500,16 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 		Provider:          providerResp,
 		ModelInfo:         modelInfoResp,
 	}
+}
+
+func calculateEnabledCount(mappings []model.ModelMapping) int {
+	enabledCount := 0
+	for _, m := range mappings {
+		if m.Enabled {
+			enabledCount++
+		}
+	}
+	return enabledCount
 }
 
 func calculateMinTokens(mappings []model.ModelMapping) (int, int) {
