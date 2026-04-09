@@ -64,7 +64,7 @@
         <div class="section-title">
           <el-icon><Cpu /></el-icon>
           <span>{{ t('dashboard.modelUsage') || 'Model API 使用情况' }}</span>
-          <el-tag size="small" type="info">{{ t('dashboard.last7Days') || '过去7天' }}</el-tag>
+          <el-tag size="small" type="info">{{ t('dashboard.lastNDays', { n: stats.days }) || `过去${stats.days}天` }}</el-tag>
         </div>
       </template>
       <el-row :gutter="20" class="stats-row">
@@ -134,7 +134,7 @@
         <div class="section-title">
           <el-icon><Connection /></el-icon>
           <span>{{ t('dashboard.mcpUsage') || 'MCP 服务使用情况' }}</span>
-          <el-tag size="small" type="info">{{ t('dashboard.last7Days') || '过去7天' }}</el-tag>
+          <el-tag size="small" type="info">{{ t('dashboard.lastNDays', { n: stats.days }) || `过去${stats.days}天` }}</el-tag>
         </div>
       </template>
       <el-row :gutter="20" class="stats-row">
@@ -237,10 +237,12 @@ interface MCPUsage {
 }
 
 const stats = ref<{
+  days: number
   assets: AssetStats
   modelUsage: ModelUsage
   mcpUsage: MCPUsage
 }>({
+  days: 7,
   assets: {
     totalProviders: 0,
     activeProviders: 0,
@@ -357,6 +359,12 @@ function formatSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+function formatChartDate(date: string): string {
+  if (!date || date.length < 10) return date
+  const [year, month, day] = date.split('-')
+  return `${month}/${day}`
+}
+
 function getChartTheme() {
   return {
     textColor: isDark.value ? '#a3a3a3' : '#666',
@@ -388,7 +396,7 @@ function initModelTrendChart() {
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: data.map((d: any) => d.date),
+      data: data.map((d: any) => formatChartDate(d.date)),
       axisLine: { lineStyle: { color: theme.textColor } },
       axisLabel: { color: theme.textColor }
     },
@@ -437,7 +445,7 @@ function initTokenTrendChart() {
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: data.map((d: any) => d.date),
+      data: data.map((d: any) => formatChartDate(d.date)),
       axisLine: { lineStyle: { color: theme.textColor } },
       axisLabel: { color: theme.textColor }
     },
@@ -568,7 +576,7 @@ function initMCPTrendChart() {
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: data.map((d: any) => d.date),
+      data: data.map((d: any) => formatChartDate(d.date)),
       axisLine: { lineStyle: { color: theme.textColor } },
       axisLabel: { color: theme.textColor }
     },

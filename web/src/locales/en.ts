@@ -78,6 +78,7 @@ export default {
     mcpPrompts: 'MCP Prompts',
     modelUsage: 'Model API Usage',
     last7Days: 'Last 7 Days',
+    lastNDays: 'Last {n} Days',
     successRate: 'Success Rate',
     tokenTrend: 'Token Consumption Trend',
     modelDistribution: 'Model Distribution',

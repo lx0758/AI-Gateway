@@ -79,6 +79,7 @@ export default {
     mcpPrompts: 'MCP提示词',
     modelUsage: 'Model API 使用情况',
     last7Days: '过去7天',
+    lastNDays: '过去{n}天',
     successRate: '成功率',
     tokenTrend: 'Token消耗趋势',
     modelDistribution: '模型分布',

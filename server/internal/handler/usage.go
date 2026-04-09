@@ -13,12 +13,25 @@ import (
 
 type UsageHandler struct{}
 
+type dailyStat struct {
+	Date    string `json:"date"`
+	Count   int64  `json:"count"`
+	Success int64  `json:"success"`
+}
+
+type tokenDailyStat struct {
+	Date        string `json:"date"`
+	TotalTokens int64  `json:"total_tokens"`
+}
+
 func NewUsageHandler() *UsageHandler {
 	return &UsageHandler{}
 }
 
 func (h *UsageHandler) Dashboard(c *gin.Context) {
-	sevenDaysAgo := time.Now().AddDate(0, 0, -7).Format("2006-01-02")
+	nDays := 7
+	nDaysAgo := time.Now().AddDate(0, 0, -nDays).Format("2006-01-02")
+	lastNDays := generateLastNDays(nDays)
 
 	// 资产统计
 	var totalProviders int64
@@ -56,32 +69,28 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 	var activeKeys int64
 	model.DB.Model(&model.Key{}).Where("enabled = ?", true).Count(&activeKeys)
 
-	// Model API 统计 (过去7天)
+	// Model API 统计 (过去N天)
 	var modelTotalRequests int64
 	model.DB.Model(&model.ModelLog{}).
-		Where("created_at >= ?", sevenDaysAgo).
+		Where("created_at >= ?", nDaysAgo).
 		Count(&modelTotalRequests)
 
 	var modelSuccessCount int64
 	model.DB.Model(&model.ModelLog{}).
-		Where("created_at >= ? AND status = ?", sevenDaysAgo, "success").
+		Where("created_at >= ? AND status = ?", nDaysAgo, "success").
 		Count(&modelSuccessCount)
 
 	var modelTotalTokens int64
 	model.DB.Model(&model.ModelLog{}).
-		Where("created_at >= ?", sevenDaysAgo).
+		Where("created_at >= ?", nDaysAgo).
 		Select("COALESCE(SUM(total_tokens), 0)").Scan(&modelTotalTokens)
 
 	var modelAvgLatency float64
 	model.DB.Model(&model.ModelLog{}).
-		Where("created_at >= ?", sevenDaysAgo).
+		Where("created_at >= ?", nDaysAgo).
 		Select("COALESCE(AVG(latency_ms), 0)").Scan(&modelAvgLatency)
 
-	var modelDailyStats []struct {
-		Date    string `json:"date"`
-		Count   int64  `json:"count"`
-		Success int64  `json:"success"`
-	}
+	var modelDailyStats []dailyStat
 	model.DB.Raw(`
 		SELECT 
 			DATE(created_at) as date,
@@ -91,12 +100,18 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		WHERE created_at >= ?
 		GROUP BY DATE(created_at)
 		ORDER BY date
-	`, sevenDaysAgo).Scan(&modelDailyStats)
+	`, nDaysAgo).Scan(&modelDailyStats)
 
-	var modelTokenDailyStats []struct {
-		Date        string `json:"date"`
-		TotalTokens int64  `json:"total_tokens"`
-	}
+	modelDailyStats = fillDailyStats(lastNDays, modelDailyStats,
+		func(s dailyStat) string {
+			if len(s.Date) > 10 {
+				return s.Date[:10]
+			}
+			return s.Date
+		},
+		func(date string) dailyStat { return dailyStat{Date: date} })
+
+	var modelTokenDailyStats []tokenDailyStat
 	model.DB.Raw(`
 		SELECT 
 			DATE(created_at) as date,
@@ -105,7 +120,16 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		WHERE created_at >= ?
 		GROUP BY DATE(created_at)
 		ORDER BY date
-	`, sevenDaysAgo).Scan(&modelTokenDailyStats)
+	`, nDaysAgo).Scan(&modelTokenDailyStats)
+
+	modelTokenDailyStats = fillDailyStats(lastNDays, modelTokenDailyStats,
+		func(s tokenDailyStat) string {
+			if len(s.Date) > 10 {
+				return s.Date[:10]
+			}
+			return s.Date
+		},
+		func(date string) tokenDailyStat { return tokenDailyStat{Date: date} })
 
 	var providerStats []struct {
 		Provider   string  `json:"provider"`
@@ -124,7 +148,7 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		WHERE ml.created_at >= ?
 		GROUP BY p.name
 		ORDER BY count DESC
-	`, sevenDaysAgo).Scan(&providerStats)
+	`, nDaysAgo).Scan(&providerStats)
 
 	var modelStats []struct {
 		Model string `json:"model"`
@@ -137,7 +161,7 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		GROUP BY model
 		ORDER BY count DESC
 		LIMIT 10
-	`, sevenDaysAgo).Scan(&modelStats)
+	`, nDaysAgo).Scan(&modelStats)
 
 	// MCP 资产统计
 	var totalMCPTools int64
@@ -171,29 +195,25 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 	// MCP 服务统计 (过去7天)
 	var mcpTotalRequests int64
 	model.DB.Model(&model.MCPLog{}).
-		Where("created_at >= ?", sevenDaysAgo).
+		Where("created_at >= ?", nDaysAgo).
 		Count(&mcpTotalRequests)
 
 	var mcpSuccessCount int64
 	model.DB.Model(&model.MCPLog{}).
-		Where("created_at >= ? AND status = ?", sevenDaysAgo, "success").
+		Where("created_at >= ? AND status = ?", nDaysAgo, "success").
 		Count(&mcpSuccessCount)
 
 	var mcpTotalSize int64
 	model.DB.Model(&model.MCPLog{}).
-		Where("created_at >= ?", sevenDaysAgo).
+		Where("created_at >= ?", nDaysAgo).
 		Select("COALESCE(SUM(input_size + output_size), 0)").Scan(&mcpTotalSize)
 
 	var mcpAvgLatency float64
 	model.DB.Model(&model.MCPLog{}).
-		Where("created_at >= ?", sevenDaysAgo).
+		Where("created_at >= ?", nDaysAgo).
 		Select("COALESCE(AVG(latency_ms), 0)").Scan(&mcpAvgLatency)
 
-	var mcpDailyStats []struct {
-		Date    string `json:"date"`
-		Count   int64  `json:"count"`
-		Success int64  `json:"success"`
-	}
+	var mcpDailyStats []dailyStat
 	model.DB.Raw(`
 		SELECT 
 			DATE(created_at) as date,
@@ -203,7 +223,16 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		WHERE created_at >= ?
 		GROUP BY DATE(created_at)
 		ORDER BY date
-	`, sevenDaysAgo).Scan(&mcpDailyStats)
+	`, nDaysAgo).Scan(&mcpDailyStats)
+
+	mcpDailyStats = fillDailyStats(lastNDays, mcpDailyStats,
+		func(s dailyStat) string {
+			if len(s.Date) > 10 {
+				return s.Date[:10]
+			}
+			return s.Date
+		},
+		func(date string) dailyStat { return dailyStat{Date: date} })
 
 	var mcpTypeStats []struct {
 		MCPType string `json:"mcp_type"`
@@ -215,7 +244,7 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		WHERE created_at >= ?
 		GROUP BY mcp_type
 		ORDER BY count DESC
-	`, sevenDaysAgo).Scan(&mcpTypeStats)
+	`, nDaysAgo).Scan(&mcpTypeStats)
 
 	var mcpServiceStats []struct {
 		MCPName string `json:"mcp_name"`
@@ -228,9 +257,26 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		GROUP BY mcp_name
 		ORDER BY count DESC
 		LIMIT 10
-	`, sevenDaysAgo).Scan(&mcpServiceStats)
+	`, nDaysAgo).Scan(&mcpServiceStats)
+
+	for i := range modelDailyStats {
+		if len(modelDailyStats[i].Date) > 10 {
+			modelDailyStats[i].Date = modelDailyStats[i].Date[:10]
+		}
+	}
+	for i := range modelTokenDailyStats {
+		if len(modelTokenDailyStats[i].Date) > 10 {
+			modelTokenDailyStats[i].Date = modelTokenDailyStats[i].Date[:10]
+		}
+	}
+	for i := range mcpDailyStats {
+		if len(mcpDailyStats[i].Date) > 10 {
+			mcpDailyStats[i].Date = mcpDailyStats[i].Date[:10]
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"days": nDays,
 		"assets": gin.H{
 			"totalProviders":       totalProviders,
 			"activeProviders":      activeProviders,
@@ -269,6 +315,33 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 			"serviceStats":  mcpServiceStats,
 		},
 	})
+}
+
+func generateLastNDays(n int) []string {
+	now := time.Now()
+	days := make([]string, n)
+	for i := 0; i < n; i++ {
+		offset := -n + 1 + i
+		days[i] = now.AddDate(0, 0, offset).Format("2006-01-02")
+	}
+	return days
+}
+
+func fillDailyStats[T any](days []string, stats []T, getDate func(T) string, createEmpty func(string) T) []T {
+	statsMap := make(map[string]T)
+	for _, s := range stats {
+		statsMap[getDate(s)] = s
+	}
+
+	result := make([]T, len(days))
+	for i, day := range days {
+		if s, ok := statsMap[day]; ok {
+			result[i] = s
+		} else {
+			result[i] = createEmpty(day)
+		}
+	}
+	return result
 }
 
 type modelLogResponse struct {
