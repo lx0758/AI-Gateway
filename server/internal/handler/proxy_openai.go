@@ -71,7 +71,6 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 	if err != nil {
 		status = "error"
 		errorMsg = err.Error()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 
 	clientIPs := utils.GetClientIPInfo(c)

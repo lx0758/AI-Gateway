@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -114,61 +113,67 @@ func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, err
 func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
 	bodyJson := map[string]interface{}{}
 	if err := json.Unmarshal(body, &bodyJson); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 	bodyJson["model"] = pm.ModelID
 	body, err = json.Marshal(bodyJson)
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
 	recordBody("O2O", "raw", body)
 	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	client := &http.Client{Timeout: 300 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		c.Status(resp.StatusCode)
+		c.Header("Content-Type", resp.Header.Get("Content-Type"))
+		c.Writer.Write(respBody)
 		recordError("O2O", resp.StatusCode, respBody)
-		return fmt.Errorf("%s", string(respBody))
+		return fmt.Errorf("%d - %s", resp.StatusCode, string(respBody))
 	}
 
 	if m.isStreaming(resp) {
+		c.Status(http.StatusOK)
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		m.copyOpenAIStreaming(c.Writer, resp.Body, usage)
+		err = m.copyOpenAIStreaming(c.Writer, resp.Body, usage)
 	} else {
+		c.Status(http.StatusOK)
 		c.Header("Content-Type", "application/json")
-		err := m.copyOpenAIResponse(c.Writer, resp.Body, usage)
-		if err != nil {
-			c.JSON(resp.StatusCode, gin.H{"error": err.Error()})
-			return err
-		}
+		err = m.copyOpenAIResponse(c.Writer, resp.Body, usage)
 	}
-	return nil
+	return err
 }
 
-func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader, usage *Usage) {
+func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader, usage *Usage) error {
 	src, dst = recordStream("O2O", src, dst)
 	reader := bufio.NewReader(src)
+	var rError error
 	errorCount := 0
 
 	for {
@@ -179,7 +184,7 @@ func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader, usage
 			}
 			errorCount += 1
 			if errorCount >= 3 {
-				log.Printf("OpenAI stream error, error: %v", err)
+				rError = fmt.Errorf("OpenAI copy stream error, %v", err)
 				break
 			}
 			continue
@@ -210,6 +215,7 @@ func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader, usage
 	if flusher, ok := dst.(http.Flusher); ok {
 		flusher.Flush()
 	}
+	return rError
 }
 
 func (m *OpenAIProvider) copyOpenAIResponse(dst io.Writer, src io.Reader, usage *Usage) error {
@@ -236,6 +242,7 @@ func (m *OpenAIProvider) copyOpenAIResponse(dst io.Writer, src io.Reader, usage 
 func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
@@ -250,12 +257,14 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 		StreamOptions *struct{}       `json:"stream_options,omitempty"`
 	}
 	if err := json.Unmarshal(body, &anthropicReq); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 	anthropicReq.Model = pm.ModelID
 
 	var anthropicMessages []map[string]interface{}
 	if err := json.Unmarshal(anthropicReq.Messages, &anthropicMessages); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
@@ -296,51 +305,61 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 
 	openAIBody, err := json.Marshal(openAIReq)
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
 	recordBody("A2O", "converted", openAIBody)
 	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/chat/completions", bytes.NewReader(openAIBody))
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	client := &http.Client{Timeout: 300 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		c.JSON(resp.StatusCode, gin.H{"error": string(respBody)})
+		c.Status(resp.StatusCode)
+		c.Header("Content-Type", resp.Header.Get("Content-Type"))
+		c.Writer.Write(respBody)
 		recordError("A2O", resp.StatusCode, respBody)
-		return fmt.Errorf("%s", string(respBody))
+		return fmt.Errorf("%d - %s", resp.StatusCode, string(respBody))
 	}
 
 	if m.isStreaming(resp) {
+		c.Status(http.StatusOK)
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		m.streamOpenAIToAnthropic(resp.Body, c.Writer, anthropicReq.Model, usage)
+		err = m.streamOpenAIToAnthropic(resp.Body, c.Writer, anthropicReq.Model, usage)
 		c.Writer.Flush()
 	} else {
 		openAIRespBody, err := io.ReadAll(resp.Body)
 		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return err
 		}
 		anthropicResp, err := m.convertOpenAIResponseToAnthropic(openAIRespBody, usage)
 		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return err
 		}
+		c.Status(http.StatusOK)
 		c.Header("Content-Type", "application/json")
 		c.Writer.Write(anthropicResp)
+		err = nil
 	}
-	return nil
+	return err
 }
 
 func (m *OpenAIProvider) extractSystemContent(system interface{}) string {
@@ -625,7 +644,7 @@ type toolCallState struct {
 	startSent bool
 }
 
-func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, model string, usage *Usage) {
+func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, model string, usage *Usage) error {
 	src, dst = recordStream("A2O", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("msg_%s", m.generateID())
@@ -635,6 +654,7 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 	inTextBlock := false
 	lastUsage := openAIUsage{}
 	toolCallStates := make(map[int]*toolCallState)
+	var rError error
 	errorCount := 0
 
 	for {
@@ -645,7 +665,7 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 			}
 			errorCount += 1
 			if errorCount >= 3 {
-				log.Printf("OpenAI stream error, error: %v", err)
+				rError = fmt.Errorf("OpenAI convert stream error, %v", err)
 				break
 			}
 			continue
@@ -903,6 +923,7 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 			}
 		}
 	}
+	return rError
 }
 
 func (m *OpenAIProvider) writeAnthropicSSE(w io.Writer, eventType string, data interface{}) {

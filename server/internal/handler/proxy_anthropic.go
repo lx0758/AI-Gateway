@@ -69,7 +69,8 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 	status := "success"
 	errorMsg := ""
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		status = "error"
+		errorMsg = err.Error()
 	}
 
 	clientIPs := utils.GetClientIPInfo(c)
