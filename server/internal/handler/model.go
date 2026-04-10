@@ -57,6 +57,7 @@ type modelResponse struct {
 type mappingResponse struct {
 	ID                uint                   `json:"id"`
 	ProviderID        uint                   `json:"provider_id"`
+	ProviderModelID   uint                   `json:"provider_model_id"`
 	ProviderModelName string                 `json:"provider_model_name"`
 	Weight            int                    `json:"weight"`
 	Enabled           bool                   `json:"enabled"`
@@ -480,8 +481,10 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 	}
 
 	var modelInfoResp *modelInfoResponse
+	var providerModelID uint
 	var pm model.ProviderModel
 	if err := model.DB.Where("provider_id = ? AND model_id = ?", m.ProviderID, m.ProviderModelName).First(&pm).Error; err == nil {
+		providerModelID = pm.ID
 		modelInfoResp = &modelInfoResponse{
 			ContextWindow:  pm.ContextWindow,
 			MaxOutput:      pm.MaxOutput,
@@ -494,6 +497,7 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 	return mappingResponse{
 		ID:                m.ID,
 		ProviderID:        m.ProviderID,
+		ProviderModelID:   providerModelID,
 		ProviderModelName: m.ProviderModelName,
 		Weight:            m.Weight,
 		Enabled:           m.Enabled,

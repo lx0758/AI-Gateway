@@ -97,6 +97,8 @@ export default {
     keyPlaceholder: 'Leave empty to keep current key',
     models: 'Models',
     testConnection: 'Test Connection',
+    test: 'Test',
+    testModel: 'Test Model',
     syncModels: 'Sync Models',
     addProvider: 'Add Provider',
     editProvider: 'Edit Provider',
@@ -115,7 +117,11 @@ export default {
     capabilities: 'Capabilities',
     providerDisabled: 'Provider is disabled',
     available: 'Available',
-    unavailable: 'Unavailable'
+    unavailable: 'Unavailable',
+    latency: 'Latency',
+    response: 'Response',
+    directCall: 'Direct',
+    protocolConvert: 'Convert'
   },
   key: {
     name: 'Key Name',
@@ -193,7 +199,8 @@ export default {
     addMapping: 'Add Mapping',
     editMapping: 'Edit Mapping',
     providerType: 'Provider Type',
-    modelDisabled: 'Model is disabled'
+    modelDisabled: 'Model is disabled',
+    testAllMappings: 'Test All Mappings'
   },
   mcp: {
     services: 'MCP Services',

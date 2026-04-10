@@ -70,8 +70,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="150">
+        <el-table-column :label="t('common.action')" width="200">
           <template #default="{ row }">
+            <el-button link type="success" @click.stop="testModel(row)">{{ t('provider.test') }}</el-button>
             <el-button link type="primary" @click.stop="showEditDialog(row)">{{ t('common.edit') }}</el-button>
             <el-button link type="danger" @click.stop="handleDelete(row)">{{ t('common.delete') }}</el-button>
           </template>
@@ -177,6 +178,43 @@
         <el-button type="danger" @click="handleDelete(detailModel); detailDialogVisible = false">{{ t('common.delete') }}</el-button>
       </div>
     </el-dialog>
+
+    <el-dialog v-model="testDialogVisible" :title="t('provider.testModel') + ': ' + (testModelInfo?.model_id || '')" width="600px">
+      <div v-if="testingModel" style="text-align: center; padding: 20px;">
+        <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+        <p>{{ t('common.loading') }}</p>
+      </div>
+      <div v-else>
+        <div v-if="testResults.length === 0" style="text-align: center; padding: 20px; color: #909399;">
+          {{ t('common.noData') }}
+        </div>
+        <div v-for="(result, idx) in testResults" :key="idx" class="test-result-item">
+          <div class="test-result-header">
+            <el-tag :type="result.success ? 'success' : 'danger'" size="large">
+              {{ result.protocol.toUpperCase() }} - {{ result.success ? t('common.success') : t('common.error') }}
+            </el-tag>
+            <span class="test-result-method">
+              {{ result.call_method === 'direct' ? t('provider.directCall') : t('provider.protocolConvert') }}
+            </span>
+          </div>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item :label="t('provider.latency')">{{ result.latency_ms }} ms</el-descriptions-item>
+            <el-descriptions-item :label="t('usage.totalTokens')">{{ result.input_tokens }} / {{ result.output_tokens }}</el-descriptions-item>
+          </el-descriptions>
+          <div v-if="result.response" class="test-response">
+            <div class="test-response-label">{{ t('provider.response') }}:</div>
+            <div class="test-response-content">{{ result.response }}</div>
+          </div>
+          <div v-if="result.error" class="test-error">
+            <div class="test-error-label">{{ t('usage.error') }}:</div>
+            <div class="test-error-content">{{ result.error }}</div>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="testDialogVisible = false">{{ t('common.cancel') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -185,6 +223,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Loading } from '@element-plus/icons-vue'
 import api from '@/api'
 import { formatDateTime, formatContextDisplay } from '@/utils/format'
 import { getSortConfig, setSortConfig } from '@/utils/tableSort'
@@ -204,6 +243,11 @@ const submitting = ref(false)
 const editingModel = ref<any>(null)
 const formRef = ref()
 const defaultSort = getSortConfig('provider-models', 'model_id')
+
+const testDialogVisible = ref(false)
+const testingModel = ref(false)
+const testModelInfo = ref<any>(null)
+const testResults = ref<any[]>([])
 
 const providerId = route.params.id as string
 
@@ -339,6 +383,23 @@ async function handleBatchDelete() {
   }
 }
 
+async function testModel(model: any) {
+  testModelInfo.value = model
+  testResults.value = []
+  testingModel.value = true
+  testDialogVisible.value = true
+  
+  try {
+    const res = await api.post(`/providers/${providerId}/models/${model.id}/test`)
+    testResults.value = res.data.tests || []
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.error || t('common.error'))
+    testDialogVisible.value = false
+  } finally {
+    testingModel.value = false
+  }
+}
+
 function handleSortChange({ prop, order }: any) {
   if (prop && order) {
     setSortConfig('provider-models', { prop, order })
@@ -388,5 +449,64 @@ function sortByPrice(a: any, b: any): number {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+}
+
+.test-result-item {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+}
+
+.test-result-item:last-child {
+  margin-bottom: 0;
+}
+
+.test-result-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.test-result-method {
+  color: #909399;
+  font-size: 12px;
+}
+
+.test-response {
+  margin-top: 12px;
+}
+
+.test-response-label {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #606266;
+}
+
+.test-response-content {
+  padding: 8px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.test-error {
+  margin-top: 12px;
+}
+
+.test-error-label {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #f56c6c;
+}
+
+.test-error-content {
+  padding: 8px;
+  background: #fef0f0;
+  border-radius: 4px;
+  color: #f56c6c;
+  font-size: 13px;
 }
 </style>

@@ -79,6 +79,7 @@ func main() {
 	usageHandler := handler.NewUsageHandler()
 	mcpProxyHandler := handler.NewMCPProxyHandler()
 	mcpHandler := handler.NewMCPHandler()
+	modelTestHandler := handler.NewModelTestHandler()
 
 	openai := r.Group("/openai/v1")
 	openai.Use(middleware.RequireAPIKey())
@@ -130,6 +131,7 @@ func main() {
 			protected.PUT("/providers/:id/models/:mid", providerModelHandler.Update)
 			protected.DELETE("/providers/:id/models/:mid", providerModelHandler.Delete)
 			protected.POST("/providers/:id/sync", providerModelHandler.Sync)
+			protected.POST("/providers/:id/models/:mid/test", modelTestHandler.TestProviderModel)
 
 			protected.GET("/models", modelHandler.List)
 			protected.POST("/models", modelHandler.Create)
@@ -142,6 +144,7 @@ func main() {
 			protected.PUT("/models/:id/mappings/order", modelHandler.UpdateMappingsOrder)
 			protected.PUT("/models/:id/mappings/:mid", modelHandler.UpdateMapping)
 			protected.DELETE("/models/:id/mappings/:mid", modelHandler.DeleteMapping)
+			protected.POST("/models/:id/test", modelTestHandler.TestModel)
 
 			protected.GET("/keys", keyHandler.List)
 			protected.GET("/keys/:id", keyHandler.Get)

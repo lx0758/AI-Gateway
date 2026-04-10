@@ -74,8 +74,9 @@
             <el-switch v-else v-model="row.enabled" @change="toggleMappingEnabled(row)" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.action')" width="120">
+        <el-table-column :label="t('common.action')" width="180">
           <template #default="{ row }">
+            <el-button link type="success" size="small" @click="testSingleMapping(row)">{{ t('provider.test') }}</el-button>
             <el-button link type="primary" size="small" @click="showMappingDialog(row)">{{ t('common.edit') }}</el-button>
             <el-button link type="danger" size="small" @click="handleDeleteMapping(row.id)">{{ t('common.delete') }}</el-button>
           </template>
@@ -107,6 +108,42 @@
         <el-button type="primary" @click="handleMappingSubmit" :loading="submitting">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="testDialogVisible" :title="t('provider.testModel') + ': ' + (model?.model || '')" width="700px">
+      <div v-if="testing" style="text-align: center; padding: 20px;">
+        <el-icon class="is-loading" :size="32"><Loading /></el-icon>
+        <p>{{ t('common.loading') }}</p>
+      </div>
+      <div v-else-if="testResults.length > 0">
+        <div v-for="mapping in testResults" :key="mapping.mapping_id" class="test-mapping-item">
+          <div class="test-mapping-header">
+            <span class="test-mapping-provider">{{ mapping.provider?.name }}</span>
+            <span class="test-mapping-arrow">→</span>
+            <span class="test-mapping-model">{{ mapping.provider_model?.display_name || mapping.provider_model?.model_id }}</span>
+          </div>
+          <div class="test-protocol-results">
+            <div v-for="(result, idx) in mapping.protocol_tests" :key="idx" class="test-protocol-item">
+              <div class="test-protocol-header">
+                <el-tag :type="result.success ? 'success' : 'danger'" size="small">
+                  {{ result.protocol.toUpperCase() }}
+                </el-tag>
+                <span class="test-protocol-status">
+                  {{ result.success ? t('common.success') : t('common.error') }}
+                  <span v-if="result.call_method === 'convert'" class="test-convert-badge">({{ t('provider.protocolConvert') }})</span>
+                </span>
+                <span class="test-protocol-latency">{{ result.latency_ms }}ms</span>
+                <span class="test-protocol-tokens">{{ result.input_tokens }}/{{ result.output_tokens }}</span>
+              </div>
+              <div v-if="result.response" class="test-response">{{ result.response }}</div>
+              <div v-if="result.error" class="test-error">{{ result.error }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="testDialogVisible = false">{{ t('common.cancel') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -115,7 +152,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Rank } from '@element-plus/icons-vue'
+import { Rank, Loading } from '@element-plus/icons-vue'
 import Sortable from 'sortablejs'
 import api from '@/api'
 import { formatContextDisplay } from '@/utils/format'
@@ -135,6 +172,7 @@ interface ModelInfo {
 interface Mapping {
   id: number
   provider_id: number
+  provider_model_id: number
   provider_model_name: string
   weight: number
   enabled: boolean
@@ -167,6 +205,10 @@ const editingMapping = ref<Mapping | null>(null)
 const mappingFormRef = ref()
 let providersLoaded = false
 let sortableInstance: Sortable | null = null
+
+const testing = ref(false)
+const testDialogVisible = ref(false)
+const testResults = ref<any[]>([])
 
 const modelId = route.params.id as string
 
@@ -314,6 +356,27 @@ async function handleBatchDelete() {
 async function toggleMappingEnabled(mapping: Mapping) {
   await api.put(`/models/${modelId}/mappings/${mapping.id}`, { enabled: mapping.enabled })
 }
+
+async function testSingleMapping(mapping: Mapping) {
+  testing.value = true
+  testResults.value = []
+  testDialogVisible.value = true
+  
+  try {
+    const res = await api.post(`/providers/${mapping.provider_id}/models/${mapping.provider_model_id}/test`)
+    testResults.value = [{
+      mapping_id: mapping.id,
+      provider: mapping.provider,
+      provider_model: { model_id: mapping.provider_model_name, display_name: mapping.provider_model_name },
+      protocol_tests: res.data.tests || []
+    }]
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.error || t('common.error'))
+    testDialogVisible.value = false
+  } finally {
+    testing.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -353,5 +416,91 @@ async function toggleMappingEnabled(mapping: Mapping) {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+}
+
+.test-mapping-item {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+}
+
+.test-mapping-item:last-child {
+  margin-bottom: 0;
+}
+
+.test-mapping-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.test-mapping-provider {
+  color: #409eff;
+}
+
+.test-mapping-arrow {
+  color: #909399;
+}
+
+.test-mapping-model {
+  color: #67c23a;
+}
+
+.test-protocol-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.test-protocol-item {
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.test-protocol-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.test-protocol-status {
+  color: #606266;
+}
+
+.test-convert-badge {
+  color: #909399;
+  font-size: 12px;
+}
+
+.test-protocol-latency {
+  color: #909399;
+  margin-left: auto;
+}
+
+.test-protocol-tokens {
+  color: #909399;
+}
+
+.test-response {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fff;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.test-error {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fef0f0;
+  border-radius: 4px;
+  color: #f56c6c;
+  font-size: 13px;
 }
 </style>

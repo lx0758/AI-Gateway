@@ -98,6 +98,8 @@ export default {
     keyPlaceholder: '留空则保持当前密钥不变',
     models: '模型',
     testConnection: '测试连接',
+    test: '测试',
+    testModel: '测试模型',
     syncModels: '同步模型',
     addProvider: '添加厂商',
     editProvider: '编辑厂商',
@@ -116,7 +118,11 @@ export default {
     capabilities: '能力特性',
     providerDisabled: '厂商已禁用',
     available: '可用',
-    unavailable: '不可用'
+    unavailable: '不可用',
+    latency: '延迟',
+    response: '响应',
+    directCall: '直通',
+    protocolConvert: '协议转换'
   },
   key: {
     name: '密钥名称',
@@ -194,7 +200,8 @@ export default {
     addMapping: '添加映射',
     editMapping: '编辑映射',
     providerType: '厂商类型',
-    modelDisabled: '模型已禁用'
+    modelDisabled: '模型已禁用',
+    testAllMappings: '测试所有映射'
   },
   mcp: {
     services: 'MCP服务',
