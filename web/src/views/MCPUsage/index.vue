@@ -191,11 +191,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="error_msg" :label="t('mcpUsage.errorMsg')" show-overflow-tooltip>
+        <el-table-column prop="error_msg" :label="t('mcpUsage.errorMsg')" min-width="200">
           <template #default="{ row }">
             <div v-if="row.error_msg" class="error-cell">
-              <span class="error-text">{{ row.error_msg }}</span>
-              <el-button link type="primary" size="small" @click="copyError(row.error_msg)" style="margin-left: 4px">
+              <el-tooltip :content="row.error_msg" placement="top" :disabled="row.error_msg.length < 50">
+                <span class="error-text">{{ row.error_msg }}</span>
+              </el-tooltip>
+              <el-button link type="primary" size="small" @click="copyError(row.error_msg)" class="copy-btn">
                 <el-icon><CopyDocument /></el-icon>
               </el-button>
             </div>
@@ -431,9 +433,17 @@ function copyError(errorMsg: string) {
 .mcp-call-type-stats-card { margin-top: 20px; }
 .mcp-call-target-stats-card { margin-top: 20px; }
 .logs-card { margin-top: 20px; }
-.error-cell { display: flex; align-items: center; }
+.error-cell { display: flex; align-items: center; gap: 4px; }
 .error-text { 
   color: var(--el-color-danger); 
   font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.copy-btn {
+  flex-shrink: 0;
 }
 </style>
