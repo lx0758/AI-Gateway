@@ -5,27 +5,21 @@ import (
 	"ai-gateway/internal/provider"
 )
 
-type RouteResult struct {
-	Provider         *model.Provider
-	ProviderModel    *model.ProviderModel
-	ProviderInstance provider.Provider
+var globalRouter = &ModelRouter{
+	cooldownManager: NewCooldownManager(),
 }
 
-func (r *RouteResult) SupportOpenAI() bool {
-	return r.Provider.OpenAIBaseURL != ""
+func GetRouter() *ModelRouter {
+	return globalRouter
 }
 
-func (r *RouteResult) SupportAnthropic() bool {
-	return r.Provider.AnthropicBaseURL != ""
+type ModelRouter struct {
+	cooldownManager *CooldownManager
 }
 
-type ModelRouter struct{}
+func (r *ModelRouter) Route(name string) (*RouteResult, error) {
+	r.cooldownManager.ClearExpiredCooldowns()
 
-func NewModelRouter() *ModelRouter {
-	return &ModelRouter{}
-}
-
-func (r *ModelRouter) Route(name string) ([]RouteResult, error) {
 	var m model.Model
 	if err := model.DB.Where("name = ? AND enabled = ?", name, true).First(&m).Error; err != nil {
 		return nil, nil
@@ -43,7 +37,8 @@ func (r *ModelRouter) Route(name string) ([]RouteResult, error) {
 		return nil, nil
 	}
 
-	var providers []RouteResult
+	var allProviders []RouteResult
+	var availableProviders []RouteResult
 
 	for _, mapping := range mappings {
 		providerInfo := mapping.Provider
@@ -61,12 +56,45 @@ func (r *ModelRouter) Route(name string) ([]RouteResult, error) {
 			providerInfo.AnthropicBaseURL,
 			providerInfo.APIKey,
 		)
-		providers = append(providers, RouteResult{
+		result := RouteResult{
 			Provider:         providerInfo,
 			ProviderModel:    &pm,
 			ProviderInstance: providerImpl,
-		})
+		}
+		allProviders = append(allProviders, result)
+
+		if !r.cooldownManager.IsCooldown(providerInfo.ID, pm.ID) {
+			availableProviders = append(availableProviders, result)
+		}
 	}
 
-	return providers, nil
+	if len(availableProviders) > 0 {
+		return &availableProviders[0], nil
+	}
+
+	if len(allProviders) > 0 {
+		earliest := r.cooldownManager.GetEarliestCooldownEnd(allProviders)
+		if earliest != nil {
+			return earliest, nil
+		}
+		return &allProviders[0], nil
+	}
+
+	return nil, nil
+}
+
+func (r *ModelRouter) RecordRateLimit(providerID uint, providerModelID uint) {
+	r.cooldownManager.Record429(providerID, providerModelID)
+}
+
+func (r *ModelRouter) RecordSuccess(providerID uint, providerModelID uint) {
+	r.cooldownManager.RecordSuccess(providerID, providerModelID)
+}
+
+func ClearCooldown(providerID uint, providerModelID uint) {
+	globalRouter.cooldownManager.ClearCooldown(providerID, providerModelID)
+}
+
+func ClearAllCooldownsForProvider(providerID uint) {
+	globalRouter.cooldownManager.ClearAllForProvider(providerID)
 }

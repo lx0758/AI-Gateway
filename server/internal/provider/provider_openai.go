@@ -153,7 +153,7 @@ func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provider
 		c.Header("Content-Type", resp.Header.Get("Content-Type"))
 		c.Writer.Write(respBody)
 		recordError("O2O", resp.StatusCode, respBody)
-		return fmt.Errorf("%d - %s", resp.StatusCode, string(respBody))
+		return &ProviderError{StatusCode: resp.StatusCode, Message: string(respBody)}
 	}
 
 	if m.isStreaming(resp) {
@@ -333,7 +333,7 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 		c.Header("Content-Type", resp.Header.Get("Content-Type"))
 		c.Writer.Write(respBody)
 		recordError("A2O", resp.StatusCode, respBody)
-		return fmt.Errorf("%d - %s", resp.StatusCode, string(respBody))
+		return &ProviderError{StatusCode: resp.StatusCode, Message: string(respBody)}
 	}
 
 	if m.isStreaming(resp) {

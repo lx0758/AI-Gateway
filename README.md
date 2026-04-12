@@ -17,7 +17,7 @@
 - **双协议支持**：每个厂商可同时配置 OpenAI 和 Anthropic BaseURL
 - **格式自动转换**: OpenAI ↔ Anthropic 请求/响应格式自动转换
 - **模型映射**：用户使用统一的模型名称，无需关心后端实际模型
-- ~~**智能路由**: 支持多厂商轮询、故障转移和格式匹配优化~~
+- **故障转移**：Provider 连续返回 429 时自动切换，配置更新时自动恢复
 - **用量统计**: 请求日志和用量仪表盘，实时监控服务调用
 - **API Key 管理**: 生成和管理网关 API Key，支持模型、MCP访问权限控制
 - **Web 控制台**: Vue 3 管理界面，支持中英文、暗色模式
@@ -74,27 +74,64 @@ flowchart TD
     TK2 --> I
 ```
 
-### 路由决策流程(暂未实现负载均衡)
+### 路由决策流程
 
 ```mermaid
 flowchart TD
-    A["输入: model_name"] --> B["查询 Alias<br/>WHERE name = model_name<br/>AND enabled = true"]
+    A["输入: model_name"] --> B["查询 Model<br/>WHERE name = model_name<br/>AND enabled = true"]
 
-    B --> C{"Alias 存在?"}
+    B --> C{"Model 存在?"}
 
-    C -->|"No"| D["返回 404<br/>model not found"]
-    C -->|"Yes"| E["查询 AliasMapping<br/>WHERE alias_id = alias.ID<br/>AND enabled = true<br/>ORDER BY weight DESC"]
+    C -->|"No"| D["返回 null"]
+    C -->|"Yes"| E["查询 ModelMapping<br/>WHERE model_id = model.ID<br/>AND enabled = true<br/>ORDER BY weight DESC"]
 
     E --> F{"Mapping 列表为空?"}
 
-    F -->|"Yes"| G["返回 404<br/>no provider available"]
+    F -->|"Yes"| G["返回 null"]
     F -->|"No"| H["遍历每个 Mapping"]
 
     H --> I["检查 Provider.enabled<br/>查询 ProviderModel<br/>WHERE is_available = true"]
 
-    I --> J["构建 Provider 实例<br/>OpenAI BaseURL → OpenAIProvider<br/>Anthropic BaseURL → AnthropicProvider"]
+    I --> J["检查冷却状态<br/>IsCooldown?"]
 
-    J --> K["返回 RouteResult 列表<br/>按 weight 降序排列"]
+    J --> K{"冷却中?"}
+
+    K -->|"Yes"| L["加入 allProviders<br/>记录冷却结束时间"]
+    K -->|"No"| M["加入 availableProviders"]
+
+    L --> N{"availableProviders 为空?"}
+    M --> O["返回 availableProviders[0]"]
+
+    N -->|"Yes"| P["返回最早恢复冷却的"]
+    N -->|"No"| O
+
+    P --> Q["GetEarliestCooldownEnd<br/>选择 cooldownUntil 最小的"]
+
+    Q --> R["返回该 Provider"]
+```
+
+### 故障转移机制
+
+```mermaid
+flowchart TD
+    subgraph 记录状态
+        A["请求返回 429"] --> B{"5秒内重复?"}
+        B -->|"Yes"| C["忽略（缓冲）"]
+        B -->|"No"| D["consecutive429++"]
+        D --> E{"计数 ≥ 3?"}
+        E -->|"Yes"| F["进入冷却<br/>cooldownUntil = now + 30min"]
+        E -->|"No"| G["保持状态"]
+
+        H["请求成功"] --> I["重置计数<br/>consecutive429 = 0"]
+    end
+
+    subgraph 配置刷新
+        J["Provider 启用/APIKey/BaseURL 更新"] --> K["清除所有冷却状态"]
+    end
+
+    subgraph 冷却恢复
+        L["当前时间 > cooldownUntil"] --> M["自动恢复<br/>cooldownUntil = null"]
+    end
 ```
 
 ## 快速开始

@@ -22,7 +22,7 @@ type OpenAIProxyHandler struct {
 
 func NewOpenAIProxyHandler() *OpenAIProxyHandler {
 	return &OpenAIProxyHandler{
-		router: router.NewModelRouter(),
+		router: router.GetRouter(),
 	}
 }
 
@@ -49,17 +49,15 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 
-	results, err := h.router.Route(req.Model)
+	result, err := h.router.Route(req.Model)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if len(results) == 0 {
+	if result == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "model not found or no available provider"})
 		return
 	}
-
-	result := results[0]
 
 	start := time.Now()
 	usage := provider.Usage{}
@@ -71,6 +69,11 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 	if err != nil {
 		status = "error"
 		errorMsg = err.Error()
+		if provider.IsRateLimitError(err) {
+			h.router.RecordRateLimit(result.Provider.ID, result.ProviderModel.ID)
+		}
+	} else {
+		h.router.RecordSuccess(result.Provider.ID, result.ProviderModel.ID)
 	}
 
 	clientIPs := utils.GetClientIPInfo(c)
@@ -81,7 +84,7 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 		keyID.(uint),
 		keyName.(string),
 		req.Model,
-		&result,
+		result,
 		result.SupportOpenAI(),
 		&usage,
 		int(latencyMs),

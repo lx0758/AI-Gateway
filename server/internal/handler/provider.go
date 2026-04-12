@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"ai-gateway/internal/model"
+	"ai-gateway/internal/router"
 )
 
 type ProviderHandler struct{}
@@ -186,6 +187,10 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 		updates["priority"] = *req.Priority
 	}
 
+	if req.OpenAIBaseURL != nil || req.AnthropicBaseURL != nil || req.APIKey != "" || req.Enabled != nil {
+		router.ClearAllCooldownsForProvider(provider.ID)
+	}
+
 	// 验证更新后至少有一个 BaseURL
 	newOpenAIBaseURL := provider.OpenAIBaseURL
 	newAnthropicBaseURL := provider.AnthropicBaseURL
@@ -243,6 +248,8 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	router.ClearAllCooldownsForProvider(uint(id))
 
 	c.JSON(http.StatusOK, gin.H{"message": "provider deleted"})
 }
