@@ -1,18 +1,18 @@
 ## MODIFIED Requirements
 
-### Requirement: Allow manual model deletion
+### Requirement: 允许删除手动模型
 
-The system SHALL allow deleting manually created models AND reject deletion of synced models.
+系统 SHALL 允许删除手动创建的模型，并拒绝删除同步的模型。
 
-#### Scenario: Delete manual model
-- **WHEN** admin deletes a model with source="manual"
-- **THEN** system removes the model from database
+#### Scenario: 删除手动模型
+- **WHEN** 管理员删除 source="manual" 的模型
+- **THEN** 系统从数据库移除该模型
 
-#### Scenario: Reject delete sync model
-- **WHEN** admin attempts to delete a model with source="sync"
-- **THEN** system returns an error with status 400
-- **AND** system does NOT remove the model from database
+#### Scenario: 拒绝删除同步模型
+- **WHEN** 管理员尝试删除 source="sync" 的模型
+- **THEN** 系统返回状态 400 的错误
+- **AND** 系统 NOT 从数据库移除该模型
 
-#### Scenario: Error message for sync model deletion
-- **WHEN** admin attempts to delete a model with source="sync"
-- **THEN** system returns error message "cannot delete synced model, only manually added models can be deleted"
+#### Scenario: 同步模型删除的错误消息
+- **WHEN** 管理员尝试删除 source="sync" 的模型
+- **THEN** 系统返回错误消息 "无法删除同步的模型，只有手动添加的模型才能删除"

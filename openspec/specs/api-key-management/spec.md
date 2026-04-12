@@ -1,167 +1,167 @@
-# API Key Management Specification
+# API Key 管理规格
 
-## Overview
+## 概述
 
-This specification defines the requirements for API key management, including creation, permission control, usage tracking, and validation.
+本规格定义了 API Key 管理的要求，包括创建、权限控制、使用跟踪和验证。
 
 ---
 
 ## Requirements
 
-### Requirement: Create API key
+### Requirement: 创建 API Key
 
-The system SHALL allow creating access keys for clients to use the proxy API.
+系统 SHALL 允许为客户端创建访问密钥以使用代理 API。
 
-#### Scenario: Create key with name
-- **WHEN** admin creates API key with a name/description
-- **THEN** system generates unique key with "sk-" prefix and stores hashed version
+#### Scenario: 创建带名称的 Key
+- **WHEN** 管理员创建带名称/描述的 API Key
+- **THEN** 系统生成带 "sk-" 前缀的唯一密钥并存储哈希版本
 
-#### Scenario: Set key expiration
-- **WHEN** admin sets expiration date for key
-- **THEN** system stores expires_at timestamp
-
----
-
-### Requirement: Set key permissions
-
-The system SHALL support limiting which models a key can access using AliasID references.
-
-#### Scenario: Allow all models
-- **WHEN** admin leaves models list empty
-- **THEN** key can access all available models
-
-#### Scenario: Restrict to specific models by AliasID
-- **WHEN** admin specifies models list with AliasID values
-- **THEN** key can only access models corresponding to those AliasIDs
-- **AND** system validates each AliasID exists in aliases table
-
-#### Scenario: Create with invalid AliasID
-- **WHEN** admin provides AliasID that does not exist
-- **THEN** system returns 400 Bad Request error with message "alias not found"
-
-#### Scenario: Alias renamed after key creation
-- **WHEN** alias is renamed after being assigned to an API key
-- **THEN** API key still references same AliasID
-- **AND** API key displays new alias name automatically
+#### Scenario: 设置 Key 过期时间
+- **WHEN** 管理员为 Key 设置过期日期
+- **THEN** 系统存储 expires_at 时间戳
 
 ---
 
-### Requirement: Set key quota
+### Requirement: 设置 Key 权限
 
-The system SHALL support token-based quota limits.
+系统 SHALL 支持使用 AliasID 引用限制 Key 可以访问的模型。
 
-#### Scenario: Set token quota
-- **WHEN** admin sets quota for a key
-- **THEN** system tracks usage and rejects requests when quota exceeded
+#### Scenario: 允许所有模型
+- **WHEN** 管理员将模型列表留空
+- **THEN** Key 可以访问所有可用模型
 
-#### Scenario: Unlimited quota
-- **WHEN** admin leaves quota unset or zero
-- **THEN** key has unlimited usage
+#### Scenario: 通过 AliasID 限制特定模型
+- **WHEN** 管理员指定 AliasID 值的模型列表
+- **THEN** Key 只能访问对应这些 AliasIDs 的模型
+- **AND** 系统验证每个 AliasID 存在于 aliases 表
 
----
+#### Scenario: 创建使用无效 AliasID
+- **WHEN** 管理员提供不存在的 AliasID
+- **THEN** 系统返回 400 Bad Request 错误，消息为 "alias 未找到"
 
-### Requirement: Set rate limit
-
-The system SHALL support request rate limiting per key.
-
-#### Scenario: Set rate limit
-- **WHEN** admin sets rate_limit value
-- **THEN** system enforces maximum requests per minute
-
----
-
-### Requirement: List API keys
-
-The system SHALL display all API keys with masked values.
-
-#### Scenario: List keys
-- **WHEN** admin views API keys page
-- **THEN** system shows all keys with name, masked key, usage, and status
+#### Scenario: Key 创建后 Alias 重命名
+- **WHEN** Alias 在被分配给 API Key 后重命名
+- **THEN** API Key 仍引用相同的 AliasID
+- **AND** API Key 自动显示新的 Alias 名称
 
 ---
 
-### Requirement: Revoke API key
+### Requirement: 设置 Key 配额
 
-The system SHALL allow deleting/revoking keys.
+系统 SHALL 支持 Token 基础配额限制。
 
-#### Scenario: Revoke key
-- **WHEN** admin deletes an API key
-- **THEN** system marks it as revoked and future requests with this key are rejected
+#### Scenario: 设置 Token 配额
+- **WHEN** 管理员为 Key 设置配额
+- **THEN** 系统跟踪使用量并在配额超限时拒绝请求
 
----
-
-### Requirement: Validate API key on request
-
-The system SHALL validate API key for every API request.
-
-#### Scenario: Valid key check
-- **WHEN** request arrives with valid API key
-- **THEN** system processes the request
-
-#### Scenario: Expired key check
-- **WHEN** request arrives with expired key
-- **THEN** system returns 401 error
-
-#### Scenario: Quota exceeded check
-- **WHEN** request arrives with key that has exceeded quota
-- **THEN** system returns 429 error with quota exceeded message
+#### Scenario: 无限配额
+- **WHEN** 管理员将配额留空或设为零
+- **THEN** Key 有无限使用量
 
 ---
 
-### Requirement: Validate model access on request
+### Requirement: 设置速率限制
 
-The system SHALL validate model permissions when processing API requests.
+系统 SHALL 支持每个 Key 的请求速率限制。
 
-#### Scenario: Access granted to requested model
-- **WHEN** client requests a model with a key that has permission for that model
-- **THEN** system processes the request normally
-
-#### Scenario: Access denied to restricted model
-- **WHEN** client requests a model with a key that does not have permission for that model
-- **THEN** system returns 403 error with "model not allowed" message
+#### Scenario: 设置速率限制
+- **WHEN** 管理员设置 rate_limit 值
+- **THEN** 系统强制每分钟最大请求数
 
 ---
 
-### Requirement: Return AliasID and name in response
+### Requirement: 列出 API Keys
 
-The system SHALL return both AliasID and alias name in API key model responses.
+系统 SHALL 显示所有 API Keys 并附带掩码值。
 
-#### Scenario: List keys with model info
-- **WHEN** admin views API keys list
-- **THEN** each key's models array contains objects with:
-  - `id`: KeyModel record ID
-  - `alias_id`: referenced Alias ID
-  - `alias_name`: current Alias name
-
-#### Scenario: Create key response
-- **WHEN** admin creates API key with models
-- **THEN** response includes models array with alias_id and alias_name
-
-#### Scenario: Update key response
-- **WHEN** admin updates API key models
-- **THEN** response includes updated models array with alias_id and alias_name
+#### Scenario: 列出 Keys
+- **WHEN** 管理员查看 API Keys 页面
+- **THEN** 系统显示所有 Keys，附带名称、掩码 Key、使用量和状态
 
 ---
 
-### Requirement: Cascade delete on alias removal
+### Requirement: 撤销 API Key
 
-The system SHALL automatically remove KeyModel records when referenced alias is deleted.
+系统 SHALL 允许删除/撤销 Keys。
 
-#### Scenario: Delete alias with assigned keys
-- **WHEN** admin deletes an alias that is assigned to API keys
-- **THEN** all KeyModel records referencing that AliasID are automatically deleted
-- **AND** API keys lose permission to access that model
+#### Scenario: 撤销 Key
+- **WHEN** 管理员删除 API Key
+- **THEN** 系统将其标记为已撤销，使用此 Key 的未来请求被拒绝
 
 ---
 
-### Requirement: Manage model permissions via API
+### Requirement: 在请求时验证 API Key
 
-The system SHALL provide API endpoints for managing key-model permissions.
+系统 SHALL 对每个 API 请求验证 API Key。
 
-#### Scenario: List key's allowed models
-- **WHEN** admin requests permissions for an API key
-- **THEN** system returns list of model aliases the key can access
+#### Scenario: 有效 Key 检查
+- **WHEN** 请求到达时附带有效 API Key
+- **THEN** 系统处理该请求
 
-#### Scenario: Update key permissions
-- **WHEN** admin updates permissions for an API key
-- **THEN** system replaces all existing permissions with the new list
+#### Scenario: 过期 Key 检查
+- **WHEN** 请求到达时附带过期 Key
+- **THEN** 系统返回 401 错误
+
+#### Scenario: 配额超限检查
+- **WHEN** 请求到达时 Key 已超配额
+- **THEN** 系统返回 429 错误，附带配额超限消息
+
+---
+
+### Requirement: 在请求时验证模型访问权限
+
+系统 SHALL 在处理 API 请求时验证模型权限。
+
+#### Scenario: 授权访问请求的模型
+- **WHEN** 客户端请求一个 Key 有权限的模型
+- **THEN** 系统正常处理请求
+
+#### Scenario: 拒绝访问受限模型
+- **WHEN** 客户端请求一个 Key 无权限的模型
+- **THEN** 系统返回 403 错误，消息为 "模型不允许"
+
+---
+
+### Requirement: 响应中返回 AliasID 和名称
+
+系统 SHALL 在 API Key 模型响应中返回 AliasID 和 Alias 名称。
+
+#### Scenario: 列出 Keys 附带模型信息
+- **WHEN** 管理员查看 API Keys 列表
+- **THEN** 每个 Key 的 models 数组包含对象，带：
+  - `id`: KeyModel 记录 ID
+  - `alias_id`: 引用的 Alias ID
+  - `alias_name`: 当前 Alias 名称
+
+#### Scenario: 创建 Key 响应
+- **WHEN** 管理员创建带模型的 API Key
+- **THEN** 响应包含 models 数组，带 alias_id 和 alias_name
+
+#### Scenario: 更新 Key 响应
+- **WHEN** 管理员更新 API Key 模型
+- **THEN** 响应包含更新的 models 数组，带 alias_id 和 alias_name
+
+---
+
+### Requirement: Alias 移除时级联删除
+
+系统 SHALL 在被引用的 Alias 删除时自动移除 KeyModel 记录。
+
+#### Scenario: 删除被分配 Keys 的 Alias
+- **WHEN** 管理员删除被分配给 API Keys 的 Alias
+- **THEN** 所有引用该 AliasID 的 KeyModel 记录自动删除
+- **AND** API Keys 失去访问该模型的权限
+
+---
+
+### Requirement: 通过 API 管理模型权限
+
+系统 SHALL 提供用于管理 Key-Model 权限的 API 端点。
+
+#### Scenario: 列出 Key 的允许模型
+- **WHEN** 管理员请求 API Key 的权限
+- **THEN** 系统返回 Key 可访问的模型 Alias 列表
+
+#### Scenario: 更新 Key 权限
+- **WHEN** 管理员更新 API Key 的权限
+- **THEN** 系统用新列表替换所有现有权限

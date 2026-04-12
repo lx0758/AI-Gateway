@@ -1,57 +1,57 @@
 ## ADDED Requirements
 
-### Requirement: Pprof server configuration
+### Requirement: Pprof 服务器配置
 
-The system SHALL support a dedicated pprof server for runtime performance profiling with configurable port.
+系统 SHALL 支持专用的 Pprof 服务器用于运行时性能分析，端口可配置。
 
-#### Scenario: Pprof server starts on default port
-- **WHEN** no `pprof.port` is configured
-- **THEN** the system SHALL start pprof server on port 6060
+#### Scenario: Pprof 服务器在默认端口启动
+- **WHEN** 未配置 `pprof.port`
+- **THEN** 系统 SHALL 在端口 6060 启动 Pprof 服务器
 
-#### Scenario: Pprof server starts on configured port
-- **WHEN** `pprof.port` is set to a valid port number
-- **THEN** the system SHALL start pprof server on the specified port
+#### Scenario: Pprof 服务器在配置端口启动
+- **WHEN** `pprof.port` 设置为有效端口号码
+- **THEN** 系统 SHALL 在指定端口启动 Pprof 服务器
 
-#### Scenario: Pprof server binds to localhost
-- **WHEN** pprof server starts
-- **THEN** the system SHALL bind the server to localhost only (security isolation)
+#### Scenario: Pprof 服务器绑定到 localhost
+- **WHEN** Pprof 服务器启动
+- **THEN** 系统 SHALL 将服务器仅绑定到 localhost（安全隔离）
 
-#### Scenario: Pprof server starts alongside main server
-- **WHEN** main server starts successfully
-- **THEN** the system SHALL also start pprof server in a separate goroutine
+#### Scenario: Pprof 服务器与主服务器同时启动
+- **WHEN** 主服务器成功启动
+- **THEN** 系统 SHALL 在单独的 goroutine 中同时启动 Pprof 服务器
 
-#### Scenario: Pprof server failure does not affect main server
-- **WHEN** pprof server fails to start
-- **THEN** the system SHALL log the error AND continue running the main server
+#### Scenario: Pprof 服务器失败不影响主服务器
+- **WHEN** Pprof 服务器启动失败
+- **THEN** 系统 SHALL 记录错误并继续运行主服务器
 
-#### Scenario: Pprof port configuration via YAML
-- **WHEN** YAML file contains `pprof.port` field
-- **THEN** the system SHALL parse this field into `PprofConfig.Port`
+#### Scenario: 通过 YAML 配置 Pprof 端口
+- **WHEN** YAML 文件包含 `pprof.port` 字段
+- **THEN** 系统 SHALL 将该字段解析为 `PprofConfig.Port`
 
-#### Scenario: Pprof port configuration via environment variable
-- **WHEN** environment variable `AG_PPROF_PORT` is set
-- **THEN** the system SHALL use this value for pprof server port
+#### Scenario: 通过环境变量配置 Pprof 端口
+- **WHEN** 环境变量 `AG_PPROF_PORT` 已设置
+- **THEN** 系统 SHALL 使用该值作为 Pprof 服务器端口
 
-### Requirement: Pprof server provides standard profiling endpoints
+### Requirement: Pprof 服务器提供标准分析端点
 
-The system SHALL expose standard Go pprof endpoints for performance analysis.
+系统 SHALL 暴露标准 Go Pprof 端点用于性能分析。
 
-#### Scenario: CPU profiling endpoint available
-- **WHEN** pprof server is running
-- **THEN** the endpoint `/debug/pprof/profile` SHALL be available for CPU profiling
+#### Scenario: CPU 分析端点可用
+- **WHEN** Pprof 服务器运行时
+- **THEN** 端点 `/debug/pprof/profile` SHALL 可用于 CPU 分析
 
-#### Scenario: Memory profiling endpoint available
-- **WHEN** pprof server is running
-- **THEN** the endpoint `/debug/pprof/heap` SHALL be available for memory profiling
+#### Scenario: 内存分析端点可用
+- **WHEN** Pprof 服务器运行时
+- **THEN** 端点 `/debug/pprof/heap` SHALL 可用于内存分析
 
-#### Scenario: Goroutine profiling endpoint available
-- **WHEN** pprof server is running
-- **THEN** the endpoint `/debug/pprof/goroutine` SHALL be available for goroutine analysis
+#### Scenario: Goroutine 分析端点可用
+- **WHEN** Pprof 服务器运行时
+- **THEN** 端点 `/debug/pprof/goroutine` SHALL 可用于 Goroutine 分析
 
-#### Scenario: Block profiling endpoint available
-- **WHEN** pprof server is running
-- **THEN** the endpoint `/debug/pprof/block` SHALL be available for blocking analysis
+#### Scenario: Block 分析端点可用
+- **WHEN** Pprof 服务器运行时
+- **THEN** 端点 `/debug/pprof/block` SHALL 可用于阻塞分析
 
-#### Scenario: Full profiling index available
-- **WHEN** pprof server is running
-- **THEN** the endpoint `/debug/pprof/` SHALL provide an index of all profiling endpoints
+#### Scenario: 完整分析索引可用
+- **WHEN** Pprof 服务器运行时
+- **THEN** 端点 `/debug/pprof/` SHALL 提供所有分析端点的索引

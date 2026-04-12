@@ -1,62 +1,62 @@
 ## MODIFIED Requirements
 
-### Requirement: Record API call usage
+### Requirement: 记录 API 调用使用量
 
-The system SHALL record each API call to `model_logs` table with the following information:
-- `key_id`: The API key used for the request
-- `provider_id`: The provider that handled the request
-- `model`: The virtual model name requested by user
-- `actual_model`: The actual model name used by the provider
-- `total_tokens`: Total tokens consumed (int64)
-- `latency_ms`: Request latency in milliseconds (int64)
-- `status`: "success" or "error"
-- `error_msg`: Error message if failed, empty if success
+系统 SHALL 将每次 API 调用记录到 `model_logs` 表，包含以下信息：
+- `key_id`: 请求使用的 API Key
+- `provider_id`: 处理请求的 Provider
+- `model`: 用户请求的虚拟模型名称
+- `actual_model`: Provider 使用的实际模型名称
+- `total_tokens`: 消耗的总 Token 数（int64）
+- `latency_ms`: 请求延迟（毫秒）（int64）
+- `status`: "success" 或 "error"
+- `error_msg`: 失败时的错误消息，成功时为空
 
-#### Scenario: Successful OpenAI request
+#### Scenario: 成功的 OpenAI 请求
 
-- **WHEN** a successful OpenAI-compatible API request is completed
-- **THEN** system records a model log with status="success", total_tokens from response, and latency_ms calculated
+- **WHEN** 成功的 OpenAI 兼容 API 请求完成
+- **THEN** 系统记录 model log，status="success"，total_tokens 来自响应，latency_ms 为计算值
 
-#### Scenario: Failed Anthropic request
+#### Scenario: 失败的 Anthropic 请求
 
-- **WHEN** an Anthropic API request fails with an error
-- **THEN** system records a model log with status="error", error_msg containing the error, and total_tokens=0
+- **WHEN** Anthropic API 请求因错误失败
+- **THEN** 系统记录 model log，status="error"，error_msg 包含错误内容，total_tokens=0
 
-### Requirement: Query provider statistics
+### Requirement: 查询 Provider 统计信息
 
-The system SHALL provide an API to query usage statistics grouped by provider.
+系统 SHALL 提供 API 来查询按 Provider 分组的使用统计信息。
 
-#### Scenario: Query provider stats
+#### Scenario: 查询 Provider 统计
 
-- **WHEN** user requests provider statistics for a date range
-- **THEN** system returns each provider's call count, total tokens, and average latency
+- **WHEN** 用户请求某个日期范围的 Provider 统计信息
+- **THEN** 系统返回每个 Provider 的调用次数、总 Token 数、平均延迟
 
-### Requirement: Query key statistics
+### Requirement: 查询 Key 统计信息
 
-The system SHALL provide an API to query usage statistics grouped by API key.
+系统 SHALL 提供 API 来查询按 API Key 分组的使用统计信息。
 
-#### Scenario: Query key stats
+#### Scenario: 查询 Key 统计
 
-- **WHEN** user requests API key statistics for a date range
-- **THEN** system returns each key's call count, total tokens, and average latency
+- **WHEN** 用户请求某个日期范围的 API Key 统计信息
+- **THEN** 系统返回每个 Key 的调用次数、总 Token 数、平均延迟
 
-### Requirement: Display usage statistics on dashboard
+### Requirement: 在仪表盘显示使用统计信息
 
-The system SHALL display usage statistics on the dashboard page including:
-- Total tokens consumed
-- Average latency
-- Provider statistics table
+系统 SHALL 在仪表盘页面显示使用统计信息，包括：
+- 消耗的总 Token 数
+- 平均延迟
+- Provider 统计表
 
-#### Scenario: View dashboard
+#### Scenario: 查看仪表盘
 
-- **WHEN** user opens the dashboard page
-- **THEN** system displays total requests, today requests, active providers, active keys, total tokens, and average latency
+- **WHEN** 用户打开仪表盘页面
+- **THEN** 系统显示总请求数、今日请求数、活跃 Provider、活跃 Key、总 Token 数、平均延迟
 
-### Requirement: Display key statistics on usage page
+### Requirement: 在使用页面显示 Key 统计信息
 
-The system SHALL display API key statistics on the usage page.
+系统 SHALL 在使用页面显示 API Key 统计信息。
 
-#### Scenario: View key stats on usage page
+#### Scenario: 在使用页面查看 Key 统计
 
-- **WHEN** user opens the usage page
-- **THEN** system displays a table with each key's name, call count, total tokens, and average latency
+- **WHEN** 用户打开使用页面
+- **THEN** 系统显示一个表格，包含每个 Key 的名称、调用次数、总 Token 数、平均延迟

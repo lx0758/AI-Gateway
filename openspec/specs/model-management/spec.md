@@ -7,123 +7,123 @@ FROM: `aliases` → TO: `models`
 
 ## MODIFIED Requirements
 
-### Requirement: Model is unique identifier
+### Requirement: Model 是唯一标识符
 
-The system SHALL enforce uniqueness on Model.name field, ensuring each model represents a distinct model name for API calls.
+系统 SHALL 对 Model.name 字段强制唯一性，确保每个模型代表 API 调用的不同模型名称。
 
-#### Scenario: Create unique model
-- **WHEN** admin creates model "gpt-4"
-- **THEN** system creates Model record with name="gpt-4"
-- **AND** subsequent creation of model "gpt-4" fails with duplicate error
+#### Scenario: 创建唯一模型
+- **WHEN** 管理员创建模型 "gpt-4"
+- **THEN** 系统创建 Model 记录，name="gpt-4"
+- **AND** 后续创建模型 "gpt-4" 因重复错误而失败
 
-#### Scenario: Model used as API model name
-- **WHEN** client calls API with model="gpt-4"
-- **THEN** router finds Model where name="gpt-4"
-- **AND** router retrieves associated ModelMappings for routing
+#### Scenario: Model 用作 API 模型名称
+- **WHEN** 客户端调用 API，model="gpt-4"
+- **THEN** 路由器找到 name="gpt-4" 的 Model
+- **AND** 路由器检索关联的 ModelMappings 用于路由
 
-### Requirement: Model can be enabled or disabled
+### Requirement: Model 可以启用或禁用
 
-The system SHALL allow enabling/disabling Model, affecting all associated mappings' availability.
+系统 SHALL 允许启用/禁用 Model，影响所有关联映射的可用性。
 
-#### Scenario: Disabled model rejects routing
+#### Scenario: 禁用的模型拒绝路由
 - **WHEN** Model.enabled=false
-- **AND** client calls API with model="gpt-4"
-- **THEN** router returns no providers
-- **AND** handler returns "model not found" error
+- **AND** 客户端调用 API，model="gpt-4"
+- **THEN** 路由器不返回 Providers
+- **AND** Handler 返回"模型未找到"错误
 
-#### Scenario: Enabled model allows routing
+#### Scenario: 启用的模型允许路由
 - **WHEN** Model.enabled=true
-- **AND** client calls API with model="gpt-4"
-- **THEN** router retrieves ModelMappings
-- **AND** routing proceeds normally
+- **AND** 客户端调用 API，model="gpt-4"
+- **THEN** 路由器检索 ModelMappings
+- **AND** 路由正常进行
 
-### Requirement: Model has zero or more ModelMappings
+### Requirement: Model 有零个或多个 ModelMappings
 
-The system SHALL support one-to-many relationship between Model and ModelMapping.
+系统 SHALL 支持 Model 和 ModelMapping 之间的一对多关系。
 
-#### Scenario: Model with multiple mappings
-- **WHEN** Model "gpt-4" has 3 ModelMappings
-- **THEN** router retrieves all 3 mappings for routing
-- **AND** mappings are sorted by weight DESC
+#### Scenario: 模型有多个映射
+- **WHEN** Model "gpt-4" 有 3 个 ModelMappings
+- **THEN** 路由器检索所有 3 个映射用于路由
+- **AND** 映射按权重 DESC 排序
 
-#### Scenario: Model with zero mappings
-- **WHEN** Model "new-model" has no ModelMappings
-- **THEN** router returns no providers
-- **AND** handler returns "model not found" error
+#### Scenario: 模型没有映射
+- **WHEN** Model "new-model" 没有 ModelMappings
+- **THEN** 路由器不返回 Providers
+- **AND** Handler 返回"模型未找到"错误
 
-### Requirement: Deleting Model cascades to ModelMappings
+### Requirement: 删除 Model 级联到 ModelMappings
 
-The system SHALL cascade delete all ModelMappings when Model is deleted.
+系统 SHALL 在删除 Model 时级联删除所有 ModelMappings。
 
-#### Scenario: Delete model removes mappings
-- **WHEN** admin deletes Model "gpt-4"
-- **THEN** system deletes all ModelMappings where model_id=gpt-4.id
-- **AND** no orphan mappings remain
+#### Scenario: 删除模型移除映射
+- **WHEN** 管理员删除 Model "gpt-4"
+- **THEN** 系统删除所有 model_id=gpt-4.id 的 ModelMappings
+- **AND** 不留下孤立的映射
 
-### Requirement: Model list displays in flat table layout
+### Requirement: Model 列表以扁平表格布局显示
 
-The system SHALL display models in a flat table layout (not collapsible panels), consistent with Providers page style.
+系统 SHALL 以扁平表格布局（而非折叠面板）显示模型，与 Providers 页面风格一致。
 
-#### Scenario: Model list displays as flat table
-- **WHEN** admin views `/models` page
-- **THEN** system displays table with columns: Select, Name, Mapping Count, Token Summary, Status, Actions
-- **AND** each row represents one Model
-- **AND** no collapsible panels are used
+#### Scenario: Model 列表以扁平表格显示
+- **WHEN** 管理员查看 `/models` 页面
+- **THEN** 系统显示表格，列：Select、Name、Mapping Count、Token Summary、Status、Actions
+- **AND** 每行代表一个 Model
+- **AND** 不使用折叠面板
 
-#### Scenario: Token summary displays minimum values with tooltip
-- **WHEN** model has enabled mappings
-- **THEN** system calculates min_context_window from enabled mappings
-- **AND** system calculates min_max_output from enabled mappings
-- **AND** Token Summary column shows formatted display (e.g., "8K / 4K")
-- **AND** mouse hover displays original values (e.g., "128,000 / 4,096")
-- **WHEN** model has no enabled mappings
-- **THEN** Token Summary column shows "-"
+#### Scenario: Token Summary 显示最小值并附带 Tooltip
+- **WHEN** 模型有启用的映射
+- **THEN** 系统从启用的映射计算 min_context_window
+- **AND** 系统从启用的映射计算 min_max_output
+- **AND** Token Summary 列显示格式化显示（例如 "8K / 4K"）
+- **AND** 鼠标悬停显示原始值（例如 "128,000 / 4,096"）
+- **WHEN** 模型没有启用的映射
+- **THEN** Token Summary 列显示 "-"
 
-#### Scenario: Capabilities intersection displays correctly
-- **WHEN** model has enabled mappings
-- **THEN** system calculates capability intersection for all enabled mappings
-- **AND** supports_vision is true only if all enabled mappings support vision
-- **AND** supports_tools is true only if all enabled mappings support tools
-- **AND** supports_stream is true only if all enabled mappings support stream
-- **AND** Capabilities column shows tags for true capabilities only
-- **WHEN** model has no enabled mappings
-- **THEN** Capabilities column shows "-"
+#### Scenario: 能力交集正确显示
+- **WHEN** 模型有启用的映射
+- **THEN** 系统为所有启用的映射计算能力交集
+- **AND** supports_vision 仅在所有启用的映射支持 vision 时为 true
+- **AND** supports_tools 仅在所有启用的映射支持 tools 时为 true
+- **AND** supports_stream 仅在所有启用的映射支持 stream 时为 true
+- **AND** Capabilities 列仅显示为 true 的能力标签
+- **WHEN** 模型没有启用的映射
+- **THEN** Capabilities 列显示 "-"
 
-#### Scenario: Token summary formatted with one decimal
-- **WHEN** system formats min_context_window and min_max_output
-- **THEN** values < 1000 display as original number
-- **AND** values >= 1000 display as "XK" or "X.XK" (e.g., "128K", "153.6K")
-- **AND** values >= 1000000 display as "XM" or "X.XM" (e.g., "2M", "1.5M")
+#### Scenario: Token Summary 使用一位小数格式化
+- **WHEN** 系统格式化 min_context_window 和 min_max_output
+- **THEN** 值 < 1000 显示为原始数字
+- **AND** 值 >= 1000 显示为 "XK" 或 "X.XK"（例如 "128K"、"153.6K"）
+- **AND** 值 >= 1000000 显示为 "XM" 或 "X.XM"（例如 "2M"、"1.5M"）
 
-### Requirement: Model list supports batch operations
+### Requirement: Model 列表支持批量操作
 
-The system SHALL allow batch selection and batch deletion of models.
+系统 SHALL 允许批量选择和批量删除模型。
 
-#### Scenario: Select multiple models
-- **WHEN** admin clicks checkboxes in model table
-- **THEN** system tracks selected model IDs
-- **AND** "Batch Delete" button shows count (e.g., "Batch Delete (3)")
+#### Scenario: 选择多个模型
+- **WHEN** 管理员在模型表中点击复选框
+- **THEN** 系统跟踪选中的模型 ID
+- **AND** "批量删除"按钮显示计数（例如 "批量删除 (3)"）
 
-#### Scenario: Batch delete models
-- **WHEN** admin clicks "Batch Delete" with selected models
-- **THEN** system shows confirmation dialog
-- **AND** upon confirmation, system deletes all selected models and their mappings
-- **AND** system refreshes model table
+#### Scenario: 批量删除模型
+- **WHEN** 管理员在选中模型后点击"批量删除"
+- **THEN** 系统显示确认对话框
+- **AND** 确认后，系统删除所有选中的模型及其映射
+- **AND** 系统刷新模型表
 
-#### Scenario: Batch delete disabled without selection
-- **WHEN** no models are selected
-- **THEN** "Batch Delete" button is disabled
+#### Scenario: 无选择时批量删除禁用
+- **WHEN** 未选中模型
+- **THEN** "批量删除"按钮禁用
 
-### Requirement: Model list provides detail page navigation
+### Requirement: Model 列表提供详情页导航
 
-The system SHALL provide "Detail" button to navigate to model detail page for mapping management.
+系统 SHALL 提供"详情"按钮导航到模型详情页用于映射管理。
 
-#### Scenario: Navigate to model detail page
-- **WHEN** admin clicks "Detail" button on model row
-- **THEN** system navigates to `/models/:id` page
-- **AND** detail page shows complete mapping information
+#### Scenario: 导航到模型详情页
+- **WHEN** 管理员在模型行点击"详情"按钮
+- **THEN** 系统导航到 `/models/:id` 页面
+- **AND** 详情页显示完整映射信息
 
-#### Scenario: Detail button visible for all models
-- **WHEN** model table is displayed
-- **THEN** every model row has "Detail" button in Actions column
-- **AND** "Detail" button is always enabled regardless of mapping count
+#### Scenario: 所有模型的详情按钮可见
+- **WHEN** 显示模型表时
+- **THEN** 每个模型行在 Actions 列有"详情"按钮
+- **AND** "详情"按钮始终启用，无论映射数量

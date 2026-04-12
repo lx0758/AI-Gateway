@@ -1,127 +1,127 @@
-# API Key MCP Resources
+# API Key MCP 资源
 
 ## ADDED Requirements
 
-### Requirement: Tool Permission Configuration
-The system SHALL allow administrators to configure which MCP tools each API Key can access.
+### Requirement: 工具权限配置
+系统 SHALL 允许管理员配置每个 API Key 可以访问哪些 MCP 工具。
 
-#### Scenario: Grant tool access
-- **WHEN** administrator grants API Key access to MCP tool
-- **THEN** system creates KeyMCPTool association
+#### Scenario: 授予工具访问权限
+- **WHEN** 管理员授予 API Key 对 MCP 工具的访问权限
+- **THEN** 系统创建 KeyMCPTool 关联
 
-#### Scenario: Revoke tool access
-- **WHEN** administrator removes API Key's access to MCP tool
-- **THEN** system deletes KeyMCPTool association
+#### Scenario: 撤销工具访问权限
+- **WHEN** 管理员移除 API Key 对 MCP 工具的访问权限
+- **THEN** 系统删除 KeyMCPTool 关联
 
-#### Scenario: List key tools
-- **WHEN** administrator requests tools for an API Key
-- **THEN** system returns all tools the key has access to
+#### Scenario: 列出 Key 工具
+- **WHEN** 管理员请求 API Key 的工具
+- **THEN** 系统返回该 Key 有权访问的所有工具
 
-### Requirement: Resource Permission Configuration
-The system SHALL allow administrators to configure which MCP resources each API Key can access.
+### Requirement: 资源权限配置
+系统 SHALL 允许管理员配置每个 API Key 可以访问哪些 MCP 资源。
 
-#### Scenario: Grant resource access
-- **WHEN** administrator grants API Key access to MCP resource
-- **THEN** system creates KeyMCPResource association
+#### Scenario: 授予资源访问权限
+- **WHEN** 管理员授予 API Key 对 MCP 资源的访问权限
+- **THEN** 系统创建 KeyMCPResource 关联
 
-#### Scenario: Revoke resource access
-- **WHEN** administrator removes API Key's access to MCP resource
-- **THEN** system deletes KeyMCPResource association
+#### Scenario: 撤销资源访问权限
+- **WHEN** 管理员移除 API Key 对 MCP 资源的访问权限
+- **THEN** 系统删除 KeyMCPResource 关联
 
-### Requirement: Prompt Permission Configuration
-The system SHALL allow administrators to configure which MCP prompts each API Key can access.
+### Requirement: 提示词权限配置
+系统 SHALL 允许管理员配置每个 API Key 可以访问哪些 MCP 提示词。
 
-#### Scenario: Grant prompt access
-- **WHEN** administrator grants API Key access to MCP prompt
-- **THEN** system creates KeyMCPPrompt association
+#### Scenario: 授予提示词访问权限
+- **WHEN** 管理员授予 API Key 对 MCP 提示词的访问权限
+- **THEN** 系统创建 KeyMCPPrompt 关联
 
-#### Scenario: Revoke prompt access
-- **WHEN** administrator removes API Key's access to MCP prompt
-- **THEN** system deletes KeyMCPPrompt association
+#### Scenario: 撤销提示词访问权限
+- **WHEN** 管理员移除 API Key 对 MCP 提示词的访问权限
+- **THEN** 系统删除 KeyMCPPrompt 关联
 
-### Requirement: RESTful API Design
-The system SHALL provide consistent RESTful endpoints for configuring MCP resource permissions.
+### Requirement: RESTful API 设计
+系统 SHALL 提供一致的 RESTful 端点用于配置 MCP 资源权限。
 
-#### Scenario: GET MCP tools for key
-- **WHEN** administrator calls GET /api/v1/api-keys/:id/mcp-tools
-- **THEN** system returns list of tool IDs the key can access
+#### Scenario: GET Key 的 MCP 工具
+- **WHEN** 管理员调用 GET /api/v1/api-keys/:id/mcp-tools
+- **THEN** 系统返回该 Key 有权访问的工具 ID 列表
 
-#### Scenario: PUT MCP tools for key
-- **WHEN** administrator calls PUT /api/v1/api-keys/:id/mcp-tools with array of tool IDs
-- **THEN** system replaces key's tool permissions with new list
+#### Scenario: PUT Key 的 MCP 工具
+- **WHEN** 管理员调用 PUT /api/v1/api-keys/:id/mcp-tools，附带工具 ID 数组
+- **THEN** 系统用新列表替换 Key 的工具权限
 
-#### Scenario: GET MCP resources for key
-- **WHEN** administrator calls GET /api/v1/api-keys/:id/mcp-resources
-- **THEN** system returns list of resource IDs the key can access
+#### Scenario: GET Key 的 MCP 资源
+- **WHEN** 管理员调用 GET /api/v1/api-keys/:id/mcp-resources
+- **THEN** 系统返回该 Key 有权访问的资源 ID 列表
 
-#### Scenario: PUT MCP resources for key
-- **WHEN** administrator calls PUT /api/v1/api-keys/:id/mcp-resources with array of resource IDs
-- **THEN** system replaces key's resource permissions with new list
+#### Scenario: PUT Key 的 MCP 资源
+- **WHEN** 管理员调用 PUT /api/v1/api-keys/:id/mcp-resources，附带资源 ID 数组
+- **THEN** 系统用新列表替换 Key 的资源权限
 
-#### Scenario: GET MCP prompts for key
-- **WHEN** administrator calls GET /api/v1/api-keys/:id/mcp-prompts
-- **THEN** system returns list of prompt IDs the key can access
+#### Scenario: GET Key 的 MCP 提示词
+- **WHEN** 管理员调用 GET /api/v1/api-keys/:id/mcp-prompts
+- **THEN** 系统返回该 Key 有权访问的提示词 ID 列表
 
-#### Scenario: PUT MCP prompts for key
-- **WHEN** administrator calls PUT /api/v1/api-keys/:id/mcp-prompts with array of prompt IDs
-- **THEN** system replaces key's prompt permissions with new list
+#### Scenario: PUT Key 的 MCP 提示词
+- **WHEN** 管理员调用 PUT /api/v1/api-keys/:id/mcp-prompts，附带提示词 ID 数组
+- **THEN** 系统用新列表替换 Key 的提示词权限
 
-### Requirement: Permission Enforcement
-The system SHALL enforce MCP resource permissions when clients call the MCP endpoint.
+### Requirement: 权限执行
+系统 SHALL 在客户端调用 MCP 端点时执行 MCP 资源权限。
 
-#### Scenario: Access granted tool
-- **WHEN** client calls tool they have permission for
-- **THEN** system routes request to MCP service
+#### Scenario: 访问已授权工具
+- **WHEN** 客户端调用有权限的工具
+- **THEN** 系统将请求路由到 MCP 服务
 
-#### Scenario: Access denied tool
-- **WHEN** client calls tool they don't have permission for
-- **THEN** system returns JSON-RPC error with code -32602
+#### Scenario: 访问未授权工具
+- **WHEN** 客户端调用无权限的工具
+- **THEN** 系统返回 JSON-RPC 错误，代码 -32602
 
-#### Scenario: Access granted resource
-- **WHEN** client reads resource they have permission for
-- **THEN** system routes request to MCP service
+#### Scenario: 访问已授权资源
+- **WHEN** 客户端读取有权限的资源
+- **THEN** 系统将请求路由到 MCP 服务
 
-#### Scenario: Access denied resource
-- **WHEN** client reads resource they don't have permission for
-- **THEN** system returns JSON-RPC error with code -32602
+#### Scenario: 访问未授权资源
+- **WHEN** 客户端读取无权限的资源
+- **THEN** 系统返回 JSON-RPC 错误，代码 -32602
 
-### Requirement: Initialize Response Filtering
-The system SHALL filter resources in `initialize` response based on API Key permissions.
+### Requirement: Initialize 响应过滤
+系统 SHALL 基于 API Key 权限过滤 `initialize` 响应中的资源。
 
-#### Scenario: Filtered tool list
-- **WHEN** client calls initialize with API Key
-- **THEN** system returns only tools the key has permission for, with namespace prefixes
+#### Scenario: 过滤的工具列表
+- **WHEN** 客户端使用 API Key 调用 initialize
+- **THEN** 系统仅返回 Key 有权限的工具，带命名空间前缀
 
-#### Scenario: Filtered resource list
-- **WHEN** client calls initialize with API Key
-- **THEN** system returns only resources the key has permission for, with modified URIs
+#### Scenario: 过滤的资源列表
+- **WHEN** 客户端使用 API Key 调用 initialize
+- **THEN** 系统仅返回 Key 有权限的资源，带修改的 URI
 
-#### Scenario: Filtered prompt list
-- **WHEN** client calls initialize with API Key
-- **THEN** system returns only prompts the key has permission for, with namespace prefixes
+#### Scenario: 过滤的提示词列表
+- **WHEN** 客户端使用 API Key 调用 initialize
+- **THEN** 系统仅返回 Key 有权限的提示词，带命名空间前缀
 
-### Requirement: Namespace Prefix Addition
-The system SHALL add namespace prefix to all resource identifiers returned to clients.
+### Requirement: 命名空间前缀添加
+系统 SHALL 向所有返回给客户端的资源标识符添加命名空间前缀。
 
-#### Scenario: Tool name prefix
-- **WHEN** system returns tool in initialize response
-- **THEN** tool name is prefixed as `{symbol}.{original_name}`
+#### Scenario: 工具名称前缀
+- **WHEN** 系统在 initialize 响应中返回工具
+- **THEN** 工具名称前缀为 `{symbol}.{original_name}`
 
-#### Scenario: Resource URI prefix
-- **WHEN** system returns resource in initialize response
-- **THEN** resource URI is prefixed as `mcp://{symbol}/{original_uri}`
+#### Scenario: 资源 URI 前缀
+- **WHEN** 系统在 initialize 响应中返回资源
+- **THEN** 资源 URI 前缀为 `mcp://{symbol}/{original_uri}`
 
-#### Scenario: Prompt name prefix
-- **WHEN** system returns prompt in initialize response
-- **THEN** prompt name is prefixed as `{symbol}.{original_name}`
+#### Scenario: 提示词名称前缀
+- **WHEN** 系统在 initialize 响应中返回提示词
+- **THEN** 提示词名称前缀为 `{symbol}.{original_name}`
 
-### Requirement: Cascade Delete
-The system SHALL handle permission cleanup when resources are deleted.
+### Requirement: 级联删除
+系统 SHALL 在资源被删除时处理权限清理。
 
-#### Scenario: Tool deleted from service
-- **WHEN** MCP tool is removed from database (service deleted)
-- **THEN** system deletes all KeyMCPTool associations for that tool
+#### Scenario: 工具从服务中删除
+- **WHEN** MCP 工具从数据库中移除（服务删除）
+- **THEN** 系统删除该工具的所有 KeyMCPTool 关联
 
-#### Scenario: API Key deleted
-- **WHEN** API Key is deleted
-- **THEN** system deletes all KeyMCPTool, KeyMCPResource, KeyMCPPrompt associations for that key
+#### Scenario: API Key 被删除
+- **WHEN** API Key 被删除
+- **THEN** 系统删除该 Key 的所有 KeyMCPTool、KeyMCPResource、KeyMCPPrompt 关联

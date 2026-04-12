@@ -1,108 +1,108 @@
-# MCP Client Connection
+# MCP 客户端连接
 
 ## ADDED Requirements
 
-### Requirement: On-Demand Connection Strategy
-The system SHALL establish connections to MCP services only when needed (tool call, resource read, prompt get, or sync), not maintain persistent connections.
+### Requirement: 按需连接策略
+系统 SHALL 仅在需要时（工具调用、资源读取、提示词获取或同步）与 MCP 服务建立连接，而非维护持久连接。
 
-#### Scenario: First tool call
-- **WHEN** client calls tool from MCP service for first time
-- **THEN** system establishes connection, executes tool, and keeps connection for idle timeout period
+#### Scenario: 第一次工具调用
+- **WHEN** 客户端首次调用 MCP 服务的工具
+- **THEN** 系统建立连接，执行工具，并保持连接到空闲超时时间
 
-#### Scenario: Subsequent call within timeout
-- **WHEN** client makes another call to same MCP service within idle timeout
-- **THEN** system reuses existing connection
+#### Scenario: 超时内的后续调用
+- **WHEN** 客户端在空闲超时内再次调用同一 MCP 服务
+- **THEN** 系统复用现有连接
 
-#### Scenario: Call after timeout
-- **WHEN** client calls tool after idle timeout has expired
-- **THEN** system establishes new connection
+#### Scenario: 超时后的调用
+- **WHEN** 客户端在空闲超时过期后调用工具
+- **THEN** 系统建立新连接
 
-### Requirement: Remote MCP Client (HTTP/SSE)
-The system SHALL implement HTTP and SSE client for connecting to remote MCP services.
+### Requirement: 远程 MCP 客户端（HTTP/SSE）
+系统 SHALL 实现 HTTP 和 SSE 客户端用于连接远程 MCP 服务。
 
-#### Scenario: HTTP connection
-- **WHEN** connecting to remote MCP service via HTTP
-- **THEN** system sends JSON-RPC request via POST and receives JSON-RPC response
+#### Scenario: HTTP 连接
+- **WHEN** 通过 HTTP 连接远程 MCP 服务
+- **THEN** 系统通过 POST 发送 JSON-RPC 请求并接收 JSON-RPC 响应
 
-#### Scenario: SSE connection
-- **WHEN** connecting to remote MCP service that supports SSE
-- **THEN** system establishes SSE connection and streams JSON-RPC messages
+#### Scenario: SSE 连接
+- **WHEN** 连接支持 SSE 的远程 MCP 服务
+- **THEN** 系统建立 SSE 连接并流式传输 JSON-RPC 消息
 
-#### Scenario: Custom headers
-- **WHEN** remote MCP service requires custom headers
-- **THEN** system includes configured headers in HTTP requests
+#### Scenario: 自定义 Headers
+- **WHEN** 远程 MCP 服务需要自定义 Headers
+- **THEN** 系统在 HTTP 请求中包含配置的 Headers
 
-#### Scenario: Connection timeout
-- **WHEN** remote service doesn't respond within connection timeout (5 seconds)
-- **THEN** system returns timeout error to caller
+#### Scenario: 连接超时
+- **WHEN** 远程服务在连接超时（5秒）内未响应
+- **THEN** 系统向调用者返回超时错误
 
-### Requirement: Local MCP Client (stdio)
-The system SHALL implement stdio client for connecting to local MCP services via process execution.
+### Requirement: 本地 MCP 客户端（stdio）
+系统 SHALL 实现 stdio 客户端，通过进程执行连接本地 MCP 服务。
 
-#### Scenario: Process startup
-- **WHEN** connecting to local MCP service
-- **THEN** system executes configured command with environment variables
+#### Scenario: 进程启动
+- **WHEN** 连接本地 MCP 服务
+- **THEN** 系统使用环境变量执行配置的命令
 
-#### Scenario: stdio communication
-- **WHEN** communicating with local MCP process
-- **THEN** system sends JSON-RPC via stdin and receives JSON-RPC via stdout
+#### Scenario: stdio 通信
+- **WHEN** 与本地 MCP 进程通信
+- **THEN** 系统通过 stdin 发送 JSON-RPC 并通过 stdout 接收 JSON-RPC
 
-#### Scenario: Process error handling
-- **WHEN** local MCP process writes to stderr
-- **THEN** system logs stderr output for debugging
+#### Scenario: 进程错误处理
+- **WHEN** 本地 MCP 进程写入 stderr
+- **THEN** 系统记录 stderr 输出用于调试
 
-#### Scenario: Process startup timeout
-- **WHEN** local MCP process doesn't respond within startup timeout (10 seconds)
-- **THEN** system terminates process and returns error to caller
+#### Scenario: 进程启动超时
+- **WHEN** 本地 MCP 进程在启动超时（10秒）内未响应
+- **THEN** 系统终止进程并向调用者返回错误
 
-### Requirement: Process Lifecycle Management
-The system SHALL manage local MCP process lifecycle with idle timeout but no supervision.
+### Requirement: 进程生命周期管理
+系统 SHALL 使用空闲超时管理本地 MCP 进程生命周期，但不进行监控。
 
-#### Scenario: Process idle timeout
-- **WHEN** local MCP process is idle for 5 minutes
-- **THEN** system terminates the process
+#### Scenario: 进程空闲超时
+- **WHEN** 本地 MCP 进程空闲 5 分钟
+- **THEN** 系统终止该进程
 
-#### Scenario: Process crash
-- **WHEN** local MCP process crashes during request
-- **THEN** system returns error to client and doesn't auto-restart
+#### Scenario: 进程崩溃
+- **WHEN** 本地 MCP 进程在请求期间崩溃
+- **THEN** 系统向客户端返回错误且不自动重启
 
-#### Scenario: Manual restart after crash
-- **WHEN** client makes new request after process crashed
-- **THEN** system starts new process instance
+#### Scenario: 崩溃后的手动重启
+- **WHEN** 客户端在进程崩溃后发送新请求
+- **THEN** 系统启动新的进程实例
 
-### Requirement: Request Timeout
-The system SHALL enforce request timeout (30 seconds) for all MCP operations.
+### Requirement: 请求超时
+系统 SHALL 对所有 MCP 操作强制请求超时（30秒）。
 
-#### Scenario: Tool call timeout
-- **WHEN** tool execution exceeds 30 seconds
-- **THEN** system returns timeout error to client
+#### Scenario: 工具调用超时
+- **WHEN** 工具执行超过 30 秒
+- **THEN** 系统向客户端返回超时错误
 
-#### Scenario: Resource read timeout
-- **WHEN** resource read exceeds 30 seconds
-- **THEN** system returns timeout error to client
+#### Scenario: 资源读取超时
+- **WHEN** 资源读取超过 30 秒
+- **THEN** 系统向客户端返回超时错误
 
-### Requirement: Connection Error Propagation
-The system SHALL return clear JSON-RPC errors when connection failures occur.
+### Requirement: 连接错误传播
+系统 SHALL 在连接失败时返回清晰的 JSON-RPC 错误。
 
-#### Scenario: Service unavailable
-- **WHEN** MCP service is unreachable
-- **THEN** system returns JSON-RPC error with code -32603 and message "MCP service unavailable: {symbol}"
+#### Scenario: 服务不可用
+- **WHEN** MCP 服务不可访问
+- **THEN** 系统返回 JSON-RPC 错误，代码 -32603，消息 "MCP 服务不可用: {symbol}"
 
-#### Scenario: Authentication failure
-- **WHEN** remote MCP service rejects connection due to invalid credentials
-- **THEN** system returns JSON-RPC error with code -32603 and message "MCP service authentication failed"
+#### Scenario: 认证失败
+- **WHEN** 远程 MCP 服务因无效凭据拒绝连接
+- **THEN** 系统返回 JSON-RPC 错误，代码 -32603，消息 "MCP 服务认证失败"
 
-### Requirement: JSON-RPC Protocol Handling
-The system SHALL correctly implement JSON-RPC 2.0 protocol for all MCP communications.
+### Requirement: JSON-RPC 协议处理
+系统 SHALL 对所有 MCP 通信正确实现 JSON-RPC 2.0 协议。
 
-#### Scenario: Request ID correlation
-- **WHEN** system sends JSON-RPC request with ID
-- **THEN** system correlates response with same ID
+#### Scenario: 请求 ID 关联
+- **WHEN** 系统发送带 ID 的 JSON-RPC 请求
+- **THEN** 系统关联相同 ID 的响应
 
-#### Scenario: Notification handling
-- **WHEN** MCP service sends notification (no ID)
-- **THEN** system processes notification without expecting response
+#### Scenario: 通知处理
+- **WHEN** MCP 服务发送通知（无 ID）
+- **THEN** 系统处理通知而不期待响应
 
-#### Scenario: Batch request support
-- **WHEN** client sends array of JSON-RPC requests
-- **THEN** system processes each request and returns array of responses
+#### Scenario: 批量请求支持
+- **WHEN** 客户端发送 JSON-RPC 请求数组
+- **THEN** 系统处理每个请求并返回响应数组

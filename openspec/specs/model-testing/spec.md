@@ -1,115 +1,115 @@
 ## ADDED Requirements
 
-### Requirement: Provider model testing API
+### Requirement: Provider 模型测试 API
 
-The system SHALL provide an API endpoint to test a specific provider model.
+系统 SHALL 提供 API 端点来测试特定的 Provider 模型。
 
 ```
 POST /api/v1/providers/:id/models/:model_id/test
 ```
 
-#### Scenario: Test provider model with OpenAI protocol
+#### Scenario: 使用 OpenAI 协议测试 Provider 模型
 
-- **WHEN** provider has OpenAIBaseURL configured
-- **THEN** system executes test using OpenAI protocol
-- **AND** returns test result with latency, tokens, response content
+- **WHEN** Provider 配置了 OpenAIBaseURL
+- **THEN** 系统使用 OpenAI 协议执行测试
+- **AND** 返回测试结果，包含延迟、Token 数、响应内容
 
-#### Scenario: Test provider model with Anthropic protocol
+#### Scenario: 使用 Anthropic 协议测试 Provider 模型
 
-- **WHEN** provider has AnthropicBaseURL configured
-- **THEN** system executes test using Anthropic protocol
-- **AND** returns test result with latency, tokens, response content
+- **WHEN** Provider 配置了 AnthropicBaseURL
+- **THEN** 系统使用 Anthropic 协议执行测试
+- **AND** 返回测试结果，包含延迟、Token 数、响应内容
 
-#### Scenario: Test provider model with both protocols
+#### Scenario: 同时测试两种协议的 Provider 模型
 
-- **WHEN** provider has both OpenAIBaseURL and AnthropicBaseURL configured
-- **THEN** system executes two tests, one for each protocol
-- **AND** returns both test results
+- **WHEN** Provider 同时配置了 OpenAIBaseURL 和 AnthropicBaseURL
+- **THEN** 系统执行两次测试，每个协议一次
+- **AND** 返回两个测试结果
 
-#### Scenario: Test fails with error
+#### Scenario: 测试失败返回错误
 
-- **WHEN** test request fails (connection error, timeout, API error)
-- **THEN** system returns success=false with error message
+- **WHEN** 测试请求失败（连接错误、超时、API 错误）
+- **THEN** 系统返回 success=false 并附带错误消息
 
-#### Scenario: Provider not found
+#### Scenario: Provider 不存在
 
-- **WHEN** provider ID does not exist
-- **THEN** system returns 404 error
+- **WHEN** Provider ID 不存在
+- **THEN** 系统返回 404 错误
 
-#### Scenario: Provider model not found
+#### Scenario: Provider 模型不存在
 
-- **WHEN** model ID does not exist for the provider
-- **THEN** system returns 404 error
+- **WHEN** 该 Provider 的模型 ID 不存在
+- **THEN** 系统返回 404 错误
 
-### Requirement: Virtual model testing API
+### Requirement: 虚拟模型测试 API
 
-The system SHALL provide an API endpoint to test a virtual model (alias) with all its mappings.
+系统 SHALL 提供 API 端点来测试虚拟模型（别名）及其所有映射。
 
 ```
 POST /api/v1/models/:id/test
 ```
 
-#### Scenario: Test virtual model with single mapping
+#### Scenario: 测试具有单个映射的虚拟模型
 
-- **WHEN** model has one enabled mapping
-- **THEN** system executes test for that mapping
-- **AND** returns test result with provider and model details
+- **WHEN** 模型有一个启用的映射
+- **THEN** 系统执行该映射的测试
+- **AND** 返回测试结果，包含 Provider 和模型详细信息
 
-#### Scenario: Test virtual model with multiple mappings
+#### Scenario: 测试具有多个映射的虚拟模型
 
-- **WHEN** model has multiple enabled mappings
-- **THEN** system executes tests for each mapping in weight order
-- **AND** returns all test results sorted by weight
+- **WHEN** 模型有多个启用的映射
+- **THEN** 系统按权重顺序为每个映射执行测试
+- **AND** 返回所有测试结果，按权重排序
 
-#### Scenario: Test virtual model with disabled mappings
+#### Scenario: 测试具有禁用映射的虚拟模型
 
-- **WHEN** model has disabled mappings
-- **THEN** system skips disabled mappings
-- **AND** only tests enabled mappings
+- **WHEN** 模型有禁用的映射
+- **THEN** 系统跳过禁用的映射
+- **AND** 仅测试启用的映射
 
-#### Scenario: Virtual model not found
+#### Scenario: 虚拟模型不存在
 
-- **WHEN** model ID does not exist
-- **THEN** system returns 404 error
+- **WHEN** 模型 ID 不存在
+- **THEN** 系统返回 404 错误
 
-#### Scenario: Virtual model has no enabled mappings
+#### Scenario: 虚拟模型没有启用的映射
 
-- **WHEN** model has no enabled mappings
-- **THEN** system returns empty tests array
+- **WHEN** 模型没有启用的映射
+- **THEN** 系统返回空的测试数组
 
-### Requirement: Test execution behavior
+### Requirement: 测试执行行为
 
-#### Scenario: Test uses fixed message
+#### Scenario: 测试使用固定消息
 
-- **WHEN** test is executed
-- **THEN** system sends message "Hi" to the model
-- **AND** sets max_tokens to 100
-- **AND** sets stream to false
+- **WHEN** 执行测试时
+- **THEN** 系统向模型发送消息 "Hi"
+- **AND** 设置 max_tokens 为 100
+- **AND** 设置 stream 为 false
 
-#### Scenario: Test measures latency
+#### Scenario: 测试测量延迟
 
-- **WHEN** test is executed
-- **THEN** system records latency in milliseconds
+- **WHEN** 执行测试时
+- **THEN** 系统记录延迟（毫秒）
 
-#### Scenario: Test extracts token usage
+#### Scenario: 测试提取 Token 使用量
 
-- **WHEN** test response includes token usage
-- **THEN** system extracts input_tokens and output_tokens
+- **WHEN** 测试响应包含 Token 使用量
+- **THEN** 系统提取 input_tokens 和 output_tokens
 
-#### Scenario: Test extracts response content
+#### Scenario: 测试提取响应内容
 
-- **WHEN** test succeeds
-- **THEN** system extracts response text content
+- **WHEN** 测试成功
+- **THEN** 系统提取响应文本内容
 
-#### Scenario: Test timeout
+#### Scenario: 测试超时
 
-- **WHEN** test request exceeds 30 seconds
-- **THEN** system returns timeout error
+- **WHEN** 测试请求超过 30 秒
+- **THEN** 系统返回超时错误
 
-### Requirement: Test code reuses existing provider logic
+### Requirement: 测试代码复用现有的 Provider 逻辑
 
-#### Scenario: Test uses httptest context
+#### Scenario: 测试使用 httptest 上下文
 
-- **WHEN** test is executed
-- **THEN** system creates gin.Context using httptest.NewRecorder and gin.CreateTestContext
-- **AND** calls existing Provider.ExecuteOpenAIRequest or ExecuteAnthropicRequest
+- **WHEN** 执行测试时
+- **THEN** 系统使用 httptest.NewRecorder 和 gin.CreateTestContext 创建 gin.Context
+- **AND** 调用现有的 Provider.ExecuteOpenAIRequest 或 ExecuteAnthropicRequest

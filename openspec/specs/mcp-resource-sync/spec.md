@@ -1,99 +1,99 @@
-# MCP Resource Sync
+# MCP 资源同步
 
 ## ADDED Requirements
 
-### Requirement: Resource Discovery
-The system SHALL connect to MCP services and discover available tools, resources, and prompts using MCP protocol methods.
+### Requirement: 资源发现
+系统 SHALL 连接到 MCP 服务，使用 MCP 协议方法发现可用的工具、资源和提示词。
 
-#### Scenario: Discover tools
-- **WHEN** system syncs with MCP service
-- **THEN** system calls `tools/list` method and caches all tool definitions
+#### Scenario: 发现工具
+- **WHEN** 系统与 MCP 服务同步
+- **THEN** 系统调用 `tools/list` 方法并缓存所有工具定义
 
-#### Scenario: Discover resources
-- **WHEN** system syncs with MCP service
-- **THEN** system calls `resources/list` method and caches all resource definitions
+#### Scenario: 发现资源
+- **WHEN** 系统与 MCP 服务同步
+- **THEN** 系统调用 `resources/list` 方法并缓存所有资源定义
 
-#### Scenario: Discover prompts
-- **WHEN** system syncs with MCP service
-- **THEN** system calls `prompts/list` method and caches all prompt definitions
+#### Scenario: 发现提示词
+- **WHEN** 系统与 MCP 服务同步
+- **THEN** 系统调用 `prompts/list` 方法并缓存所有提示词定义
 
-### Requirement: Capability Detection
-The system SHALL detect MCP service capabilities during sync using the `initialize` method.
+### Requirement: 能力检测
+系统 SHALL 在同步期间使用 `initialize` 方法检测 MCP 服务能力。
 
-#### Scenario: Detect supported capabilities
-- **WHEN** system initializes connection with MCP service
-- **THEN** system stores service capabilities (tools, resources, prompts support flags)
+#### Scenario: 检测支持的能力
+- **WHEN** 系统与 MCP 服务初始化连接
+- **THEN** 系统存储服务能力（工具、资源、提示词支持标志）
 
-#### Scenario: Capability mismatch
-- **WHEN** service doesn't support a capability (e.g., no resources)
-- **THEN** system notes capability as unsupported and skips related sync steps
+#### Scenario: 能力不匹配
+- **WHEN** 服务不支持某项能力（例如无资源）
+- **THEN** 系统将该能力标记为不支持并跳过相关同步步骤
 
-### Requirement: Tool Caching
-The system SHALL cache tool definitions in database with service association.
+### Requirement: 工具缓存
+系统 SHALL 在数据库中缓存工具定义，附带服务关联。
 
-#### Scenario: Cache new tool
-- **WHEN** sync discovers new tool not in database
-- **THEN** system creates MCPTool record with name, description, and input schema
+#### Scenario: 缓存新工具
+- **WHEN** 同步发现数据库中不存在的新工具
+- **THEN** 系统创建 MCPTool 记录，包含名称、描述和输入 Schema
 
-#### Scenario: Update existing tool
-- **WHEN** sync discovers tool with same name but different schema
-- **THEN** system updates existing MCPTool record
+#### Scenario: 更新现有工具
+- **WHEN** 同步发现同名但 Schema 不同的工具
+- **THEN** 系统更新现有的 MCPTool 记录
 
-#### Scenario: Remove unavailable tool
-- **WHEN** sync finds tool in database that's not in service response
-- **THEN** system marks tool as unavailable instead of deleting
+#### Scenario: 移除不可用的工具
+- **WHEN** 同步发现数据库中有工具但服务响应中不存在
+- **THEN** 系统将工具标记为不可用而非删除
 
-### Requirement: Resource Caching
-The system SHALL cache resource definitions in database with service association.
+### Requirement: 资源缓存
+系统 SHALL 在数据库中缓存资源定义，附带服务关联。
 
-#### Scenario: Cache new resource
-- **WHEN** sync discovers new resource not in database
-- **THEN** system creates MCPResource record with URI, name, description, and MIME type
+#### Scenario: 缓存新资源
+- **WHEN** 同步发现数据库中不存在的新资源
+- **THEN** 系统创建 MCPResource 记录，包含 URI、名称、描述和 MIME 类型
 
-#### Scenario: Update existing resource
-- **WHEN** sync discovers resource with same URI but different metadata
-- **THEN** system updates existing MCPResource record
+#### Scenario: 更新现有资源
+- **WHEN** 同步发现同 URI 但元数据不同的资源
+- **THEN** 系统更新现有的 MCPResource 记录
 
-### Requirement: Prompt Caching
-The system SHALL cache prompt definitions in database with service association.
+### Requirement: 提示词缓存
+系统 SHALL 在数据库中缓存提示词定义，附带服务关联。
 
-#### Scenario: Cache new prompt
-- **WHEN** sync discovers new prompt not in database
-- **THEN** system creates MCPPrompt record with name, description, and arguments schema
+#### Scenario: 缓存新提示词
+- **WHEN** 同步发现数据库中不存在的新提示词
+- **THEN** 系统创建 MCPPrompt 记录，包含名称、描述和参数 Schema
 
-#### Scenario: Update existing prompt
-- **WHEN** sync discovers prompt with same name but different arguments
-- **THEN** system updates existing MCPPrompt record
+#### Scenario: 更新现有提示词
+- **WHEN** 同步发现同名但参数不同的提示词
+- **THEN** 系统更新现有的 MCPPrompt 记录
 
-### Requirement: Sync Metadata Tracking
-The system SHALL track last sync time for each MCP service.
+### Requirement: 同步元数据跟踪
+系统 SHALL 为每个 MCP 服务跟踪最后同步时间。
 
-#### Scenario: Update sync timestamp
-- **WHEN** sync completes successfully
-- **THEN** system updates service's LastSyncAt timestamp
+#### Scenario: 更新同步时间戳
+- **WHEN** 同步成功完成
+- **THEN** 系统更新服务的 LastSyncAt 时间戳
 
-#### Scenario: Sync failure
-- **WHEN** sync fails due to connection error
-- **THEN** system logs error and preserves previous LastSyncAt value
+#### Scenario: 同步失败
+- **WHEN** 同步因连接错误失败
+- **THEN** 系统记录错误并保留之前的 LastSyncAt 值
 
-### Requirement: Manual Sync Trigger
-The system SHALL allow administrators to manually trigger sync for individual services.
+### Requirement: 手动同步触发
+系统 SHALL 允许管理员手动触发单个服务的同步。
 
-#### Scenario: Manual sync via API
-- **WHEN** administrator calls sync endpoint for a service
-- **THEN** system performs immediate sync and returns result
+#### Scenario: 通过 API 手动同步
+- **WHEN** 管理员调用服务的同步端点
+- **THEN** 系统立即执行同步并返回结果
 
-#### Scenario: Sync already in progress
-- **WHEN** sync is triggered while previous sync is still running
-- **THEN** system returns HTTP 409 Conflict or queues request
+#### Scenario: 同步正在进行中
+- **WHEN** 在前一次同步仍在运行时触发同步
+- **THEN** 系统返回 HTTP 409 Conflict 或队列请求
 
-### Requirement: Sync Error Handling
-The system SHALL handle sync errors gracefully without affecting other services.
+### Requirement: 同步错误处理
+系统 SHALL 优雅处理同步错误，不影响其他服务。
 
-#### Scenario: One service fails
-- **WHEN** sync fails for one MCP service
-- **THEN** system logs error but continues to serve cached resources from other services
+#### Scenario: 一个服务失败
+- **WHEN** 一个 MCP 服务的同步失败
+- **THEN** 系统记录错误但继续从其他服务提供缓存资源
 
-#### Scenario: All services fail
-- **WHEN** sync fails for all services
-- **THEN** system continues to serve previously cached resources
+#### Scenario: 所有服务失败
+- **WHEN** 所有服务的同步失败
+- **THEN** 系统继续提供先前缓存的资源

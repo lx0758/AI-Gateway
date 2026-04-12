@@ -1,101 +1,101 @@
 ## ADDED Requirements
 
-### Requirement: PostgreSQL database type selection
+### Requirement: PostgreSQL 数据库类型选择
 
-The system SHALL support PostgreSQL as a database backend option, configurable through YAML or environment variable.
+系统 SHALL 支持 PostgreSQL 作为数据库后端选项，可通过 YAML 或环境变量配置。
 
-#### Scenario: PostgreSQL selected via YAML
-- **WHEN** YAML file contains `database.type: postgres`
-- **THEN** the system SHALL initialize a PostgreSQL database connection
+#### Scenario: 通过 YAML 选择 PostgreSQL
+- **WHEN** YAML 文件包含 `database.type: postgres`
+- **THEN** 系统 SHALL 初始化 PostgreSQL 数据库连接
 
-#### Scenario: PostgreSQL selected via environment variable
-- **WHEN** environment variable `AG_DATABASE_TYPE` is set to `postgres`
-- **THEN** the system SHALL initialize a PostgreSQL database connection
+#### Scenario: 通过环境变量选择 PostgreSQL
+- **WHEN** 环境变量 `AG_DATABASE_TYPE` 设置为 `postgres`
+- **THEN** 系统 SHALL 初始化 PostgreSQL 数据库连接
 
-#### Scenario: SQLite selected by default
-- **WHEN** `database.type` is not set or set to `sqlite`
-- **THEN** the system SHALL initialize an SQLite database connection as the default behavior
+#### Scenario: 默认选择 SQLite
+- **WHEN** `database.type` 未设置或设置为 `sqlite`
+- **THEN** 系统 SHALL 初始化 SQLite 数据库连接作为默认行为
 
-### Requirement: PostgreSQL connection parameters
+### Requirement: PostgreSQL 连接参数
 
-The system SHALL support PostgreSQL connection parameters through YAML and environment variables.
+系统 SHALL 通过 YAML 和环境变量支持 PostgreSQL 连接参数。
 
-#### Scenario: PostgreSQL connection via YAML
-- **WHEN** YAML file contains `database.host`, `database.port`, `database.user`, `database.password`, `database.name`
-- **THEN** the system SHALL construct a PostgreSQL DSN using these parameters
+#### Scenario: 通过 YAML 进行 PostgreSQL 连接
+- **WHEN** YAML 文件包含 `database.host`、`database.port`、`database.user`、`database.password`、`database.name`
+- **THEN** 系统 SHALL 使用这些参数构建 PostgreSQL DSN
 
-#### Scenario: PostgreSQL connection via environment variables
-- **WHEN** environment variables `AG_DATABASE_HOST`, `AG_DATABASE_PORT`, `AG_DATABASE_USER`, `AG_DATABASE_PASSWORD`, `AG_DATABASE_NAME` are set
-- **THEN** the system SHALL construct a PostgreSQL DSN using these environment variables
+#### Scenario: 通过环境变量进行 PostgreSQL 连接
+- **WHEN** 环境变量 `AG_DATABASE_HOST`、`AG_DATABASE_PORT`、`AG_DATABASE_USER`、`AG_DATABASE_PASSWORD`、`AG_DATABASE_NAME` 已设置
+- **THEN** 系统 SHALL 使用这些环境变量构建 PostgreSQL DSN
 
-#### Scenario: PostgreSQL environment variable names
-- **WHEN** PostgreSQL configuration is needed
-- **THEN** the system SHALL use environment variable names: `AG_DATABASE_HOST`, `AG_DATABASE_PORT`, `AG_DATABASE_USER`, `AG_DATABASE_PASSWORD`, `AG_DATABASE_NAME`
+#### Scenario: PostgreSQL 环境变量名称
+- **WHEN** PostgreSQL 配置需要时
+- **THEN** 系统 SHALL 使用环境变量名称：`AG_DATABASE_HOST`、`AG_DATABASE_PORT`、`AG_DATABASE_USER`、`AG_DATABASE_PASSWORD`、`AG_DATABASE_NAME`
 
-### Requirement: PostgreSQL driver integration
+### Requirement: PostgreSQL 驱动集成
 
-The system SHALL use the official Gorm PostgreSQL driver (`gorm.io/driver/postgres`) for PostgreSQL connections.
+系统 SHALL 使用官方 Gorm PostgreSQL 驱动（`gorm.io/driver/postgres`）进行 PostgreSQL 连接。
 
-#### Scenario: PostgreSQL driver loaded
-- **WHEN** PostgreSQL database type is selected
-- **THEN** the system SHALL use `postgres.Open()` as the Gorm dialector
+#### Scenario: PostgreSQL 驱动加载
+- **WHEN** PostgreSQL 数据库类型被选中
+- **THEN** 系统 SHALL 使用 `postgres.Open()` 作为 Gorm dialector
 
-#### Scenario: SQLite driver still available
-- **WHEN** SQLite database type is selected
-- **THEN** the system SHALL continue to use `sqlite.Open()` as the Gorm dialector
+#### Scenario: SQLite 驱动仍可用
+- **WHEN** SQLite 数据库类型被选中
+- **THEN** 系统 SHALL 继续使用 `sqlite.Open()` 作为 Gorm dialector
 
-### Requirement: PostgreSQL connection validation
+### Requirement: PostgreSQL 连接验证
 
-The system SHALL validate PostgreSQL connection at startup and provide clear error messages on failure.
+系统 SHALL 在启动时验证 PostgreSQL 连接，并在失败时提供清晰的错误消息。
 
-#### Scenario: PostgreSQL connection successful
-- **WHEN** PostgreSQL connection parameters are correct AND PostgreSQL server is accessible
-- **THEN** the system SHALL successfully initialize the database connection AND start the service
+#### Scenario: PostgreSQL 连接成功
+- **WHEN** PostgreSQL 连接参数正确 AND PostgreSQL 服务器可访问
+- **THEN** 系统 SHALL 成功初始化数据库连接 AND 启动服务
 
-#### Scenario: PostgreSQL connection failed
-- **WHEN** PostgreSQL server is not accessible OR connection parameters are incorrect
-- **THEN** the system SHALL log a clear error message AND SHALL NOT start the service
+#### Scenario: PostgreSQL 连接失败
+- **WHEN** PostgreSQL 服务器不可访问 OR 连接参数不正确
+- **THEN** 系统 SHALL 记录清晰的错误消息 AND SHALL NOT 启动服务
 
-### Requirement: PostgreSQL schema compatibility
+### Requirement: PostgreSQL Schema 兼容性
 
-The system SHALL ensure all existing data models work identically with PostgreSQL.
+系统 SHALL 确保所有现有数据模型与 PostgreSQL 工作相同。
 
-#### Scenario: Auto-migration works with PostgreSQL
-- **WHEN** PostgreSQL database is initialized
-- **THEN** the system SHALL perform auto-migration for all models (User, Provider, ProviderModel, Alias, AliasMapping, Key, KeyModel, UsageLog) successfully
+#### Scenario: PostgreSQL Auto-migration 工作
+- **WHEN** PostgreSQL 数据库初始化
+- **THEN** 系统 SHALL 成功对所有模型（User、Provider、ProviderModel、Alias、AliasMapping、Key、KeyModel、UsageLog）执行 auto-migration
 
-#### Scenario: CRUD operations work with PostgreSQL
-- **WHEN** PostgreSQL database is used
-- **THEN** all CRUD operations SHALL function identically to SQLite (create, read, update, delete)
+#### Scenario: PostgreSQL CRUD 操作工作
+- **WHEN** PostgreSQL 数据库被使用
+- **THEN** 所有 CRUD 操作 SHALL 与 SQLite 功能相同（create、read、update、delete）
 
-#### Scenario: Query performance with PostgreSQL
-- **WHEN** PostgreSQL database is used for queries
-- **THEN** query performance SHALL be acceptable for production use
+#### Scenario: PostgreSQL 查询性能
+- **WHEN** PostgreSQL 数据库用于查询
+- **THEN** 查询性能 SHALL 可接受用于生产使用
 
-### Requirement: Database type configuration documentation
+### Requirement: 数据库类型配置文档
 
-The system SHALL document both SQLite and PostgreSQL configuration options clearly.
+系统 SHALL 清晰文档化 SQLite 和 PostgreSQL 配置选项。
 
-#### Scenario: SQLite configuration documented
-- **WHEN** deployment documentation is consulted
-- **THEN** SQLite configuration (database.type, database.path) SHALL be clearly documented
+#### Scenario: SQLite 配置文档化
+- **WHEN** 部署文档被查阅
+- **THEN** SQLite 配置（database.type、database.path） SHALL 清晰文档化
 
-#### Scenario: PostgreSQL configuration documented
-- **WHEN** deployment documentation is consulted
-- **THEN** PostgreSQL configuration (host, port, user, password, name) SHALL be clearly documented
+#### Scenario: PostgreSQL 配置文档化
+- **WHEN** 部署文档被查阅
+- **THEN** PostgreSQL 配置（host、port、user、password、name） SHALL 清晰文档化
 
-#### Scenario: Database type switch documented
-- **WHEN** deployment documentation is consulted
-- **THEN** instructions for switching database types SHALL be provided
+#### Scenario: 数据库类型切换文档化
+- **WHEN** 部署文档被查阅
+- **THEN** 切换数据库类型的说明 SHALL 提供
 
-### Requirement: SQLite to PostgreSQL migration support
+### Requirement: SQLite 到 PostgreSQL 迁移支持
 
-The system SHALL provide guidance and tools for migrating data from SQLite to PostgreSQL.
+系统 SHALL 提供指导和工具用于从 SQLite 迁移数据到 PostgreSQL。
 
-#### Scenario: Migration guide provided
-- **WHEN** user wants to migrate from SQLite to PostgreSQL
-- **THEN** the system SHALL provide a migration guide document with step-by-step instructions
+#### Scenario: 提供迁移指南
+- **WHEN** 用户想从 SQLite 迁移到 PostgreSQL
+- **THEN** 系统 SHALL 提供带分步说明的迁移指南文档
 
-#### Scenario: Migration tool available
-- **WHEN** user wants to export SQLite data
-- **THEN** the system SHALL provide a tool or script to export SQLite data in PostgreSQL-compatible format
+#### Scenario: 迁移工具可用
+- **WHEN** 用户想导出 SQLite 数据
+- **THEN** 系统 SHALL 提供工具或脚本以 PostgreSQL 兼容格式导出 SQLite 数据

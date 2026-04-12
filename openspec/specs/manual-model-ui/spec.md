@@ -1,58 +1,58 @@
 ## ADDED Requirements
 
-### Requirement: Manual model management UI
+### Requirement: 手动模型管理 UI
 
-The system SHALL provide a user interface for manually managing provider models.
+系统 SHALL 提供用户界面用于手动管理 Provider 模型。
 
-#### Scenario: Add model button visible
-- **WHEN** admin views a provider detail page
-- **THEN** system displays an "Add Model" button above the model list
+#### Scenario: 添加模型按钮可见
+- **WHEN** 管理员查看 Provider 详情页
+- **THEN** 系统在模型列表上方显示"添加模型"按钮
 
-#### Scenario: Add model dialog
-- **WHEN** admin clicks "Add Model" button
-- **THEN** system displays a form dialog with fields: model_id, display_name, context_window, max_output, supports_vision, supports_tools, supports_stream
+#### Scenario: 添加模型对话框
+- **WHEN** 管理员点击"添加模型"按钮
+- **THEN** 系统显示表单对话框，包含字段：model_id、display_name、context_window、max_output、supports_vision、supports_tools、supports_stream
 
-#### Scenario: Create manual model
-- **WHEN** admin fills the form and submits
-- **THEN** system creates a new provider model with source="manual"
-- **AND** system displays the new model in the list
+#### Scenario: 创建手动模型
+- **WHEN** 管理员填写表单并提交
+- **THEN** 系统创建新的 Provider 模型，source="manual"
+- **AND** 系统在列表中显示新模型
 
-### Requirement: Edit manual model
+### Requirement: 编辑手动模型
 
-The system SHALL allow editing manually created models.
+系统 SHALL 允许编辑手动创建的模型。
 
-#### Scenario: Edit button for manual models
-- **WHEN** model list contains a model with source="manual"
-- **THEN** system displays an edit button for that model
+#### Scenario: 手动模型的编辑按钮
+- **WHEN** 模型列表包含 source="manual" 的模型
+- **THEN** 系统为该模型显示编辑按钮
 
-#### Scenario: Edit button hidden for sync models
-- **WHEN** model list contains a model with source="sync"
-- **THEN** system does NOT display an edit button for that model
+#### Scenario: 同步模型隐藏编辑按钮
+- **WHEN** 模型列表包含 source="sync" 的模型
+- **THEN** 系统不显示该模型的编辑按钮
 
-#### Scenario: Update manual model
-- **WHEN** admin edits a manual model and submits
-- **THEN** system updates the model configuration
+#### Scenario: 更新手动模型
+- **WHEN** 管理员编辑手动模型并提交
+- **THEN** 系统更新模型配置
 
-### Requirement: Delete manual model UI
+### Requirement: 删除手动模型 UI
 
-The system SHALL provide UI to delete manually created models.
+系统 SHALL 提供 UI 来删除手动创建的模型。
 
-#### Scenario: Delete button for manual models
-- **WHEN** model list contains a model with source="manual"
-- **THEN** system displays a delete button for that model
+#### Scenario: 手动模型的删除按钮
+- **WHEN** 模型列表包含 source="manual" 的模型
+- **THEN** 系统为该模型显示删除按钮
 
-#### Scenario: Delete button hidden for sync models
-- **WHEN** model list contains a model with source="sync"
-- **THEN** system does NOT display a delete button for that model
+#### Scenario: 同步模型隐藏删除按钮
+- **WHEN** 模型列表包含 source="sync" 的模型
+- **THEN** 系统不显示该模型的删除按钮
 
-#### Scenario: Confirm before delete
-- **WHEN** admin clicks delete button
-- **THEN** system displays a confirmation dialog
+#### Scenario: 删除前确认
+- **WHEN** 管理员点击删除按钮
+- **THEN** 系统显示确认对话框
 
-### Requirement: Display model source
+### Requirement: 显示模型来源
 
-The system SHALL indicate the source of each model in the list.
+系统 SHALL 在列表中指示每个模型的来源。
 
-#### Scenario: Source label displayed
-- **WHEN** model list is displayed
-- **THEN** each model shows a label indicating "Manual" or "Sync"
+#### Scenario: 显示来源标签
+- **WHEN** 显示模型列表时
+- **THEN** 每个模型显示标签，指示"手动"或"同步"

@@ -1,116 +1,116 @@
-# MCP Protocol Endpoint
+# MCP 协议端点
 
 ## ADDED Requirements
 
-### Requirement: JSON-RPC 2.0 Endpoint
-The system SHALL provide a JSON-RPC 2.0 endpoint at `/mcp/v1` that accepts POST requests with JSON-RPC 2.0 formatted messages.
+### Requirement: JSON-RPC 2.0 端点
+系统 SHALL 在 `/mcp/v1` 提供 JSON-RPC 2.0 端点，接受 POST 请求和 JSON-RPC 2.0 格式消息。
 
-#### Scenario: Valid JSON-RPC request
-- **WHEN** client sends POST request to `/mcp/v1` with valid JSON-RPC 2.0 message
-- **THEN** system returns JSON-RPC 2.0 response with result or error
+#### Scenario: 有效 JSON-RPC 请求
+- **WHEN** 客户端发送 POST 请求到 `/mcp/v1`，附带有效的 JSON-RPC 2.0 消息
+- **THEN** 系统返回 JSON-RPC 2.0 响应，包含 result 或 error
 
-#### Scenario: Invalid JSON-RPC request
-- **WHEN** client sends malformed JSON-RPC request
-- **THEN** system returns JSON-RPC error response with code -32700 (Parse error)
+#### Scenario: 无效 JSON-RPC 请求
+- **WHEN** 客户端发送格式错误的 JSON-RPC 请求
+- **THEN** 系统返回 JSON-RPC 错误响应，代码 -32700（解析错误）
 
-### Requirement: API Key Authentication
-The system SHALL authenticate MCP requests using the existing API Key system. Clients MUST provide API Key via `Authorization: Bearer sk-xxx` header.
+### Requirement: API Key 认证
+系统 SHALL 使用现有 API Key 系统认证 MCP 请求。客户端 MUST 通过 `Authorization: Bearer sk-xxx` Header 提供 API Key。
 
-#### Scenario: Valid API Key
-- **WHEN** client provides valid API Key in Authorization header
-- **THEN** system processes the MCP request
+#### Scenario: 有效 API Key
+- **WHEN** 客户端在 Authorization Header 中提供有效 API Key
+- **THEN** 系统处理 MCP 请求
 
-#### Scenario: Missing API Key
-- **WHEN** client does not provide API Key
-- **THEN** system returns HTTP 401 Unauthorized
+#### Scenario: 缺少 API Key
+- **WHEN** 客户端未提供 API Key
+- **THEN** 系统返回 HTTP 401 Unauthorized
 
-#### Scenario: Invalid API Key
-- **WHEN** client provides invalid or disabled API Key
-- **THEN** system returns HTTP 401 Unauthorized
+#### Scenario: 无效 API Key
+- **WHEN** 客户端提供无效或禁用的 API Key
+- **THEN** 系统返回 HTTP 401 Unauthorized
 
-### Requirement: Initialize Method
-The system SHALL implement the `initialize` method that returns server capabilities and available resources based on the API Key's permissions.
+### Requirement: Initialize 方法
+系统 SHALL 实现 `initialize` 方法，基于 API Key 的权限返回服务器能力和可用资源。
 
-#### Scenario: Initialize with permissions
-- **WHEN** client calls `initialize` with valid API Key
-- **THEN** system returns capabilities object with tools, resources, and prompts the API Key has access to
+#### Scenario: 带权限的 Initialize
+- **WHEN** 客户端使用有效 API Key 调用 `initialize`
+- **THEN** 系统返回能力对象，包含 API Key 有权访问的工具、资源和提示词
 
-#### Scenario: Initialize with expired API Key
-- **WHEN** client calls `initialize` with expired API Key
-- **THEN** system returns HTTP 401 Unauthorized
+#### Scenario: 使用过期 API Key Initialize
+- **WHEN** 客户端使用过期 API Key 调用 `initialize`
+- **THEN** 系统返回 HTTP 401 Unauthorized
 
-### Requirement: Tools List Method
-The system SHALL implement the `tools/list` method that returns all tools the API Key has permission to use, with namespace-prefixed names.
+### Requirement: Tools List 方法
+系统 SHALL 实现 `tools/list` 方法，返回 API Key 有权使用的所有工具，使用命名空间前缀名称。
 
-#### Scenario: List available tools
-- **WHEN** client calls `tools/list` with valid API Key
-- **THEN** system returns array of tools with names prefixed as `{symbol}.{tool_name}`
+#### Scenario: 列出可用工具
+- **WHEN** 客户端使用有效 API Key 调用 `tools/list`
+- **THEN** 系统返回工具数组，名称前缀为 `{symbol}.{tool_name}`
 
-#### Scenario: List tools with no permissions
-- **WHEN** client calls `tools/list` with API Key that has no tool permissions
-- **THEN** system returns empty array
+#### Scenario: 无权限列出工具
+- **WHEN** 客户端使用无工具权限的 API Key 调用 `tools/list`
+- **THEN** 系统返回空数组
 
-### Requirement: Tools Call Method
-The system SHALL implement the `tools/call` method that routes tool execution to the appropriate MCP service.
+### Requirement: Tools Call 方法
+系统 SHALL 实现 `tools/call` 方法，将工具执行路由到适当的 MCP 服务。
 
-#### Scenario: Call tool with valid permissions
-- **WHEN** client calls `tools/call` with tool name `{symbol}.{tool_name}` and valid arguments
-- **THEN** system routes request to the MCP service identified by symbol and returns result
+#### Scenario: 带有效权限调用工具
+- **WHEN** 客户端使用工具名称 `{symbol}.{tool_name}` 和有效参数调用 `tools/call`
+- **THEN** 系统将请求路由到由 symbol 标识的 MCP 服务并返回结果
 
-#### Scenario: Call tool without permission
-- **WHEN** client calls `tools/call` with tool name they don't have permission for
-- **THEN** system returns JSON-RPC error with code -32602 (Invalid params)
+#### Scenario: 无权限调用工具
+- **WHEN** 客户端调用 `tools/call`，使用无权限的工具名称
+- **THEN** 系统返回 JSON-RPC 错误，代码 -32602（无效参数）
 
-#### Scenario: Call non-existent tool
-- **WHEN** client calls `tools/call` with tool name that doesn't exist
-- **THEN** system returns JSON-RPC error with code -32602 (Invalid params)
+#### Scenario: 调用不存在工具
+- **WHEN** 客户端调用 `tools/call`，使用不存在的工具名称
+- **THEN** 系统返回 JSON-RPC 错误，代码 -32602（无效参数）
 
-### Requirement: Resources List Method
-The system SHALL implement the `resources/list` method that returns all resources the API Key has permission to access.
+### Requirement: Resources List 方法
+系统 SHALL 实现 `resources/list` 方法，返回 API Key 有权访问的所有资源。
 
-#### Scenario: List available resources
-- **WHEN** client calls `resources/list` with valid API Key
-- **THEN** system returns array of resources with URIs prefixed as `mcp://{symbol}/{original_uri}`
+#### Scenario: 列出可用资源
+- **WHEN** 客户端使用有效 API Key 调用 `resources/list`
+- **THEN** 系统返回资源数组，URI 前缀为 `mcp://{symbol}/{original_uri}`
 
-### Requirement: Resources Read Method
-The system SHALL implement the `resources/read` method that reads resource content from the appropriate MCP service.
+### Requirement: Resources Read 方法
+系统 SHALL 实现 `resources/read` 方法，从适当的 MCP 服务读取资源内容。
 
-#### Scenario: Read resource with valid permissions
-- **WHEN** client calls `resources/read` with URI `mcp://{symbol}/{original_uri}`
-- **THEN** system routes request to MCP service and returns resource content
+#### Scenario: 带有效权限读取资源
+- **WHEN** 客户端使用 URI `mcp://{symbol}/{original_uri}` 调用 `resources/read`
+- **THEN** 系统将请求路由到 MCP 服务并返回资源内容
 
-### Requirement: Prompts List Method
-The system SHALL implement the `prompts/list` method that returns all prompts the API Key has permission to use.
+### Requirement: Prompts List 方法
+系统 SHALL 实现 `prompts/list` 方法，返回 API Key 有权使用的所有提示词。
 
-#### Scenario: List available prompts
-- **WHEN** client calls `prompts/list` with valid API Key
-- **THEN** system returns array of prompts with names prefixed as `{symbol}.{prompt_name}`
+#### Scenario: 列出可用提示词
+- **WHEN** 客端使用有效 API Key 调用 `prompts/list`
+- **THEN** 系统返回提示词数组，名称前缀为 `{symbol}.{prompt_name}`
 
-### Requirement: Prompts Get Method
-The system SHALL implement the `prompts/get` method that retrieves prompt template from the appropriate MCP service.
+### Requirement: Prompts Get 方法
+系统 SHALL 实现 `prompts/get` 方法，从适当的 MCP 服务检索提示词模板。
 
-#### Scenario: Get prompt with valid permissions
-- **WHEN** client calls `prompts/get` with prompt name `{symbol}.{prompt_name}`
-- **THEN** system routes request to MCP service and returns prompt template
+#### Scenario: 带有效权限获取提示词
+- **WHEN** 客户端使用提示词名称 `{symbol}.{prompt_name}` 调用 `prompts/get`
+- **THEN** 系统将请求路由到 MCP 服务并返回提示词模板
 
-### Requirement: SSE Transport Support
-The system SHALL support Server-Sent Events (SSE) transport for clients that prefer real-time streaming.
+### Requirement: SSE 传输支持
+系统 SHALL 支持 Server-Sent Events (SSE) 传输，供偏好实时流式传输的客户端使用。
 
-#### Scenario: SSE connection request
-- **WHEN** client sends GET request to `/mcp/v1` with `Accept: text/event-stream` header
-- **THEN** system establishes SSE connection for bidirectional communication
+#### Scenario: SSE 连接请求
+- **WHEN** 客户端发送 GET 请求到 `/mcp/v1`，附带 `Accept: text/event-stream` Header
+- **THEN** 系统为双向通信建立 SSE 连接
 
-#### Scenario: SSE message format
-- **WHEN** system sends JSON-RPC message over SSE
-- **THEN** message is formatted as `data: {json-rpc-message}\n\n`
+#### Scenario: SSE 消息格式
+- **WHEN** 系统通过 SSE 发送 JSON-RPC 消息
+- **THEN** 消息格式为 `data: {json-rpc-message}\n\n`
 
-### Requirement: Error Handling
-The system SHALL return standard JSON-RPC 2.0 error codes for all error conditions.
+### Requirement: 错误处理
+系统 SHALL 为所有错误条件返回标准 JSON-RPC 2.0 错误代码。
 
-#### Scenario: Service unavailable
-- **WHEN** MCP service is unavailable during tool call
-- **THEN** system returns JSON-RPC error with code -32603 (Internal error) and descriptive message
+#### Scenario: 服务不可用
+- **WHEN** 工具调用期间 MCP 服务不可用
+- **THEN** 系统返回 JSON-RPC 错误，代码 -32603（内部错误）和描述性消息
 
-#### Scenario: Timeout
-- **WHEN** MCP service does not respond within timeout period
-- **THEN** system returns JSON-RPC error with code -32603 (Internal error) and timeout message
+#### Scenario: 超时
+- **WHEN** MCP 服务在超时期间未响应
+- **THEN** 系统返回 JSON-RPC 错误，代码 -32603（内部错误）和超时消息

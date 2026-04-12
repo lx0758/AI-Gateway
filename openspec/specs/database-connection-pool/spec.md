@@ -1,49 +1,49 @@
 ## ADDED Requirements
 
-### Requirement: Database connection pool configuration
+### Requirement: 数据库连接池配置
 
-The system SHALL support configurable database connection pool parameters to optimize resource usage.
+系统 SHALL 支持可配置的数据库连接池参数以优化资源使用。
 
-#### Scenario: Connection pool with default values for PostgreSQL
-- **WHEN** database type is PostgreSQL AND no pool configuration is provided
-- **THEN** the system SHALL use default pool values: MaxOpenConns=20, MaxIdleConns=5, ConnMaxLifetime=1h, ConnMaxIdleTime=5m
+#### Scenario: PostgreSQL 默认连接池值
+- **WHEN** 数据库类型为 PostgreSQL 且未提供连接池配置
+- **THEN** 系统 SHALL 使用默认连接池值：MaxOpenConns=20、MaxIdleConns=5、ConnMaxLifetime=1h、ConnMaxIdleTime=5m
 
-#### Scenario: Connection pool with default values for MySQL
-- **WHEN** database type is MySQL AND no pool configuration is provided
-- **THEN** the system SHALL use default pool values: MaxOpenConns=20, MaxIdleConns=5, ConnMaxLifetime=1h, ConnMaxIdleTime=5m
+#### Scenario: MySQL 默认连接池值
+- **WHEN** 数据库类型为 MySQL 且未提供连接池配置
+- **THEN** 系统 SHALL 使用默认连接池值：MaxOpenConns=20、MaxIdleConns=5、ConnMaxLifetime=1h、ConnMaxIdleTime=5m
 
-#### Scenario: Connection pool with default values for SQLite
-- **WHEN** database type is SQLite AND no pool configuration is provided
-- **THEN** the system SHALL use default pool values: MaxOpenConns=1, MaxIdleConns=1 (SQLite single connection constraint)
+#### Scenario: SQLite 默认连接池值
+- **WHEN** 数据库类型为 SQLite 且未提供连接池配置
+- **THEN** 系统 SHALL 使用默认连接池值：MaxOpenConns=1、MaxIdleConns=1（SQLite 单连接约束）
 
-#### Scenario: Connection pool with custom values
-- **WHEN** pool configuration parameters are specified
-- **THEN** the system SHALL use the specified values for connection pool settings
+#### Scenario: 自定义连接池值
+- **WHEN** 连接池配置参数被指定
+- **THEN** 系统 SHALL 使用指定的值作为连接池设置
 
-#### Scenario: Pool configuration via YAML
-- **WHEN** YAML file contains `database.pool.max_open`, `database.pool.max_idle`, `database.pool.max_lifetime`, `database.pool.max_idle_time`
-- **THEN** the system SHALL parse these fields into `DatabaseConfig.PoolConfig`
+#### Scenario: 通过 YAML 配置连接池
+- **WHEN** YAML 文件包含 `database.pool.max_open`、`database.pool.max_idle`、`database.pool.max_lifetime`、`database.pool.max_idle_time`
+- **THEN** 系统 SHALL 将这些字段解析为 `DatabaseConfig.PoolConfig`
 
-#### Scenario: Pool configuration via environment variables
-- **WHEN** environment variables `AG_DATABASE_POOL_MAX_OPEN`, `AG_DATABASE_POOL_MAX_IDLE`, `AG_DATABASE_POOL_MAX_LIFETIME`, `AG_DATABASE_POOL_MAX_IDLE_TIME` are set
-- **THEN** the system SHALL use these values for connection pool parameters
+#### Scenario: 通过环境变量配置连接池
+- **WHEN** 环境变量 `AG_DATABASE_POOL_MAX_OPEN`、`AG_DATABASE_POOL_MAX_IDLE`、`AG_DATABASE_POOL_MAX_LIFETIME`、`AG_DATABASE_POOL_MAX_IDLE_TIME` 已设置
+- **THEN** 系统 SHALL 使用这些值作为连接池参数
 
-### Requirement: Connection pool logging
+### Requirement: 连接池日志记录
 
-The system SHALL log connection pool configuration on startup for operational visibility.
+系统 SHALL 在启动时记录连接池配置以提供运维可见性。
 
-#### Scenario: Pool configuration logged on startup
-- **WHEN** database connection is initialized
-- **THEN** the system SHALL log the pool configuration values (MaxOpen, MaxIdle, MaxLifetime, MaxIdleTime)
+#### Scenario: 启动时记录连接池配置
+- **WHEN** 数据库连接初始化时
+- **THEN** 系统 SHALL 记录连接池配置值（MaxOpen、MaxIdle、MaxLifetime、MaxIdleTime）
 
-### Requirement: Connection pool constraint enforcement
+### Requirement: 连接池约束强制
 
-The system SHALL enforce SQLite connection pool constraints.
+系统 SHALL 强制 SQLite 连接池约束。
 
-#### Scenario: SQLite MaxOpenConns exceeds 1
-- **WHEN** database type is SQLite AND configured MaxOpenConns > 1
-- **THEN** the system SHALL limit MaxOpenConns to 1 AND log a warning about SQLite constraint
+#### Scenario: SQLite MaxOpenConns 超过 1
+- **WHEN** 数据库类型为 SQLite 且配置的 MaxOpenConns > 1
+- **THEN** 系统 SHALL 将 MaxOpenConns 限制为 1 并记录关于 SQLite 约束的警告
 
-#### Scenario: SQLite MaxIdleConns exceeds 1
-- **WHEN** database type is SQLite AND configured MaxIdleConns > 1
-- **THEN** the system SHALL limit MaxIdleConns to 1 AND log a warning about SQLite constraint
+#### Scenario: SQLite MaxIdleConns 超过 1
+- **WHEN** 数据库类型为 SQLite 且配置的 MaxIdleConns > 1
+- **THEN** 系统 SHALL 将 MaxIdleConns 限制为 1 并记录关于 SQLite 约束的警告
