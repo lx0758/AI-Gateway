@@ -10,13 +10,13 @@
       <el-row :gutter="20">
         <el-col :xs="12" :sm="6" :md="6" class="stat-col">
           <el-card shadow="hover" class="stat-card">
-            <div class="stat-value">{{ stats.assets.activeProviders }}/{{ stats.assets.totalProviders }}</div>
+            <div class="stat-value primary">{{ stats.assets.activeProviders }}/{{ stats.assets.totalProviders }}</div>
             <div class="stat-label">{{ t('dashboard.providers') || '厂商' }}</div>
           </el-card>
         </el-col>
         <el-col :xs="12" :sm="6" :md="6" class="stat-col">
           <el-card shadow="hover" class="stat-card">
-            <div class="stat-value warning">{{ stats.assets.activeProviderModels }}/{{ stats.assets.totalProviderModels }}</div>
+            <div class="stat-value primary">{{ stats.assets.activeProviderModels }}/{{ stats.assets.totalProviderModels }}</div>
             <div class="stat-label">{{ t('dashboard.providerModels') || '厂商模型' }}</div>
           </el-card>
         </el-col>
@@ -34,25 +34,25 @@
         </el-col>
         <el-col :xs="12" :sm="6" :md="6" class="stat-col">
           <el-card shadow="hover" class="stat-card">
-            <div class="stat-value danger">{{ stats.assets.activeMCPs }}/{{ stats.assets.totalMCPs }}</div>
+            <div class="stat-value warning">{{ stats.assets.activeMCPs }}/{{ stats.assets.totalMCPs }}</div>
             <div class="stat-label">{{ t('dashboard.mcpServices') || 'MCP服务' }}</div>
           </el-card>
         </el-col>
         <el-col :xs="12" :sm="6" :md="6" class="stat-col">
           <el-card shadow="hover" class="stat-card">
-            <div class="stat-value">{{ stats.assets.activeMCPTools }}/{{ stats.assets.totalMCPTools }}</div>
+            <div class="stat-value warning">{{ stats.assets.activeMCPTools }}/{{ stats.assets.totalMCPTools }}</div>
             <div class="stat-label">{{ t('dashboard.mcpTools') || 'MCP工具' }}</div>
           </el-card>
         </el-col>
         <el-col :xs="12" :sm="6" :md="6" class="stat-col">
           <el-card shadow="hover" class="stat-card">
-            <div class="stat-value primary">{{ stats.assets.activeMCPResources }}/{{ stats.assets.totalMCPResources }}</div>
+            <div class="stat-value warning">{{ stats.assets.activeMCPResources }}/{{ stats.assets.totalMCPResources }}</div>
             <div class="stat-label">{{ t('dashboard.mcpResources') || 'MCP资源' }}</div>
           </el-card>
         </el-col>
         <el-col :xs="12" :sm="6" :md="6" class="stat-col">
           <el-card shadow="hover" class="stat-card">
-            <div class="stat-value danger">{{ stats.assets.activeMCPPrompts }}/{{ stats.assets.totalMCPPrompts }}</div>
+            <div class="stat-value warning">{{ stats.assets.activeMCPPrompts }}/{{ stats.assets.totalMCPPrompts }}</div>
             <div class="stat-label">{{ t('dashboard.mcpPrompts') || 'MCP提示词' }}</div>
           </el-card>
         </el-col>
@@ -356,7 +356,7 @@ function formatSize(bytes: number): string {
   const k = 1024
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
 function formatChartDate(date: string): string {
