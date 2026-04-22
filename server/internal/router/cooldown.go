@@ -9,7 +9,7 @@ import (
 const (
 	CooldownThreshold = 3
 	CooldownDuration  = 30 * time.Minute
-	RecordInterval    = 5 * time.Second
+	RecordInterval    = 3 * time.Second
 )
 
 type CooldownState struct {

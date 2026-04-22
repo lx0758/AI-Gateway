@@ -3,6 +3,7 @@ package provider
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -157,11 +158,12 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 		return err
 	}
 
+	req = req.WithContext(c.Request.Context())
 	req.Header.Set("x-api-key", m.cfg.APIKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 300 * time.Second}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -183,7 +185,7 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		err = m.streamAnthropicToOpenAI(resp.Body, c.Writer, openAIReq.Model, usage)
+		err = m.streamAnthropicToOpenAI(c.Request.Context(), resp.Body, c.Writer, openAIReq.Model, usage)
 		c.Writer.Flush()
 	} else {
 		anthropicRespBody, err := io.ReadAll(resp.Body)
@@ -535,7 +537,7 @@ func (m *AnthropicProvider) convertAnthropicResponseToOpenAI(anthropicResp []byt
 	return result, nil
 }
 
-func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer, model string, usage *Usage) error {
+func (m *AnthropicProvider) streamAnthropicToOpenAI(ctx context.Context, src io.Reader, dst io.Writer, model string, usage *Usage) error {
 	src, dst = recordStream("O2A", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("chatcmpl-%s", m.generateID())
@@ -546,151 +548,120 @@ func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer
 	var rError error
 	errorCount := 0
 
+	type readResult struct {
+		line string
+		err  error
+	}
+
+streamLoop:
 	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
+		readCh := make(chan readResult, 1)
+
+		go func() {
+			select {
+			case <-ctx.Done():
+				readCh <- readResult{err: ctx.Err()}
+			default:
+				line, err := reader.ReadString('\n')
+				readCh <- readResult{line: line, err: err}
 			}
-			errorCount += 1
-			if errorCount >= 3 {
-				rError = fmt.Errorf("Anthropic convert stream error, %v", err)
-				break
+		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case result := <-readCh:
+			if result.err != nil {
+				if result.err == io.EOF {
+					break streamLoop
+				}
+				errorCount++
+				if errorCount >= 3 {
+					rError = fmt.Errorf("Anthropic convert stream error, %v", result.err)
+					break streamLoop
+				}
+				continue
 			}
-			continue
-		}
 
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if strings.HasPrefix(line, "event:") {
-			continue
-		}
-		if !strings.HasPrefix(line, "data:") {
-			continue
-		}
-		data := strings.TrimPrefix(line, "data:")
-		data = strings.TrimSpace(data)
+			line := strings.TrimSpace(result.line)
+			if line == "" {
+				continue
+			}
+			if strings.HasPrefix(line, "event:") {
+				continue
+			}
+			if !strings.HasPrefix(line, "data:") {
+				continue
+			}
+			data := strings.TrimPrefix(line, "data:")
+			data = strings.TrimSpace(data)
 
-		var event struct {
-			Type         string                 `json:"type"`
-			Index        int                    `json:"index"`
-			ContentBlock map[string]interface{} `json:"content_block"`
-			Delta        map[string]interface{} `json:"delta"`
-			Message      map[string]interface{} `json:"message"`
-			Usage        anthropicUsage         `json:"usage"`
-		}
+			var event struct {
+				Type         string                 `json:"type"`
+				Index        int                    `json:"index"`
+				ContentBlock map[string]interface{} `json:"content_block"`
+				Delta        map[string]interface{} `json:"delta"`
+				Message      map[string]interface{} `json:"message"`
+				Usage        anthropicUsage         `json:"usage"`
+			}
 
-		if err := json.Unmarshal([]byte(data), &event); err != nil {
-			continue
-		}
+			if err := json.Unmarshal([]byte(data), &event); err != nil {
+				continue
+			}
 
-		switch event.Type {
-		case "message_start":
-			//if msg, ok := event.Message["usage"].(map[string]interface{}); ok {
-			//	if it, ok := msg["input_tokens"].(float64); ok {
-			//		inputTokens = int(it)
-			//	}
-			//	if it, ok := msg["output_tokens"].(float64); ok {
-			//		outputTokens = int(it)
-			//	}
-			//	if it, ok := msg["cache_creation_input_tokens"].(float64); ok {
-			//		cacheCreationInputTokens = int(it)
-			//	}
-			//	if it, ok := msg["cache_read_input_tokens"].(float64); ok {
-			//		cacheReadInputTokens = int(it)
-			//	}
-			//	tokens += inputTokens + outputTokens + cacheCreationInputTokens + cacheReadInputTokens
-			//}
+			switch event.Type {
+			case "message_start":
 
-		case "content_block_start":
-			if event.ContentBlock != nil {
-				blockType, _ := event.ContentBlock["type"].(string)
-				switch blockType {
-				case "tool_use":
-					toolID, _ := event.ContentBlock["id"].(string)
-					toolName, _ := event.ContentBlock["name"].(string)
-					toolCallsBuffer[event.Index] = map[string]interface{}{
-						"index": event.Index,
-						"id":    toolID,
-						"type":  "function",
-						"function": map[string]interface{}{
-							"name":      toolName,
-							"arguments": "",
-						},
-					}
-					m.writeOpenAISSE(dst, map[string]interface{}{
-						"id":      messageID,
-						"object":  "chat.completion.chunk",
-						"created": created,
-						"model":   model,
-						"choices": []map[string]interface{}{
-							{
-								"index": 0,
-								"delta": map[string]interface{}{
-									"tool_calls": []map[string]interface{}{
-										{
-											"index": event.Index,
-											"id":    toolID,
-											"type":  "function",
-											"function": map[string]interface{}{
-												"name":      toolName,
-												"arguments": "",
+			case "content_block_start":
+				if event.ContentBlock != nil {
+					blockType, _ := event.ContentBlock["type"].(string)
+					switch blockType {
+					case "tool_use":
+						toolID, _ := event.ContentBlock["id"].(string)
+						toolName, _ := event.ContentBlock["name"].(string)
+						toolCallsBuffer[event.Index] = map[string]interface{}{
+							"index": event.Index,
+							"id":    toolID,
+							"type":  "function",
+							"function": map[string]interface{}{
+								"name":      toolName,
+								"arguments": "",
+							},
+						}
+						m.writeOpenAISSE(dst, map[string]interface{}{
+							"id":      messageID,
+							"object":  "chat.completion.chunk",
+							"created": created,
+							"model":   model,
+							"choices": []map[string]interface{}{
+								{
+									"index": 0,
+									"delta": map[string]interface{}{
+										"tool_calls": []map[string]interface{}{
+											{
+												"index": event.Index,
+												"id":    toolID,
+												"type":  "function",
+												"function": map[string]interface{}{
+													"name":      toolName,
+													"arguments": "",
+												},
 											},
 										},
 									},
 								},
 							},
-						},
-					})
+						})
+					}
 				}
-			}
 
-		case "content_block_delta":
-			if event.Delta != nil {
-				deltaType, _ := event.Delta["type"].(string)
-				switch deltaType {
-				case "text_delta":
-					if text, ok := event.Delta["text"].(string); ok {
-						contentBuffer += text
-						m.writeOpenAISSE(dst, map[string]interface{}{
-							"id":      messageID,
-							"object":  "chat.completion.chunk",
-							"created": created,
-							"model":   model,
-							"choices": []map[string]interface{}{
-								{
-									"index": 0,
-									"delta": map[string]interface{}{
-										"content": text,
-									},
-								},
-							},
-						})
-					}
-				case "thinking_delta":
-					if thinking, ok := event.Delta["thinking"].(string); ok {
-						m.writeOpenAISSE(dst, map[string]interface{}{
-							"id":      messageID,
-							"object":  "chat.completion.chunk",
-							"created": created,
-							"model":   model,
-							"choices": []map[string]interface{}{
-								{
-									"index": 0,
-									"delta": map[string]interface{}{
-										"reasoning_content": thinking,
-									},
-								},
-							},
-						})
-					}
-				case "input_json_delta":
-					if partialJSON, ok := event.Delta["partial_json"].(string); ok {
-						if tool, exists := toolCallsBuffer[event.Index]; exists {
-							fn := tool["function"].(map[string]interface{})
-							fn["arguments"] = fn["arguments"].(string) + partialJSON
+			case "content_block_delta":
+				if event.Delta != nil {
+					deltaType, _ := event.Delta["type"].(string)
+					switch deltaType {
+					case "text_delta":
+						if text, ok := event.Delta["text"].(string); ok {
+							contentBuffer += text
 							m.writeOpenAISSE(dst, map[string]interface{}{
 								"id":      messageID,
 								"object":  "chat.completion.chunk",
@@ -700,70 +671,107 @@ func (m *AnthropicProvider) streamAnthropicToOpenAI(src io.Reader, dst io.Writer
 									{
 										"index": 0,
 										"delta": map[string]interface{}{
-											"tool_calls": []map[string]interface{}{
-												{
-													"index": event.Index,
-													"function": map[string]interface{}{
-														"arguments": partialJSON,
-													},
-												},
-											},
+											"content": text,
 										},
 									},
 								},
 							})
 						}
+					case "thinking_delta":
+						if thinking, ok := event.Delta["thinking"].(string); ok {
+							m.writeOpenAISSE(dst, map[string]interface{}{
+								"id":      messageID,
+								"object":  "chat.completion.chunk",
+								"created": created,
+								"model":   model,
+								"choices": []map[string]interface{}{
+									{
+										"index": 0,
+										"delta": map[string]interface{}{
+											"reasoning_content": thinking,
+										},
+									},
+								},
+							})
+						}
+					case "input_json_delta":
+						if partialJSON, ok := event.Delta["partial_json"].(string); ok {
+							if tool, exists := toolCallsBuffer[event.Index]; exists {
+								fn := tool["function"].(map[string]interface{})
+								fn["arguments"] = fn["arguments"].(string) + partialJSON
+								m.writeOpenAISSE(dst, map[string]interface{}{
+									"id":      messageID,
+									"object":  "chat.completion.chunk",
+									"created": created,
+									"model":   model,
+									"choices": []map[string]interface{}{
+										{
+											"index": 0,
+											"delta": map[string]interface{}{
+												"tool_calls": []map[string]interface{}{
+													{
+														"index": event.Index,
+														"function": map[string]interface{}{
+															"arguments": partialJSON,
+														},
+													},
+												},
+											},
+										},
+									},
+								})
+							}
+						}
 					}
 				}
-			}
 
-		case "content_block_stop":
-			// No action needed
+			case "content_block_stop":
 
-		case "message_delta":
-			tokens += event.Usage.total()
-			finishReason := "stop"
-			if stopReason, ok := event.Delta["stop_reason"].(string); ok {
-				switch stopReason {
-				case "end_turn":
-					finishReason = "stop"
-				case "max_tokens":
-					finishReason = "length"
-				case "tool_use":
-					finishReason = "tool_calls"
+			case "message_delta":
+				tokens += event.Usage.total()
+				finishReason := "stop"
+				if stopReason, ok := event.Delta["stop_reason"].(string); ok {
+					switch stopReason {
+					case "end_turn":
+						finishReason = "stop"
+					case "max_tokens":
+						finishReason = "length"
+					case "tool_use":
+						finishReason = "tool_calls"
+					}
+				}
+				m.writeOpenAISSE(dst, map[string]interface{}{
+					"id":      messageID,
+					"object":  "chat.completion.chunk",
+					"created": created,
+					"model":   model,
+					"choices": []map[string]interface{}{
+						{
+							"index":         0,
+							"delta":         map[string]interface{}{},
+							"finish_reason": finishReason,
+						},
+					},
+					"usage": map[string]interface{}{
+						"prompt_tokens":     event.Usage.CacheCreationInputTokens + event.Usage.InputTokens,
+						"completion_tokens": event.Usage.OutputTokens,
+						"total_tokens":      event.Usage.total(),
+						"prompt_tokens_details": map[string]interface{}{
+							"cached_tokens": event.Usage.CacheReadInputTokens,
+						},
+						"completion_tokens_details": map[string]interface{}{
+							"reasoning_tokens": event.Usage.CacheReadInputTokens,
+						},
+					},
+				})
+
+			case "message_stop":
+				fmt.Fprint(dst, "data: [DONE]\n\n")
+				if flusher, ok := dst.(http.Flusher); ok {
+					flusher.Flush()
 				}
 			}
-			m.writeOpenAISSE(dst, map[string]interface{}{
-				"id":      messageID,
-				"object":  "chat.completion.chunk",
-				"created": created,
-				"model":   model,
-				"choices": []map[string]interface{}{
-					{
-						"index":         0,
-						"delta":         map[string]interface{}{},
-						"finish_reason": finishReason,
-					},
-				},
-				"usage": map[string]interface{}{
-					"prompt_tokens":     event.Usage.CacheCreationInputTokens + event.Usage.InputTokens,
-					"completion_tokens": event.Usage.OutputTokens,
-					"total_tokens":      event.Usage.total(),
-					"prompt_tokens_details": map[string]interface{}{
-						"cached_tokens": event.Usage.CacheReadInputTokens,
-					},
-					"completion_tokens_details": map[string]interface{}{
-						"reasoning_tokens": event.Usage.CacheReadInputTokens,
-					},
-				},
-			})
-
-		case "message_stop":
-			fmt.Fprint(dst, "data: [DONE]\n\n")
 		}
-	}
-	if flusher, ok := dst.(http.Flusher); ok {
-		flusher.Flush()
 	}
 	return rError
 }
@@ -821,7 +829,7 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 300 * time.Second}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -843,7 +851,7 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		err = m.copyAnthropicStreaming(c.Writer, resp.Body, usage)
+		err = m.copyAnthropicStreaming(c.Request.Context(), c.Writer, resp.Body, usage)
 	} else {
 		c.Status(http.StatusOK)
 		c.Header("Content-Type", "application/json")
@@ -852,51 +860,76 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 	return err
 }
 
-func (m *AnthropicProvider) copyAnthropicStreaming(dst io.Writer, src io.Reader, usage *Usage) error {
+func (m *AnthropicProvider) copyAnthropicStreaming(ctx context.Context, dst io.Writer, src io.Reader, usage *Usage) error {
 	src, dst = recordStream("O2A", src, dst)
 	reader := bufio.NewReader(src)
 	var rError error
 	errorCount := 0
 
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			errorCount += 1
-			if errorCount >= 3 {
-				rError = fmt.Errorf("Anthropic copy stream error, %v", err)
-				break
-			}
-			continue
-		}
-		fmt.Fprint(dst, line)
-
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if !strings.HasPrefix(line, "data:") {
-			continue
-		}
-		data := strings.TrimPrefix(line, "data:")
-		data = strings.TrimSpace(data)
-
-		var event struct {
-			Type  string         `json:"type"`
-			Usage anthropicUsage `json:"usage"`
-		}
-
-		if err := json.Unmarshal([]byte(data), &event); err == nil {
-			switch event.Type {
-			case "message_delta":
-				event.Usage.toUsage(usage)
-			}
-		}
+	type readResult struct {
+		line string
+		err  error
 	}
-	if flusher, ok := dst.(http.Flusher); ok {
-		flusher.Flush()
+
+streamLoop:
+	for {
+		readCh := make(chan readResult, 1)
+
+		go func() {
+			select {
+			case <-ctx.Done():
+				readCh <- readResult{err: ctx.Err()}
+			default:
+				line, err := reader.ReadString('\n')
+				readCh <- readResult{line: line, err: err}
+			}
+		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case result := <-readCh:
+			if result.err != nil {
+				if result.err == io.EOF {
+					break streamLoop
+				}
+				errorCount++
+				if errorCount >= 3 {
+					rError = fmt.Errorf("Anthropic copy stream error, %v", result.err)
+					break streamLoop
+				}
+				continue
+			}
+
+			if _, err := fmt.Fprint(dst, result.line); err != nil {
+				break streamLoop
+			}
+			if flusher, ok := dst.(http.Flusher); ok {
+				flusher.Flush()
+			}
+
+			line := strings.TrimSpace(result.line)
+			if line == "" {
+				continue
+			}
+			if !strings.HasPrefix(line, "data:") {
+				continue
+			}
+			data := strings.TrimPrefix(line, "data:")
+			data = strings.TrimSpace(data)
+
+			var event struct {
+				Type  string         `json:"type"`
+				Usage anthropicUsage `json:"usage"`
+			}
+
+			if err := json.Unmarshal([]byte(data), &event); err == nil {
+				switch event.Type {
+				case "message_delta":
+					event.Usage.toUsage(usage)
+				}
+			}
+		}
 	}
 	return rError
 }

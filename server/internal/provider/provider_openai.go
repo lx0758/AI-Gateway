@@ -1,8 +1,9 @@
 package provider
 
 import (
-	"bufio"
+"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -136,10 +137,11 @@ func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provider
 		return err
 	}
 
+	req = req.WithContext(c.Request.Context())
 	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 300 * time.Second}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -161,7 +163,7 @@ func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provider
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		err = m.copyOpenAIStreaming(c.Writer, resp.Body, usage)
+		err = m.copyOpenAIStreaming(c.Request.Context(), c.Writer, resp.Body, usage)
 	} else {
 		c.Status(http.StatusOK)
 		c.Header("Content-Type", "application/json")
@@ -170,50 +172,75 @@ func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provider
 	return err
 }
 
-func (m *OpenAIProvider) copyOpenAIStreaming(dst io.Writer, src io.Reader, usage *Usage) error {
+func (m *OpenAIProvider) copyOpenAIStreaming(ctx context.Context, dst io.Writer, src io.Reader, usage *Usage) error {
 	src, dst = recordStream("O2O", src, dst)
 	reader := bufio.NewReader(src)
 	var rError error
 	errorCount := 0
 
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			errorCount += 1
-			if errorCount >= 3 {
-				rError = fmt.Errorf("OpenAI copy stream error, %v", err)
-				break
-			}
-			continue
-		}
-		fmt.Fprint(dst, line)
-
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if !strings.HasPrefix(line, "data:") {
-			continue
-		}
-		data := strings.TrimPrefix(line, "data:")
-		data = strings.TrimSpace(data)
-		if data == "[DONE]" {
-			break
-		}
-
-		var chunk struct {
-			OpenAIUsage openAIUsage `json:"usage"`
-		}
-
-		if err := json.Unmarshal([]byte(data), &chunk); err == nil {
-			chunk.OpenAIUsage.toUsage(usage)
-		}
+	type readResult struct {
+		line string
+		err  error
 	}
-	if flusher, ok := dst.(http.Flusher); ok {
-		flusher.Flush()
+
+streamLoop:
+	for {
+		readCh := make(chan readResult, 1)
+
+		go func() {
+			select {
+			case <-ctx.Done():
+				readCh <- readResult{err: ctx.Err()}
+			default:
+				line, err := reader.ReadString('\n')
+				readCh <- readResult{line: line, err: err}
+			}
+		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case result := <-readCh:
+			if result.err != nil {
+				if result.err == io.EOF {
+					break streamLoop
+				}
+				errorCount++
+				if errorCount >= 3 {
+					rError = fmt.Errorf("OpenAI copy stream error, %v", result.err)
+					break streamLoop
+				}
+				continue
+			}
+
+			if _, err := fmt.Fprint(dst, result.line); err != nil {
+				break streamLoop
+			}
+			if flusher, ok := dst.(http.Flusher); ok {
+				flusher.Flush()
+			}
+
+			line := strings.TrimSpace(result.line)
+			if line == "" {
+				continue
+			}
+			if !strings.HasPrefix(line, "data:") {
+				continue
+			}
+			data := strings.TrimPrefix(line, "data:")
+			data = strings.TrimSpace(data)
+			if data == "[DONE]" {
+				break streamLoop
+			}
+
+			var chunk struct {
+				OpenAIUsage openAIUsage `json:"usage"`
+			}
+
+			if err := json.Unmarshal([]byte(data), &chunk); err == nil {
+				chunk.OpenAIUsage.toUsage(usage)
+			}
+		}
 	}
 	return rError
 }
@@ -319,7 +346,7 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 300 * time.Second}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -341,7 +368,7 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		err = m.streamOpenAIToAnthropic(resp.Body, c.Writer, anthropicReq.Model, usage)
+		err = m.streamOpenAIToAnthropic(c.Request.Context(), resp.Body, c.Writer, anthropicReq.Model, usage)
 		c.Writer.Flush()
 	} else {
 		openAIRespBody, err := io.ReadAll(resp.Body)
@@ -644,7 +671,7 @@ type toolCallState struct {
 	startSent bool
 }
 
-func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, model string, usage *Usage) error {
+func (m *OpenAIProvider) streamOpenAIToAnthropic(ctx context.Context, src io.Reader, dst io.Writer, model string, usage *Usage) error {
 	src, dst = recordStream("A2O", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("msg_%s", m.generateID())
@@ -657,268 +684,289 @@ func (m *OpenAIProvider) streamOpenAIToAnthropic(src io.Reader, dst io.Writer, m
 	var rError error
 	errorCount := 0
 
+	type readResult struct {
+		line string
+		err  error
+	}
+
+streamLoop:
 	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
+		readCh := make(chan readResult, 1)
+
+		go func() {
+			select {
+			case <-ctx.Done():
+				readCh <- readResult{err: ctx.Err()}
+			default:
+				line, err := reader.ReadString('\n')
+				readCh <- readResult{line: line, err: err}
 			}
-			errorCount += 1
-			if errorCount >= 3 {
-				rError = fmt.Errorf("OpenAI convert stream error, %v", err)
-				break
+		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case result := <-readCh:
+			if result.err != nil {
+				if result.err == io.EOF {
+					break streamLoop
+				}
+				errorCount++
+				if errorCount >= 3 {
+					rError = fmt.Errorf("OpenAI convert stream error, %v", result.err)
+					break streamLoop
+				}
+				continue
 			}
-			continue
-		}
 
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if !strings.HasPrefix(line, "data:") {
-			continue
-		}
-		data := strings.TrimPrefix(line, "data:")
-		data = strings.TrimSpace(data)
+			line := strings.TrimSpace(result.line)
+			if line == "" {
+				continue
+			}
+			if !strings.HasPrefix(line, "data:") {
+				continue
+			}
+			data := strings.TrimPrefix(line, "data:")
+			data = strings.TrimSpace(data)
 
-		if data == "[DONE]" {
-			break
-		}
+			if data == "[DONE]" {
+				break streamLoop
+			}
 
-		var chunk struct {
-			ID      string `json:"id"`
-			Model   string `json:"model"`
-			Choices []struct {
-				Index        int                    `json:"index"`
-				Delta        map[string]interface{} `json:"delta"`
-				FinishReason string                 `json:"finish_reason"`
-			} `json:"choices"`
-			OpenAIUsage openAIUsage `json:"usage"`
-		}
+			var chunk struct {
+				ID      string `json:"id"`
+				Model   string `json:"model"`
+				Choices []struct {
+					Index        int                    `json:"index"`
+					Delta        map[string]interface{} `json:"delta"`
+					FinishReason string                 `json:"finish_reason"`
+				} `json:"choices"`
+				OpenAIUsage openAIUsage `json:"usage"`
+			}
 
-		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			continue
-		}
+			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+				continue
+			}
 
-		if chunk.OpenAIUsage.TotalTokens > 0 {
-			lastUsage = chunk.OpenAIUsage
-		}
+			if chunk.OpenAIUsage.TotalTokens > 0 {
+				lastUsage = chunk.OpenAIUsage
+			}
 
-		if !sentMessageStart {
-			m.writeAnthropicSSE(dst, "message_start", map[string]interface{}{
-				"type": "message_start",
-				"message": map[string]interface{}{
-					"id":            messageID,
-					"type":          "message",
-					"role":          "assistant",
-					"content":       []interface{}{},
-					"model":         model,
-					"stop_reason":   nil,
-					"stop_sequence": nil,
-					"usage": map[string]interface{}{
-						"input_tokens":  0,
-						"output_tokens": 0,
+			if !sentMessageStart {
+				m.writeAnthropicSSE(dst, "message_start", map[string]interface{}{
+					"type": "message_start",
+					"message": map[string]interface{}{
+						"id":            messageID,
+						"type":          "message",
+						"role":          "assistant",
+						"content":       []interface{}{},
+						"model":         model,
+						"stop_reason":   nil,
+						"stop_sequence": nil,
+						"usage": map[string]interface{}{
+							"input_tokens":  0,
+							"output_tokens": 0,
+						},
 					},
-				},
-			})
-			sentMessageStart = true
-		}
-
-		if len(chunk.Choices) > 0 {
-			choice := chunk.Choices[0]
-			delta := choice.Delta
-
-			reasoning := ""
-			hasReasoning := false
-			if r, ok := delta["reasoning_content"].(string); ok && r != "" {
-				reasoning = r
-				hasReasoning = true
-			} else if r, ok := delta["reasoning"].(string); ok && r != "" {
-				// fields compatible with OpenRouter
-				reasoning = r
-				hasReasoning = true
+				})
+				sentMessageStart = true
 			}
-			if hasReasoning && reasoning != "" {
-				if !inThinkingBlock {
-					if inTextBlock {
+
+			if len(chunk.Choices) > 0 {
+				choice := chunk.Choices[0]
+				delta := choice.Delta
+
+				reasoning := ""
+				hasReasoning := false
+				if r, ok := delta["reasoning_content"].(string); ok && r != "" {
+					reasoning = r
+					hasReasoning = true
+				} else if r, ok := delta["reasoning"].(string); ok && r != "" {
+					reasoning = r
+					hasReasoning = true
+				}
+				if hasReasoning && reasoning != "" {
+					if !inThinkingBlock {
+						if inTextBlock {
+							m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
+								"type":  "content_block_stop",
+								"index": preBlockCount,
+							})
+							preBlockCount++
+							inTextBlock = false
+						}
+						m.writeAnthropicSSE(dst, "content_block_start", map[string]interface{}{
+							"type":  "content_block_start",
+							"index": preBlockCount,
+							"content_block": map[string]interface{}{
+								"type":     "thinking",
+								"thinking": "",
+							},
+						})
+						inThinkingBlock = true
+					}
+					m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
+						"type":  "content_block_delta",
+						"index": preBlockCount,
+						"delta": map[string]interface{}{
+							"type":     "thinking_delta",
+							"thinking": reasoning,
+						},
+					})
+				}
+
+				content, hasContent := delta["content"].(string)
+				if hasContent && content != "" {
+					if inThinkingBlock {
 						m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
 							"type":  "content_block_stop",
 							"index": preBlockCount,
 						})
 						preBlockCount++
-						inTextBlock = false
+						inThinkingBlock = false
 					}
-					m.writeAnthropicSSE(dst, "content_block_start", map[string]interface{}{
-						"type":  "content_block_start",
-						"index": preBlockCount,
-						"content_block": map[string]interface{}{
-							"type":     "thinking",
-							"thinking": "",
-						},
-					})
-					inThinkingBlock = true
-				}
-				m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
-					"type":  "content_block_delta",
-					"index": preBlockCount,
-					"delta": map[string]interface{}{
-						"type":     "thinking_delta",
-						"thinking": reasoning,
-					},
-				})
-			}
-
-			content, hasContent := delta["content"].(string)
-			if hasContent && content != "" {
-				if inThinkingBlock {
-					m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
-						"type":  "content_block_stop",
-						"index": preBlockCount,
-					})
-					preBlockCount++
-					inThinkingBlock = false
-				}
-				if !inTextBlock {
-					m.writeAnthropicSSE(dst, "content_block_start", map[string]interface{}{
-						"type":  "content_block_start",
-						"index": preBlockCount,
-						"content_block": map[string]interface{}{
-							"type": "text",
-							"text": "",
-						},
-					})
-					inTextBlock = true
-				}
-				m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
-					"type":  "content_block_delta",
-					"index": preBlockCount,
-					"delta": map[string]interface{}{
-						"type": "text_delta",
-						"text": content,
-					},
-				})
-			}
-
-			if toolCalls, ok := delta["tool_calls"].([]interface{}); ok {
-				if inThinkingBlock || inTextBlock {
-					m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
-						"type":  "content_block_stop",
-						"index": preBlockCount,
-					})
-					preBlockCount++
-					inThinkingBlock = false
-					inTextBlock = false
-				}
-
-				for _, tc := range toolCalls {
-					tcMap, ok := tc.(map[string]interface{})
-					if !ok {
-						continue
-					}
-
-					toolIndex := 0
-					if idx, ok := tcMap["index"].(float64); ok {
-						toolIndex = int(idx)
-					}
-
-					toolID, _ := tcMap["id"].(string)
-					fn, hasFn := tcMap["function"].(map[string]interface{})
-					name := ""
-					args := ""
-					if hasFn {
-						name, _ = fn["name"].(string)
-						args, _ = fn["arguments"].(string)
-					}
-
-					state, exists := toolCallStates[toolIndex]
-					if !exists {
-						if toolID == "" {
-							continue
-						}
-						state = &toolCallState{
-							id:        toolID,
-							name:      name,
-							blockIdx:  preBlockCount + toolIndex,
-							startSent: false,
-						}
-						toolCallStates[toolIndex] = state
-					}
-
-					if !state.startSent {
+					if !inTextBlock {
 						m.writeAnthropicSSE(dst, "content_block_start", map[string]interface{}{
 							"type":  "content_block_start",
-							"index": state.blockIdx,
+							"index": preBlockCount,
 							"content_block": map[string]interface{}{
-								"type":  "tool_use",
-								"id":    state.id,
-								"name":  state.name,
-								"input": json.RawMessage("{}"),
+								"type": "text",
+								"text": "",
 							},
 						})
-						state.startSent = true
+						inTextBlock = true
 					}
-
-					if args != "" {
-						m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
-							"type":  "content_block_delta",
-							"index": state.blockIdx,
-							"delta": map[string]interface{}{
-								"type":         "input_json_delta",
-								"partial_json": args,
-							},
-						})
-					}
-				}
-			}
-
-			if choice.FinishReason != "" {
-				if inThinkingBlock || inTextBlock {
-					m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
-						"type":  "content_block_stop",
+					m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
+						"type":  "content_block_delta",
 						"index": preBlockCount,
+						"delta": map[string]interface{}{
+							"type": "text_delta",
+							"text": content,
+						},
 					})
 				}
 
-				for _, state := range toolCallStates {
-					if state.startSent {
+				if toolCalls, ok := delta["tool_calls"].([]interface{}); ok {
+					if inThinkingBlock || inTextBlock {
 						m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
 							"type":  "content_block_stop",
-							"index": state.blockIdx,
+							"index": preBlockCount,
 						})
+						preBlockCount++
+						inThinkingBlock = false
+						inTextBlock = false
+					}
+
+					for _, tc := range toolCalls {
+						tcMap, ok := tc.(map[string]interface{})
+						if !ok {
+							continue
+						}
+
+						toolIndex := 0
+						if idx, ok := tcMap["index"].(float64); ok {
+							toolIndex = int(idx)
+						}
+
+						toolID, _ := tcMap["id"].(string)
+						fn, hasFn := tcMap["function"].(map[string]interface{})
+						name := ""
+						args := ""
+						if hasFn {
+							name, _ = fn["name"].(string)
+							args, _ = fn["arguments"].(string)
+						}
+
+						state, exists := toolCallStates[toolIndex]
+						if !exists {
+							if toolID == "" {
+								continue
+							}
+							state = &toolCallState{
+								id:        toolID,
+								name:      name,
+								blockIdx:  preBlockCount + toolIndex,
+								startSent: false,
+							}
+							toolCallStates[toolIndex] = state
+						}
+
+						if !state.startSent {
+							m.writeAnthropicSSE(dst, "content_block_start", map[string]interface{}{
+								"type":  "content_block_start",
+								"index": state.blockIdx,
+								"content_block": map[string]interface{}{
+									"type":  "tool_use",
+									"id":    state.id,
+									"name":  state.name,
+									"input": json.RawMessage("{}"),
+								},
+							})
+							state.startSent = true
+						}
+
+						if args != "" {
+							m.writeAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
+								"type":  "content_block_delta",
+								"index": state.blockIdx,
+								"delta": map[string]interface{}{
+									"type":         "input_json_delta",
+									"partial_json": args,
+								},
+							})
+						}
 					}
 				}
 
-				stopReason := "end_turn"
-				switch choice.FinishReason {
-				case "stop":
-					stopReason = "end_turn"
-				case "length":
-					stopReason = "max_tokens"
-				case "tool_calls":
-					stopReason = "tool_use"
-				}
+				if choice.FinishReason != "" {
+					if inThinkingBlock || inTextBlock {
+						m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
+							"type":  "content_block_stop",
+							"index": preBlockCount,
+						})
+					}
 
-				if chunk.OpenAIUsage.TotalTokens > 0 {
-					lastUsage = chunk.OpenAIUsage
-				}
+					for _, state := range toolCallStates {
+						if state.startSent {
+							m.writeAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
+								"type":  "content_block_stop",
+								"index": state.blockIdx,
+							})
+						}
+					}
 
-				if lastUsage.TotalTokens > 0 {
-					lastUsage.toUsage(usage)
-					m.writeAnthropicSSE(dst, "message_delta", map[string]interface{}{
-						"type": "message_delta",
-						"delta": map[string]interface{}{
-							"stop_reason": stopReason,
-						},
-						"usage": map[string]interface{}{
-							"input_tokens":            lastUsage.PromptTokens - lastUsage.PromptTokensDetails.CachedTokens,
-							"output_tokens":           lastUsage.CompletionTokens,
-							"cache_read_input_tokens": lastUsage.PromptTokensDetails.CachedTokens,
-						},
-					})
-					m.writeAnthropicSSE(dst, "message_stop", map[string]interface{}{
-						"type": "message_stop",
-					})
-					break
+					stopReason := "end_turn"
+					switch choice.FinishReason {
+					case "stop":
+						stopReason = "end_turn"
+					case "length":
+						stopReason = "max_tokens"
+					case "tool_calls":
+						stopReason = "tool_use"
+					}
+
+					if chunk.OpenAIUsage.TotalTokens > 0 {
+						lastUsage = chunk.OpenAIUsage
+					}
+
+					if lastUsage.TotalTokens > 0 {
+						lastUsage.toUsage(usage)
+						m.writeAnthropicSSE(dst, "message_delta", map[string]interface{}{
+							"type": "message_delta",
+							"delta": map[string]interface{}{
+								"stop_reason": stopReason,
+							},
+							"usage": map[string]interface{}{
+								"input_tokens":            lastUsage.PromptTokens - lastUsage.PromptTokensDetails.CachedTokens,
+								"output_tokens":           lastUsage.CompletionTokens,
+								"cache_read_input_tokens": lastUsage.PromptTokensDetails.CachedTokens,
+							},
+						})
+						m.writeAnthropicSSE(dst, "message_stop", map[string]interface{}{
+							"type": "message_stop",
+						})
+						break streamLoop
+					}
 				}
 			}
 		}
