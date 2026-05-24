@@ -55,7 +55,7 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		FROM provider_models pm
 		JOIN providers p ON pm.provider_id = p.id
 		WHERE pm.is_available = ? AND p.enabled = ?
-			AND pm.deleted_at IS NULL AND p.deleted_at IS NULL
+			AND p.deleted_at IS NULL
 	`, true, true).Scan(&activeProviderModels)
 
 	var totalMCPs int64
@@ -179,21 +179,21 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		FROM mcp_tools mt
 		JOIN mcps m ON mt.mcp_id = m.id
 		WHERE mt.enabled = ? AND m.enabled = ?
-			AND mt.deleted_at IS NULL AND m.deleted_at IS NULL
+			AND m.deleted_at IS NULL
 	`, true, true).Scan(&activeMCPTools)
 	model.DB.Raw(`
 		SELECT COUNT(DISTINCT mr.id)
 		FROM mcp_resources mr
 		JOIN mcps m ON mr.mcp_id = m.id
 		WHERE mr.enabled = ? AND m.enabled = ?
-			AND mr.deleted_at IS NULL AND m.deleted_at IS NULL
+			AND m.deleted_at IS NULL
 	`, true, true).Scan(&activeMCPResources)
 	model.DB.Raw(`
 		SELECT COUNT(DISTINCT mp.id)
 		FROM mcp_prompts mp
 		JOIN mcps m ON mp.mcp_id = m.id
 		WHERE mp.enabled = ? AND m.enabled = ?
-			AND mp.deleted_at IS NULL AND m.deleted_at IS NULL
+			AND m.deleted_at IS NULL
 	`, true, true).Scan(&activeMCPPrompts)
 
 	// MCP 服务统计 (过去7天)

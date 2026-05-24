@@ -221,8 +221,13 @@ func (h *KeyHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	// 硬删除关联表
 	model.DB.Where("key_id = ?", id).Delete(&model.KeyModel{})
+	model.DB.Where("key_id = ?", id).Delete(&model.KeyMCPTool{})
+	model.DB.Where("key_id = ?", id).Delete(&model.KeyMCPResource{})
+	model.DB.Where("key_id = ?", id).Delete(&model.KeyMCPPrompt{})
 
+	// 软删除 Key
 	if err := model.DB.Delete(&model.Key{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

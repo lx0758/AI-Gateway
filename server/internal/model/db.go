@@ -68,7 +68,6 @@ type ProviderModel struct {
 	Source         string  `gorm:"default:sync"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
-	DeletedAt      gorm.DeletedAt
 }
 
 func (ProviderModel) TableName() string {
@@ -82,7 +81,7 @@ type Model struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt
-	Mappings  []ModelMapping `gorm:"foreignKey:ModelID;constraint:OnDelete:CASCADE"`
+	Mappings  []ModelMapping `gorm:"foreignKey:ModelID"`
 }
 
 func (Model) TableName() string {
@@ -93,12 +92,11 @@ type ModelMapping struct {
 	ID              uint `gorm:"primaryKey"`
 	ModelID         uint `gorm:"index"`
 	ProviderID      uint `gorm:"index"`
-	ProviderModelID uint `gorm:"index;constraint:OnDelete:CASCADE"`
+	ProviderModelID uint `gorm:"index"`
 	Weight          int  `gorm:"default:1"`
 	Enabled         bool `gorm:"type:boolean;default:true"`
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
-	DeletedAt       gorm.DeletedAt
 	Provider        *Provider      `gorm:"foreignKey:ProviderID;references:ID"`
 	ProviderModel   *ProviderModel `gorm:"foreignKey:ProviderModelID;references:ID"`
 }
@@ -138,7 +136,6 @@ type MCPTool struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	MCP *MCP `gorm:"foreignKey:MCPID"`
 }
@@ -158,7 +155,6 @@ type MCPResource struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	MCP *MCP `gorm:"foreignKey:MCPID"`
 }
@@ -177,7 +173,6 @@ type MCPPrompt struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	MCP *MCP `gorm:"foreignKey:MCPID"`
 }
@@ -209,7 +204,7 @@ func (Key) TableName() string {
 type KeyModel struct {
 	ID      uint `gorm:"primaryKey"`
 	KeyID   uint `gorm:"index"`
-	ModelID uint `gorm:"index;constraint:OnDelete:CASCADE"`
+	ModelID uint `gorm:"index"`
 
 	CreatedAt time.Time
 

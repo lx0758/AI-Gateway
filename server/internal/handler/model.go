@@ -254,6 +254,13 @@ func (h *ModelHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	// 硬删除关联的 ModelMapping
+	if err := model.DB.Where("model_id = ?", id).Delete(&model.ModelMapping{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 软删除 Model
 	if err := model.DB.Delete(&model.Model{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

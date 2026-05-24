@@ -237,13 +237,25 @@ func (h *ProviderHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	var mappingCount int64
-	model.DB.Model(&model.ModelMapping{}).Where("provider_id = ?", id).Count(&mappingCount)
-	if mappingCount > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "provider has existing mappings, remove them first"})
+	// 查询所有 ProviderModel IDs
+	var providerModelIDs []uint
+	model.DB.Model(&model.ProviderModel{}).Where("provider_id = ?", id).Pluck("id", &providerModelIDs)
+
+	// 硬删除关联的 ModelMapping
+	if len(providerModelIDs) > 0 {
+		if err := model.DB.Where("provider_model_id IN ?", providerModelIDs).Delete(&model.ModelMapping{}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	// 硬删除关联的 ProviderModel
+	if err := model.DB.Where("provider_id = ?", id).Delete(&model.ProviderModel{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	// 软删除 Provider
 	if err := model.DB.Delete(&model.Provider{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

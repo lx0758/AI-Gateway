@@ -206,6 +206,13 @@ func (h *ProviderModelHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	// 硬删除关联的 ModelMapping
+	if err := model.DB.Where("provider_model_id = ?", pm.ID).Delete(&model.ModelMapping{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 硬删除 ProviderModel
 	if err := model.DB.Delete(&pm).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
