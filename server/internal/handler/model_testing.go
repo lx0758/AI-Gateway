@@ -158,14 +158,14 @@ func (h *ModelTestHandler) TestModel(c *gin.Context) {
 	}
 
 	var mappings []model.ModelMapping
-	model.DB.Preload("Provider").
+	model.DB.Preload("Provider").Preload("ProviderModel").
 		Where("model_id = ? AND enabled = ?", m.ID, true).
 		Order("weight DESC").
 		Find(&mappings)
 
 	type testJob struct {
 		mapping model.ModelMapping
-		pm      model.ProviderModel
+		pm      *model.ProviderModel
 	}
 
 	var jobs []testJob
@@ -174,12 +174,11 @@ func (h *ModelTestHandler) TestModel(c *gin.Context) {
 			continue
 		}
 
-		var pm model.ProviderModel
-		if err := model.DB.Where("provider_id = ? AND model_id = ? AND is_available = ?", mapping.ProviderID, mapping.ProviderModelName, true).First(&pm).Error; err != nil {
+		if mapping.ProviderModel == nil || !mapping.ProviderModel.IsAvailable {
 			continue
 		}
 
-		jobs = append(jobs, testJob{mapping: mapping, pm: pm})
+		jobs = append(jobs, testJob{mapping: mapping, pm: mapping.ProviderModel})
 	}
 
 	results := make([]mappingTestResult, len(jobs))
@@ -193,12 +192,12 @@ func (h *ModelTestHandler) TestModel(c *gin.Context) {
 			protocolTests := []protocolTestResult{}
 
 			if j.mapping.Provider.OpenAIBaseURL != "" {
-				result := executeTest(j.mapping.Provider, &j.pm, "openai")
+				result := executeTest(j.mapping.Provider, j.pm, "openai")
 				protocolTests = append(protocolTests, result)
 			}
 
 			if j.mapping.Provider.AnthropicBaseURL != "" {
-				result := executeTest(j.mapping.Provider, &j.pm, "anthropic")
+				result := executeTest(j.mapping.Provider, j.pm, "anthropic")
 				protocolTests = append(protocolTests, result)
 			}
 

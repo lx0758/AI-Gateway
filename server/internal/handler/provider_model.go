@@ -169,6 +169,15 @@ func (h *ProviderModelHandler) Update(c *gin.Context) {
 		"supports_stream": req.SupportsStream,
 	}
 
+	if req.ModelID != "" && req.ModelID != pm.ModelID {
+		var existing model.ProviderModel
+		if err := model.DB.Where("provider_id = ? AND model_id = ? AND id != ?", providerID, req.ModelID, pm.ID).First(&existing).Error; err == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "model_id already exists"})
+			return
+		}
+		updates["model_id"] = req.ModelID
+	}
+
 	if err := model.DB.Model(&pm).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

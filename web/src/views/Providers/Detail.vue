@@ -83,7 +83,7 @@
     <el-dialog v-model="dialogVisible" :title="editingModel ? t('common.edit') : t('provider.addModel')" width="500px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="auto">
         <el-form-item :label="t('provider.modelId')" prop="model_id">
-          <el-input v-model="form.model_id" :disabled="!!editingModel" />
+          <el-input v-model="form.model_id" />
         </el-form-item>
         <el-form-item :label="t('common.name')">
           <el-input v-model="form.display_name" />

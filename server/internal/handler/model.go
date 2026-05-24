@@ -23,17 +23,17 @@ type updateModelRequest struct {
 }
 
 type createMappingRequest struct {
-	ProviderID        uint   `json:"provider_id" binding:"required"`
-	ProviderModelName string `json:"provider_model_name" binding:"required"`
-	Weight            int    `json:"weight"`
-	Enabled           bool   `json:"enabled"`
+	ProviderID      uint `json:"provider_id" binding:"required"`
+	ProviderModelID uint `json:"provider_model_id" binding:"required"`
+	Weight          int  `json:"weight"`
+	Enabled         bool `json:"enabled"`
 }
 
 type updateMappingRequest struct {
-	ProviderID        *uint   `json:"provider_id"`
-	ProviderModelName *string `json:"provider_model_name"`
-	Weight            *int    `json:"weight"`
-	Enabled           *bool   `json:"enabled"`
+	ProviderID      *uint `json:"provider_id"`
+	ProviderModelID *uint `json:"provider_model_id"`
+	Weight          *int  `json:"weight"`
+	Enabled         *bool `json:"enabled"`
 }
 
 type updateMappingsOrderRequest struct {
@@ -94,15 +94,15 @@ func (h *ModelHandler) List(c *gin.Context) {
 	result := make([]modelResponse, len(models))
 	for i, a := range models {
 		var mappings []model.ModelMapping
-		model.DB.Preload("Provider").
+		model.DB.Preload("Provider").Preload("ProviderModel").
 			Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
 			Where("model_id = ?", a.ID).
 			Order("weight DESC").
 			Find(&mappings)
 
-		mappingResponses := make([]mappingResponse, len(mappings))
-		for j, m := range mappings {
-			mappingResponses[j] = toMappingResponse(m)
+	mappingResponses := make([]mappingResponse, len(mappings))
+	for j, mm := range mappings {
+			mappingResponses[j] = toMappingResponse(mm)
 		}
 
 		enabledCount := calculateEnabledCount(mappings)
@@ -141,7 +141,7 @@ func (h *ModelHandler) Get(c *gin.Context) {
 	}
 
 	var mappings []model.ModelMapping
-	model.DB.Preload("Provider").
+	model.DB.Preload("Provider").Preload("ProviderModel").
 		Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
 		Where("model_id = ?", m.ID).
 		Order("weight DESC").
@@ -227,7 +227,7 @@ func (h *ModelHandler) Update(c *gin.Context) {
 	model.DB.First(&m, id)
 
 	var mappings []model.ModelMapping
-	model.DB.Preload("Provider").
+	model.DB.Preload("Provider").Preload("ProviderModel").
 		Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
 		Where("model_id = ?", m.ID).
 		Order("weight DESC").
@@ -276,7 +276,7 @@ func (h *ModelHandler) ListMappings(c *gin.Context) {
 	}
 
 	var mappings []model.ModelMapping
-	model.DB.Preload("Provider").
+	model.DB.Preload("Provider").Preload("ProviderModel").
 		Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
 		Where("model_id = ?", m.ID).
 		Order("weight DESC").
@@ -309,24 +309,23 @@ func (h *ModelHandler) CreateMapping(c *gin.Context) {
 		return
 	}
 
-	var provider model.Provider
-	if err := model.DB.First(&provider, req.ProviderID).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "provider not found"})
-		return
-	}
-
 	var pm model.ProviderModel
-	if err := model.DB.Where("provider_id = ? AND model_id = ?", req.ProviderID, req.ProviderModelName).First(&pm).Error; err != nil {
+	if err := model.DB.First(&pm, req.ProviderModelID).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "provider model not found"})
 		return
 	}
 
+	if pm.ProviderID != req.ProviderID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "provider mismatch"})
+		return
+	}
+
 	mapping := model.ModelMapping{
-		ModelID:           m.ID,
-		ProviderID:        req.ProviderID,
-		ProviderModelName: req.ProviderModelName,
-		Weight:            req.Weight,
-		Enabled:           true,
+		ModelID:         m.ID,
+		ProviderID:      req.ProviderID,
+		ProviderModelID: req.ProviderModelID,
+		Weight:          req.Weight,
+		Enabled:         true,
 	}
 	if mapping.Weight == 0 {
 		mapping.Weight = 1
@@ -340,7 +339,7 @@ func (h *ModelHandler) CreateMapping(c *gin.Context) {
 		return
 	}
 
-	model.DB.Preload("Provider").First(&mapping, mapping.ID)
+	model.DB.Preload("Provider").Preload("ProviderModel").First(&mapping, mapping.ID)
 
 	c.JSON(http.StatusCreated, gin.H{"mapping": toMappingResponse(mapping)})
 }
@@ -379,17 +378,21 @@ func (h *ModelHandler) UpdateMapping(c *gin.Context) {
 		}
 		updates["provider_id"] = *req.ProviderID
 	}
-	if req.ProviderModelName != nil {
+	if req.ProviderModelID != nil {
+		var pm model.ProviderModel
+		if err := model.DB.First(&pm, *req.ProviderModelID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "provider model not found"})
+			return
+		}
 		providerID := mapping.ProviderID
 		if req.ProviderID != nil {
 			providerID = *req.ProviderID
 		}
-		var pm model.ProviderModel
-		if err := model.DB.Where("provider_id = ? AND model_id = ?", providerID, *req.ProviderModelName).First(&pm).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "provider model not found"})
+		if pm.ProviderID != providerID {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "provider mismatch"})
 			return
 		}
-		updates["provider_model_name"] = *req.ProviderModelName
+		updates["provider_model_id"] = *req.ProviderModelID
 	}
 	if req.Weight != nil {
 		updates["weight"] = *req.Weight
@@ -405,7 +408,7 @@ func (h *ModelHandler) UpdateMapping(c *gin.Context) {
 		}
 	}
 
-	model.DB.Preload("Provider").First(&mapping, mappingID)
+	model.DB.Preload("Provider").Preload("ProviderModel").First(&mapping, mappingID)
 
 	c.JSON(http.StatusOK, gin.H{"mapping": toMappingResponse(mapping)})
 }
@@ -481,24 +484,23 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 	}
 
 	var modelInfoResp *modelInfoResponse
-	var providerModelID uint
-	var pm model.ProviderModel
-	if err := model.DB.Where("provider_id = ? AND model_id = ?", m.ProviderID, m.ProviderModelName).First(&pm).Error; err == nil {
-		providerModelID = pm.ID
+	var providerModelName string
+	if m.ProviderModel != nil {
+		providerModelName = m.ProviderModel.ModelID
 		modelInfoResp = &modelInfoResponse{
-			ContextWindow:  pm.ContextWindow,
-			MaxOutput:      pm.MaxOutput,
-			SupportsVision: pm.SupportsVision,
-			SupportsTools:  pm.SupportsTools,
-			SupportsStream: pm.SupportsStream,
+			ContextWindow:  m.ProviderModel.ContextWindow,
+			MaxOutput:      m.ProviderModel.MaxOutput,
+			SupportsVision: m.ProviderModel.SupportsVision,
+			SupportsTools:  m.ProviderModel.SupportsTools,
+			SupportsStream: m.ProviderModel.SupportsStream,
 		}
 	}
 
 	return mappingResponse{
 		ID:                m.ID,
 		ProviderID:        m.ProviderID,
-		ProviderModelID:   providerModelID,
-		ProviderModelName: m.ProviderModelName,
+		ProviderModelID:   m.ProviderModelID,
+		ProviderModelName: providerModelName,
 		Weight:            m.Weight,
 		Enabled:           m.Enabled,
 		Provider:          providerResp,
@@ -530,11 +532,12 @@ func calculateMinTokens(mappings []model.ModelMapping) (int, int) {
 			continue
 		}
 
-		hasEnabled = true
-		var pm model.ProviderModel
-		if err := model.DB.Where("provider_id = ? AND model_id = ?", m.ProviderID, m.ProviderModelName).First(&pm).Error; err != nil {
+		if m.ProviderModel == nil {
 			continue
 		}
+
+		hasEnabled = true
+		pm := m.ProviderModel
 
 		if pm.ContextWindow > 0 {
 			if minContext == 0 || pm.ContextWindow < minContext {
@@ -570,14 +573,15 @@ func calculateCapabilitiesIntersection(mappings []model.ModelMapping) (bool, boo
 			continue
 		}
 
-		hasEnabled = true
-		var pm model.ProviderModel
-		if err := model.DB.Where("provider_id = ? AND model_id = ?", m.ProviderID, m.ProviderModelName).First(&pm).Error; err != nil {
+		if m.ProviderModel == nil {
 			supportsVision = false
 			supportsTools = false
 			supportsStream = false
 			continue
 		}
+
+		hasEnabled = true
+		pm := m.ProviderModel
 
 		if !pm.SupportsVision {
 			supportsVision = false

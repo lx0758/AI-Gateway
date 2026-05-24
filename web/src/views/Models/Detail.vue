@@ -91,9 +91,9 @@
             <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('modelMapping.model')" prop="provider_model_name">
-          <el-select v-model="mappingForm.provider_model_name" style="width: 100%" filterable :placeholder="mappingForm.provider_id ? '' : t('provider.name')">
-            <el-option v-for="m in providerModels" :key="m.model_id" :label="m.model_id" :value="m.model_id" />
+        <el-form-item :label="t('modelMapping.model')" prop="provider_model_id">
+          <el-select v-model="mappingForm.provider_model_id" style="width: 100%" filterable :placeholder="mappingForm.provider_id ? '' : t('provider.name')">
+            <el-option v-for="m in providerModels" :key="m.id" :label="m.model_id" :value="m.id" />
           </el-select>
         </el-form-item>
         <el-form-item :label="t('modelMapping.weight')">
@@ -214,14 +214,14 @@ const modelId = route.params.id as string
 
 const mappingForm = reactive({
   provider_id: null as number | null,
-  provider_model_name: '',
+  provider_model_id: null as number | null,
   weight: 0,
   enabled: true
 })
 
 const mappingRules = computed(() => ({
   provider_id: [{ required: true, message: t('common.required'), trigger: 'change' }],
-  provider_model_name: [{ required: true, message: t('common.required'), trigger: 'change' }]
+  provider_model_id: [{ required: true, message: t('common.required'), trigger: 'change' }]
 }))
 
 onMounted(() => {
@@ -301,7 +301,7 @@ async function showMappingDialog(mapping?: Mapping) {
   editingMapping.value = mapping || null
   Object.assign(mappingForm, {
     provider_id: mapping?.provider_id || null,
-    provider_model_name: mapping?.provider_model_name || '',
+    provider_model_id: mapping?.provider_model_id || null,
     weight: mapping?.weight || mappings.value.length,
     enabled: mapping?.enabled ?? true
   })

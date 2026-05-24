@@ -26,7 +26,7 @@ func (r *ModelRouter) Route(name string) (*RouteResult, error) {
 	}
 
 	var mappings []model.ModelMapping
-	if err := model.DB.Preload("Provider").
+	if err := model.DB.Preload("Provider").Preload("ProviderModel").
 		Where("model_id = ? AND enabled = ?", m.ID, true).
 		Order("weight DESC").
 		Find(&mappings).Error; err != nil {
@@ -46,10 +46,11 @@ func (r *ModelRouter) Route(name string) (*RouteResult, error) {
 			continue
 		}
 
-		var pm model.ProviderModel
-		if err := model.DB.Where("provider_id = ? AND model_id = ? AND is_available = ?", mapping.ProviderID, mapping.ProviderModelName, true).First(&pm).Error; err != nil {
+		if mapping.ProviderModel == nil || !mapping.ProviderModel.IsAvailable {
 			continue
 		}
+
+		pm := mapping.ProviderModel
 
 		providerImpl := provider.NewAutomatedProvider(
 			providerInfo.OpenAIBaseURL,
@@ -58,7 +59,7 @@ func (r *ModelRouter) Route(name string) (*RouteResult, error) {
 		)
 		result := RouteResult{
 			Provider:         providerInfo,
-			ProviderModel:    &pm,
+			ProviderModel:    pm,
 			ProviderInstance: providerImpl,
 		}
 		allProviders = append(allProviders, result)

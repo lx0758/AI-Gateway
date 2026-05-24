@@ -90,16 +90,17 @@ func (Model) TableName() string {
 }
 
 type ModelMapping struct {
-	ID                uint `gorm:"primaryKey"`
-	ModelID           uint `gorm:"index"`
-	ProviderID        uint `gorm:"index"`
-	ProviderModelName string
-	Weight            int  `gorm:"default:1"`
-	Enabled           bool `gorm:"type:boolean;default:true"`
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	DeletedAt         gorm.DeletedAt
-	Provider          *Provider `gorm:"foreignKey:ProviderID"`
+	ID              uint `gorm:"primaryKey"`
+	ModelID         uint `gorm:"index"`
+	ProviderID      uint `gorm:"index"`
+	ProviderModelID uint `gorm:"index;constraint:OnDelete:CASCADE"`
+	Weight          int  `gorm:"default:1"`
+	Enabled         bool `gorm:"type:boolean;default:true"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       gorm.DeletedAt
+	Provider        *Provider      `gorm:"foreignKey:ProviderID;references:ID"`
+	ProviderModel   *ProviderModel `gorm:"foreignKey:ProviderModelID;references:ID"`
 }
 
 func (ModelMapping) TableName() string {
