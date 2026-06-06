@@ -125,6 +125,7 @@ func main() {
 			protected.PUT("/providers/:id", providerHandler.Update)
 			protected.DELETE("/providers/:id", providerHandler.Delete)
 			protected.POST("/providers/:id/test", providerHandler.Test)
+			protected.POST("/providers/:id/test-custom", modelTestHandler.TestCustomModel)
 
 			protected.GET("/providers/:id/models", providerModelHandler.List)
 			protected.POST("/providers/:id/models", providerModelHandler.Create)

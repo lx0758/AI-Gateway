@@ -122,7 +122,9 @@ export default {
     latency: '延迟',
     response: '响应',
     directCall: '直通',
-    protocolConvert: '协议转换'
+    protocolConvert: '协议转换',
+    customTest: '自定义测试',
+    customTestPrompt: '请输入要测试的模型 ID'
   },
   key: {
     name: '密钥名称',

@@ -22,6 +22,7 @@
       <div class="actions">
         <el-button type="primary" @click="syncModels" :loading="syncing">{{ t('provider.syncModels') }}</el-button>
         <el-button type="success" @click="showAddDialog">{{ t('provider.addModel') }}</el-button>
+        <el-button type="warning" @click="testCustomModel">{{ t('provider.customTest') }}</el-button>
         <el-button type="danger" @click="handleBatchDelete" :disabled="selectedIds.length === 0">{{ t('common.batchDelete') }} ({{ selectedIds.length }})</el-button>
       </div>
     </el-card>
@@ -397,6 +398,39 @@ async function testModel(model: any) {
     testDialogVisible.value = false
   } finally {
     testingModel.value = false
+  }
+}
+
+async function testCustomModel() {
+  try {
+    const { value: modelId } = await ElMessageBox.prompt(
+      t('provider.customTestPrompt'),
+      t('provider.customTest'),
+      {
+        confirmButtonText: t('provider.test'),
+        cancelButtonText: t('common.cancel'),
+        inputPattern: /\S+/,
+        inputErrorMessage: t('common.required')
+      }
+    )
+    if (!modelId) return
+
+    testModelInfo.value = { model_id: modelId }
+    testResults.value = []
+    testingModel.value = true
+    testDialogVisible.value = true
+
+    try {
+      const res = await api.post(`/providers/${providerId}/test-custom`, { model_id: modelId })
+      testResults.value = res.data.tests || []
+    } catch (e: any) {
+      ElMessage.error(e.response?.data?.error || t('common.error'))
+      testDialogVisible.value = false
+    } finally {
+      testingModel.value = false
+    }
+  } catch {
+    // user cancelled
   }
 }
 

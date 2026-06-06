@@ -47,6 +47,91 @@ type providerModelTestResponse struct {
 	Tests []protocolTestResult `json:"tests"`
 }
 
+type customModelTestRequest struct {
+	ModelID string `json:"model_id" binding:"required"`
+}
+
+type customModelTestResponse struct {
+	Provider struct {
+		ID   uint   `json:"id"`
+		Name string `json:"name"`
+	} `json:"provider"`
+	Model struct {
+		ModelID     string `json:"model_id"`
+		DisplayName string `json:"display_name"`
+	} `json:"model"`
+	Tests []protocolTestResult `json:"tests"`
+}
+
+func (h *ModelTestHandler) TestCustomModel(c *gin.Context) {
+	providerID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid provider id"})
+		return
+	}
+
+	var req customModelTestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "model_id is required"})
+		return
+	}
+
+	var p model.Provider
+	if err := model.DB.First(&p, providerID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "provider not found"})
+		return
+	}
+
+	pm := &model.ProviderModel{
+		ModelID: req.ModelID,
+	}
+
+	var wg sync.WaitGroup
+	var openAIResult, anthropicResult *protocolTestResult
+
+	if p.OpenAIBaseURL != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := executeTest(&p, pm, "openai")
+			openAIResult = &result
+		}()
+	}
+
+	if p.AnthropicBaseURL != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := executeTest(&p, pm, "anthropic")
+			anthropicResult = &result
+		}()
+	}
+
+	wg.Wait()
+
+	tests := []protocolTestResult{}
+	if openAIResult != nil {
+		tests = append(tests, *openAIResult)
+	}
+	if anthropicResult != nil {
+		tests = append(tests, *anthropicResult)
+	}
+
+	resp := customModelTestResponse{
+		Provider: struct {
+			ID   uint   `json:"id"`
+			Name string `json:"name"`
+		}{ID: p.ID, Name: p.Name},
+		Model: struct {
+			ModelID     string `json:"model_id"`
+			DisplayName string `json:"display_name"`
+		}{ModelID: req.ModelID},
+		Tests: tests,
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
 func (h *ModelTestHandler) TestProviderModel(c *gin.Context) {
 	providerID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

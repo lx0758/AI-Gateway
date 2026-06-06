@@ -121,7 +121,9 @@ export default {
     latency: 'Latency',
     response: 'Response',
     directCall: 'Direct',
-    protocolConvert: 'Convert'
+    protocolConvert: 'Convert',
+    customTest: 'Custom Test',
+    customTestPrompt: 'Enter the model ID to test'
   },
   key: {
     name: 'Key Name',

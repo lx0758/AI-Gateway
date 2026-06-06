@@ -2,10 +2,11 @@
 
 ### Requirement: Provider 模型测试 API
 
-系统 SHALL 提供 API 端点来测试特定的 Provider 模型。
+系统 SHALL 提供 API 端点来测试特定的 Provider 模型，同时支持对数据库中不存在的模型进行自定义测试。
 
 ```
 POST /api/v1/providers/:id/models/:model_id/test
+POST /api/v1/providers/:id/test-custom
 ```
 
 #### Scenario: 使用 OpenAI 协议测试 Provider 模型
