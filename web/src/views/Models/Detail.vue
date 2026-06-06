@@ -8,7 +8,7 @@
 
     <el-card class="info-card">
       <el-descriptions :column="2" border>
-        <el-descriptions-item :label="t('models.name')">{{ model?.model || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('models.name')">{{ model?.model || '-' }} <CopyButton :text="model?.model" /></el-descriptions-item>
         <el-descriptions-item :label="t('common.status')">
           <el-tag :type="modelEnabled ? 'success' : 'info'" size="small">
             {{ modelEnabled ? t('common.enabled') : t('common.disabled') }}
@@ -44,7 +44,12 @@
             <el-tag v-if="row.provider?.anthropic_base_url" type="primary" size="small">Anthropic</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="provider_model_name" :label="t('modelMapping.actualModel')" />
+        <el-table-column prop="provider_model_name" :label="t('modelMapping.actualModel')">
+          <template #default="{ row }">
+            <span>{{ row.provider_model_name }}</span>
+            <CopyButton :text="row.provider_model_name" />
+          </template>
+        </el-table-column>
         <el-table-column :label="t('models.capabilities')">
           <template #default="{ row }">
             <div v-if="row.model_info" class="capability-tags">
@@ -153,6 +158,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Rank, Loading } from '@element-plus/icons-vue'
+import CopyButton from '@/components/CopyButton.vue'
 import Sortable from 'sortablejs'
 import api from '@/api'
 import { formatContextDisplay } from '@/utils/format'

@@ -13,7 +13,12 @@
 
       <el-table :data="models" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="name" :label="t('models.name')" width="220" sortable />
+        <el-table-column prop="name" :label="t('models.name')" width="240" sortable>
+          <template #default="{ row }">
+            <span>{{ row.name }}</span>
+            <CopyButton :text="row.name" />
+          </template>
+        </el-table-column>
         <el-table-column :label="t('models.mappingCount')" width="120" prop="mapping_count" sortable>
           <template #default="{ row }">
             {{ row.mapping_count }}
@@ -119,6 +124,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
+import CopyButton from '@/components/CopyButton.vue'
 import api from '@/api'
 import { formatContextDisplay } from '@/utils/format'
 import { getSortConfig, setSortConfig } from '@/utils/tableSort'

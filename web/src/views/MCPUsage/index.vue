@@ -222,10 +222,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { CopyDocument, InfoFilled } from '@element-plus/icons-vue'
+import { useCopyText } from '@/composables/useCopyText'
 import api from '@/api'
 import { formatDateTime, formatLatency } from '@/utils/format'
 
 const { t } = useI18n()
+const { copy } = useCopyText()
 
 interface LogItem {
   id: number
@@ -414,11 +416,7 @@ async function fetchLogs() {
 }
 
 function copyError(errorMsg: string) {
-  navigator.clipboard.writeText(errorMsg).then(() => {
-    ElMessage.success(t('common.copied') || 'Copied')
-  }).catch(() => {
-    ElMessage.error(t('common.error') || 'Error')
-  })
+  copy(errorMsg)
 }
 </script>
 

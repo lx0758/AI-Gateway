@@ -99,9 +99,7 @@
                     <el-button v-if="row.description && isLongText(row.description)" link type="primary" size="small" @click="row._expanded = !row._expanded">
                       {{ row._expanded ? t('common.collapse') : t('common.expand') }}
                     </el-button>
-                    <el-button v-if="row.description" link type="primary" size="small" @click="copyText(row.description)">
-                      <el-icon><CopyDocument /></el-icon>
-                    </el-button>
+                    <CopyButton v-if="row.description" :text="row.description" />
                   </div>
                 </div>
               </template>
@@ -143,9 +141,7 @@
                     <el-button v-if="row.description && isLongText(row.description)" link type="primary" size="small" @click="row._expanded = !row._expanded">
                       {{ row._expanded ? t('common.collapse') : t('common.expand') }}
                     </el-button>
-                    <el-button v-if="row.description" link type="primary" size="small" @click="copyText(row.description)">
-                      <el-icon><CopyDocument /></el-icon>
-                    </el-button>
+                    <CopyButton v-if="row.description" :text="row.description" />
                   </div>
                 </div>
               </template>
@@ -189,9 +185,7 @@
                     <el-button v-if="row.description && isLongText(row.description)" link type="primary" size="small" @click="row._expanded = !row._expanded">
                       {{ row._expanded ? t('common.collapse') : t('common.expand') }}
                     </el-button>
-                    <el-button v-if="row.description" link type="primary" size="small" @click="copyText(row.description)">
-                      <el-icon><CopyDocument /></el-icon>
-                    </el-button>
+                    <CopyButton v-if="row.description" :text="row.description" />
                   </div>
                 </div>
               </template>
@@ -231,7 +225,8 @@ import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CopyDocument } from '@element-plus/icons-vue'
+import { useCopyText } from '@/composables/useCopyText'
+import CopyButton from '@/components/CopyButton.vue'
 import api from '@/api'
 import { formatContextDisplay } from '@/utils/format'
 import { getSortConfig, setSortConfig } from '@/utils/tableSort'
@@ -239,6 +234,8 @@ import { getSortConfig, setSortConfig } from '@/utils/tableSort'
 const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
+
+const { copy } = useCopyText()
 
 const keyId = Number(route.params.id)
 const key = ref<any>(null)
@@ -467,17 +464,7 @@ async function handleReset() {
 }
 
 function copyKey() {
-  navigator.clipboard.writeText(newKey.value)
-  ElMessage.success(t('common.copied'))
-}
-
-function copyText(text: string) {
-  if (!text) return
-  navigator.clipboard.writeText(text).then(() => {
-    ElMessage.success(t('common.copied'))
-  }).catch(() => {
-    ElMessage.error(t('common.error'))
-  })
+  copy(newKey.value)
 }
 
 function goBack() {

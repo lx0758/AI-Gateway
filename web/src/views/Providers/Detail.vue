@@ -31,7 +31,12 @@
       <template #header>{{ t('provider.models') }}</template>
       <el-table :data="models" stripe @row-click="showModelDetail" @selection-change="handleSelectionChange" class="clickable-table" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="model_id" :label="t('provider.modelId')" width="180" sortable />
+        <el-table-column prop="model_id" :label="t('provider.modelId')" width="200" sortable>
+          <template #default="{ row }">
+            <span>{{ row.model_id }}</span>
+            <CopyButton :text="row.model_id" />
+          </template>
+        </el-table-column>
         <el-table-column prop="display_name" :label="t('common.name')" sortable />
         <el-table-column :label="t('provider.capabilities')" width="200">
           <template #default="{ row }">
@@ -225,6 +230,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
+import CopyButton from '@/components/CopyButton.vue'
 import api from '@/api'
 import { formatDateTime, formatContextDisplay } from '@/utils/format'
 import { getSortConfig, setSortConfig } from '@/utils/tableSort'

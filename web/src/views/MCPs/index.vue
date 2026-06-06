@@ -12,7 +12,12 @@
       </template>
       <el-table :data="services" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="name" :label="t('mcp.name')" width="200" sortable />
+        <el-table-column prop="name" :label="t('mcp.name')" width="220" sortable>
+          <template #default="{ row }">
+            <span>{{ row.name }}</span>
+            <CopyButton :text="row.name" />
+          </template>
+        </el-table-column>
         <el-table-column :label="t('mcp.type')" prop="type" sortable>
           <template #default="{ row }">
             <el-tag :type="row.type === 'remote' ? 'success' : 'info'">{{ row.type }}</el-tag>
@@ -90,6 +95,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import CopyButton from '@/components/CopyButton.vue'
 import api from '@/api'
 import { getSortConfig, setSortConfig, sortByDate } from '@/utils/tableSort'
 

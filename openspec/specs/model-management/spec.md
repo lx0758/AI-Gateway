@@ -127,3 +127,21 @@ FROM: `aliases` → TO: `models`
 - **WHEN** 显示模型表时
 - **THEN** 每个模型行在 Actions 列有"详情"按钮
 - **AND** "详情"按钮始终启用，无论映射数量
+
+### Requirement: 厂商模型页面的 model_id 列支持复制
+
+系统 SHALL 在厂商模型页面（Providers/Detail.vue）的 model_id 列提供复制按钮，且点击复制按钮不会触发行点击事件。
+
+#### Scenario: model_id 列显示复制按钮
+- **WHEN** 管理员查看厂商模型列表
+- **THEN** model_id 列在每个模型 ID 文本旁显示一个复制图标按钮
+
+#### Scenario: 点击复制按钮复制 model_id
+- **WHEN** 管理员点击 model_id 旁边的复制按钮
+- **THEN** 系统将 model_id 文本复制到剪贴板
+- **AND** 显示成功提示
+- **AND** 不触发详情对话框弹出
+
+#### Scenario: 点击 model_id 文本仍可触发行点击
+- **WHEN** 管理员点击 model_id 文本区域（非复制按钮）
+- **THEN** 系统正常触发 `showModelDetail` 打开详情对话框

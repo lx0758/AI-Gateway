@@ -81,11 +81,14 @@ import { ref, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useCopyText } from '@/composables/useCopyText'
 import api from '@/api'
 import { getSortConfig, setSortConfig, sortByArrayLength } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
+
+const { copy } = useCopyText()
 
 const keys = ref<any[]>([])
 const selectedIds = ref<number[]>([])
@@ -158,8 +161,7 @@ async function toggleEnabled(row: any) {
 }
 
 function copyKey() {
-  navigator.clipboard.writeText(newKey.value)
-  ElMessage.success('Copied!')
+  copy(newKey.value)
 }
 
 function goDetail(id: number) {

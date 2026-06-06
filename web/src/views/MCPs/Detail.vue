@@ -35,7 +35,12 @@
       <el-tabs v-model="activeTab">
         <el-tab-pane :label="t('mcp.tools')" name="tools">
           <el-table :data="tools" stripe v-loading="toolsLoading" :default-sort="toolsDefaultSort" @sort-change="(e: any) => handleSortChange('mcp-tools', e)">
-            <el-table-column prop="name" :label="t('mcp.toolName')" width="200" sortable />
+            <el-table-column prop="name" :label="t('mcp.toolName')" width="220" sortable>
+              <template #default="{ row }">
+                <span>{{ row.name }}</span>
+                <CopyButton :text="row.name" />
+              </template>
+            </el-table-column>
             <el-table-column :label="t('mcp.description')" prop="description" sortable>
               <template #default="{ row }">
                 <div class="description-cell">
@@ -46,9 +51,7 @@
                     <el-button v-if="row.description && isLongText(row.description)" link type="primary" size="small" @click="row._expanded = !row._expanded">
                       {{ row._expanded ? t('common.collapse') : t('common.expand') }}
                     </el-button>
-                    <el-button v-if="row.description" link type="primary" size="small" @click="copyText(row.description)">
-                      <el-icon><CopyDocument /></el-icon>
-                    </el-button>
+                    <CopyButton v-if="row.description" :text="row.description" />
                   </div>
                 </div>
               </template>
@@ -71,7 +74,12 @@
 
         <el-tab-pane :label="t('mcp.resources')" name="resources">
           <el-table :data="resources" stripe v-loading="resourcesLoading" :default-sort="resourcesDefaultSort" @sort-change="(e: any) => handleSortChange('mcp-resources', e)">
-            <el-table-column prop="name" :label="t('mcp.resourceName')" width="200" sortable />
+            <el-table-column prop="name" :label="t('mcp.resourceName')" width="220" sortable>
+              <template #default="{ row }">
+                <span>{{ row.name }}</span>
+                <CopyButton :text="row.name" />
+              </template>
+            </el-table-column>
             <el-table-column :label="t('mcp.description')" prop="description" sortable>
               <template #default="{ row }">
                 <div class="description-cell">
@@ -82,9 +90,7 @@
                     <el-button v-if="row.description && isLongText(row.description)" link type="primary" size="small" @click="row._expanded = !row._expanded">
                       {{ row._expanded ? t('common.collapse') : t('common.expand') }}
                     </el-button>
-                    <el-button v-if="row.description" link type="primary" size="small" @click="copyText(row.description)">
-                      <el-icon><CopyDocument /></el-icon>
-                    </el-button>
+                    <CopyButton v-if="row.description" :text="row.description" />
                   </div>
                 </div>
               </template>
@@ -109,7 +115,12 @@
 
         <el-tab-pane :label="t('mcp.prompts')" name="prompts">
           <el-table :data="prompts" stripe v-loading="promptsLoading" :default-sort="promptsDefaultSort" @sort-change="(e: any) => handleSortChange('mcp-prompts', e)">
-            <el-table-column prop="name" :label="t('mcp.promptName')" width="200" sortable />
+            <el-table-column prop="name" :label="t('mcp.promptName')" width="220" sortable>
+              <template #default="{ row }">
+                <span>{{ row.name }}</span>
+                <CopyButton :text="row.name" />
+              </template>
+            </el-table-column>
             <el-table-column :label="t('mcp.description')" prop="description" sortable>
               <template #default="{ row }">
                 <div class="description-cell">
@@ -120,9 +131,7 @@
                     <el-button v-if="row.description && isLongText(row.description)" link type="primary" size="small" @click="row._expanded = !row._expanded">
                       {{ row._expanded ? t('common.collapse') : t('common.expand') }}
                     </el-button>
-                    <el-button v-if="row.description" link type="primary" size="small" @click="copyText(row.description)">
-                      <el-icon><CopyDocument /></el-icon>
-                    </el-button>
+                    <CopyButton v-if="row.description" :text="row.description" />
                   </div>
                 </div>
               </template>
@@ -157,9 +166,7 @@
               <el-button v-if="detailData.description && isLongText(detailData.description)" link type="primary" size="small" @click="detailData._descExpanded = !detailData._descExpanded">
                 {{ detailData._descExpanded ? t('common.collapse') : t('common.expand') }}
               </el-button>
-              <el-button v-if="detailData.description" link type="primary" size="small" @click="copyText(detailData.description)">
-                <el-icon><CopyDocument /></el-icon>
-              </el-button>
+              <CopyButton v-if="detailData.description" :text="detailData.description" />
             </div>
           </div>
         </el-descriptions-item>
@@ -181,7 +188,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { CopyDocument } from '@element-plus/icons-vue'
+import CopyButton from '@/components/CopyButton.vue'
 import JsonViewer from '@/components/JsonViewer.vue'
 import api from '@/api'
 import { getSortConfig, setSortConfig } from '@/utils/tableSort'
@@ -334,14 +341,7 @@ function isLongText(text: string): boolean {
   return lines.length > 5 || text.length > 300
 }
 
-function copyText(text: string) {
-  if (!text) return
-  navigator.clipboard.writeText(text).then(() => {
-    ElMessage.success(t('common.copied'))
-  }).catch(() => {
-    ElMessage.error(t('common.error'))
-  })
-}
+
 
 async function toggleToolEnabled(tool: any) {
   try {
