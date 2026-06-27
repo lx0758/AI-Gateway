@@ -203,6 +203,9 @@ export default {
     editMapping: '编辑映射',
     providerType: '厂商类型',
     modelDisabled: '模型已禁用',
+    providerDisabledReason: '厂商已禁用，此映射无法启用',
+    providerModelUnavailableReason: '厂商模型不可用，此映射无法启用',
+    providerOrModelDisabled: '厂商或模型被禁用',
     testAllMappings: '测试所有映射'
   },
   mcp: {

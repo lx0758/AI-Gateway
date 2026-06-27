@@ -61,6 +61,8 @@ type mappingResponse struct {
 	ProviderModelName string                 `json:"provider_model_name"`
 	Weight            int                    `json:"weight"`
 	Enabled           bool                   `json:"enabled"`
+	ForcedDisabled    bool                   `json:"forced_disabled"`
+	DisableReason     string                 `json:"disable_reason,omitempty"`
 	Provider          *providerBasicResponse `json:"provider,omitempty"`
 	ModelInfo         *modelInfoResponse     `json:"model_info,omitempty"`
 }
@@ -95,7 +97,6 @@ func (h *ModelHandler) List(c *gin.Context) {
 	for i, a := range models {
 		var mappings []model.ModelMapping
 		model.DB.Preload("Provider").Preload("ProviderModel").
-			Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
 			Where("model_id = ?", a.ID).
 			Order("weight DESC").
 			Find(&mappings)
@@ -142,7 +143,6 @@ func (h *ModelHandler) Get(c *gin.Context) {
 
 	var mappings []model.ModelMapping
 	model.DB.Preload("Provider").Preload("ProviderModel").
-		Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
 		Where("model_id = ?", m.ID).
 		Order("weight DESC").
 		Find(&mappings)
@@ -228,7 +228,6 @@ func (h *ModelHandler) Update(c *gin.Context) {
 
 	var mappings []model.ModelMapping
 	model.DB.Preload("Provider").Preload("ProviderModel").
-		Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
 		Where("model_id = ?", m.ID).
 		Order("weight DESC").
 		Find(&mappings)
@@ -284,7 +283,6 @@ func (h *ModelHandler) ListMappings(c *gin.Context) {
 
 	var mappings []model.ModelMapping
 	model.DB.Preload("Provider").Preload("ProviderModel").
-		Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
 		Where("model_id = ?", m.ID).
 		Order("weight DESC").
 		Find(&mappings)
@@ -481,12 +479,19 @@ func (h *ModelHandler) UpdateMappingsOrder(c *gin.Context) {
 
 func toMappingResponse(m model.ModelMapping) mappingResponse {
 	var providerResp *providerBasicResponse
+	var forcedDisabled bool
+	var disableReason string
+
 	if m.Provider != nil {
 		providerResp = &providerBasicResponse{
 			ID:               m.Provider.ID,
 			Name:             m.Provider.Name,
 			OpenAIBaseURL:    m.Provider.OpenAIBaseURL,
 			AnthropicBaseURL: m.Provider.AnthropicBaseURL,
+		}
+		if !m.Provider.Enabled {
+			forcedDisabled = true
+			disableReason = "provider_disabled"
 		}
 	}
 
@@ -501,6 +506,10 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 			SupportsTools:  m.ProviderModel.SupportsTools,
 			SupportsStream: m.ProviderModel.SupportsStream,
 		}
+		if !m.ProviderModel.IsAvailable && !forcedDisabled {
+			forcedDisabled = true
+			disableReason = "provider_model_unavailable"
+		}
 	}
 
 	return mappingResponse{
@@ -510,6 +519,8 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 		ProviderModelName: providerModelName,
 		Weight:            m.Weight,
 		Enabled:           m.Enabled,
+		ForcedDisabled:    forcedDisabled,
+		DisableReason:     disableReason,
 		Provider:          providerResp,
 		ModelInfo:         modelInfoResp,
 	}
@@ -518,9 +529,16 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 func calculateEnabledCount(mappings []model.ModelMapping) int {
 	enabledCount := 0
 	for _, m := range mappings {
-		if m.Enabled {
-			enabledCount++
+		if !m.Enabled {
+			continue
 		}
+		if m.Provider == nil || !m.Provider.Enabled {
+			continue
+		}
+		if m.ProviderModel == nil || !m.ProviderModel.IsAvailable {
+			continue
+		}
+		enabledCount++
 	}
 	return enabledCount
 }

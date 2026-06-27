@@ -351,7 +351,6 @@ func (h *KeyHandler) ListModels(c *gin.Context) {
 	for i, m := range allModels {
 		var mappings []model.ModelMapping
 		model.DB.Preload("Provider").
-			Joins("JOIN providers ON providers.id = model_mappings.provider_id AND providers.enabled = ?", true).
 			Where("model_id = ? AND model_mappings.enabled = ?", m.ID, true).
 			Order("weight DESC").
 			Find(&mappings)

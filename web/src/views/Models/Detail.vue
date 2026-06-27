@@ -76,6 +76,9 @@
             <el-tooltip v-if="!modelEnabled" :content="t('models.modelDisabled')" placement="top">
               <el-switch :model-value="false" disabled />
             </el-tooltip>
+            <el-tooltip v-else-if="row.forced_disabled" :content="getDisableTooltip(row)" placement="top">
+              <el-switch :model-value="false" disabled />
+            </el-tooltip>
             <el-switch v-else v-model="row.enabled" @change="toggleMappingEnabled(row)" />
           </template>
         </el-table-column>
@@ -182,6 +185,8 @@ interface Mapping {
   provider_model_name: string
   weight: number
   enabled: boolean
+  forced_disabled?: boolean
+  disable_reason?: string
   provider?: {
     id: number
     name: string
@@ -361,6 +366,16 @@ async function handleBatchDelete() {
 
 async function toggleMappingEnabled(mapping: Mapping) {
   await api.put(`/models/${modelId}/mappings/${mapping.id}`, { enabled: mapping.enabled })
+}
+
+function getDisableTooltip(row: Mapping): string {
+  if (row.disable_reason === 'provider_disabled') {
+    return t('models.providerDisabledReason')
+  }
+  if (row.disable_reason === 'provider_model_unavailable') {
+    return t('models.providerModelUnavailableReason')
+  }
+  return t('models.providerOrModelDisabled')
 }
 
 async function testSingleMapping(mapping: Mapping) {

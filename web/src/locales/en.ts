@@ -202,6 +202,9 @@ export default {
     editMapping: 'Edit Mapping',
     providerType: 'Provider Type',
     modelDisabled: 'Model is disabled',
+    providerDisabledReason: 'Provider is disabled, this mapping cannot be enabled',
+    providerModelUnavailableReason: 'Provider model is unavailable, this mapping cannot be enabled',
+    providerOrModelDisabled: 'Provider or model is disabled',
     testAllMappings: 'Test All Mappings'
   },
   mcp: {
