@@ -60,9 +60,7 @@ type ProviderModel struct {
 	MaxOutput      int     `gorm:"default:0"`
 	InputPrice     float64 `gorm:"default:0"`
 	OutputPrice    float64 `gorm:"default:0"`
-	SupportsVision bool    `gorm:"type:boolean;default:false"`
-	SupportsTools  bool    `gorm:"type:boolean;default:true"`
-	SupportsStream bool    `gorm:"type:boolean;default:true"`
+	Capabilities   string  `gorm:"type:text;column:capabilities"`
 	Metadata       string  `gorm:"type:text"`
 	IsAvailable    bool    `gorm:"type:boolean;default:true"`
 	Source         string  `gorm:"default:sync"`

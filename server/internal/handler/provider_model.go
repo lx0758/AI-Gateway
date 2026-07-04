@@ -22,9 +22,7 @@ type createProviderModelRequest struct {
 	MaxOutput      int     `json:"max_output"`
 	InputPrice     float64 `json:"input_price"`
 	OutputPrice    float64 `json:"output_price"`
-	SupportsVision bool    `json:"supports_vision"`
-	SupportsTools  bool    `json:"supports_tools"`
-	SupportsStream bool    `json:"supports_stream"`
+	Capabilities   string  `json:"capabilities"`
 }
 
 type providerModelResponse struct {
@@ -37,9 +35,7 @@ type providerModelResponse struct {
 	MaxOutput      int     `json:"max_output"`
 	InputPrice     float64 `json:"input_price"`
 	OutputPrice    float64 `json:"output_price"`
-	SupportsVision bool    `json:"supports_vision"`
-	SupportsTools  bool    `json:"supports_tools"`
-	SupportsStream bool    `json:"supports_stream"`
+	Capabilities   string  `json:"capabilities"`
 	IsAvailable    bool    `json:"is_available"`
 	Source         string  `json:"source"`
 	CreatedAt      string  `json:"created_at"`
@@ -60,9 +56,7 @@ func toProviderModelResponse(m model.ProviderModel) providerModelResponse {
 		MaxOutput:      m.MaxOutput,
 		InputPrice:     m.InputPrice,
 		OutputPrice:    m.OutputPrice,
-		SupportsVision: m.SupportsVision,
-		SupportsTools:  m.SupportsTools,
-		SupportsStream: m.SupportsStream,
+		Capabilities:   m.Capabilities,
 		IsAvailable:    m.IsAvailable,
 		Source:         m.Source,
 		CreatedAt:      m.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -109,18 +103,17 @@ func (h *ProviderModelHandler) Create(c *gin.Context) {
 		return
 	}
 
+	ctxWindow := req.ContextWindow
 	pm := model.ProviderModel{
 		ProviderID:     uint(providerID),
 		ModelID:        req.ModelID,
 		DisplayName:    req.DisplayName,
 		OwnedBy:        req.OwnedBy,
-		ContextWindow:  req.ContextWindow,
+		ContextWindow:  ctxWindow,
 		MaxOutput:      req.MaxOutput,
 		InputPrice:     req.InputPrice,
 		OutputPrice:    req.OutputPrice,
-		SupportsVision: req.SupportsVision,
-		SupportsTools:  req.SupportsTools,
-		SupportsStream: req.SupportsStream,
+		Capabilities:   req.Capabilities,
 		IsAvailable:    true,
 		Source:         "manual",
 	}
@@ -158,15 +151,14 @@ func (h *ProviderModelHandler) Update(c *gin.Context) {
 		return
 	}
 
+	ctxWindow := req.ContextWindow
 	updates := map[string]interface{}{
 		"display_name":    req.DisplayName,
-		"context_window":  req.ContextWindow,
+		"context_window":  ctxWindow,
 		"max_output":      req.MaxOutput,
 		"input_price":     req.InputPrice,
 		"output_price":    req.OutputPrice,
-		"supports_vision": req.SupportsVision,
-		"supports_tools":  req.SupportsTools,
-		"supports_stream": req.SupportsStream,
+		"capabilities":    req.Capabilities,
 	}
 
 	if req.ModelID != "" && req.ModelID != pm.ModelID {
@@ -261,8 +253,7 @@ func (h *ProviderModelHandler) Sync(c *gin.Context) {
 				"owned_by":        pm.OwnedBy,
 				"context_window":  pm.ContextWindow,
 				"max_output":      pm.MaxOutput,
-				"supports_vision": pm.SupportsVision,
-				"supports_tools":  pm.SupportsTools,
+				"capabilities":    pm.Capabilities,
 				"is_available":    true,
 			})
 			updated++

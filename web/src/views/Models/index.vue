@@ -26,10 +26,10 @@
         </el-table-column>
         <el-table-column :label="t('models.capabilities')">
           <template #default="{ row }">
-            <div v-if="row.mapping_count > 0" class="capability-tags">
-              <el-tag v-if="row.supports_stream" type="primary" size="small" style="margin-right: 4px">Stream</el-tag>
-              <el-tag v-if="row.supports_tools" type="warning" size="small" style="margin-right: 4px">Tools</el-tag>
-              <el-tag v-if="row.supports_vision" type="success" size="small">Vision</el-tag>
+            <div v-if="row.capabilities" class="capability-tags">
+              <el-tag v-for="cap in row.capabilities.split(',')" :key="cap" type="primary" size="small" style="margin-right: 4px">
+                {{ t('provider.' + cap) }}
+              </el-tag>
             </div>
             <span v-else>-</span>
           </template>
@@ -139,9 +139,7 @@ interface Model {
   mapping_count: number
   min_context_window: number
   min_max_output: number
-  supports_vision: boolean
-  supports_tools: boolean
-  supports_stream: boolean
+  capabilities: string
 }
 
 const models = ref<Model[]>([])
@@ -182,9 +180,7 @@ async function fetchModels() {
       mapping_count: m.mapping_count,
       min_context_window: m.min_context_window || 0,
       min_max_output: m.min_max_output || 0,
-      supports_vision: m.supports_vision || false,
-      supports_tools: m.supports_tools || false,
-      supports_stream: m.supports_stream || false
+      capabilities: m.capabilities || ''
     }))
   } finally {
     loading.value = false

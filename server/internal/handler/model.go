@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -47,9 +48,7 @@ type modelResponse struct {
 	MappingCount     int               `json:"mapping_count"`
 	MinContextWindow int               `json:"min_context_window"`
 	MinMaxOutput     int               `json:"min_max_output"`
-	SupportsVision   bool              `json:"supports_vision"`
-	SupportsTools    bool              `json:"supports_tools"`
-	SupportsStream   bool              `json:"supports_stream"`
+	Capabilities     string            `json:"capabilities"`
 	CreatedAt        string            `json:"created_at"`
 	Mappings         []mappingResponse `json:"mappings,omitempty"`
 }
@@ -68,11 +67,9 @@ type mappingResponse struct {
 }
 
 type modelInfoResponse struct {
-	ContextWindow  int  `json:"context_window"`
-	MaxOutput      int  `json:"max_output"`
-	SupportsVision bool `json:"supports_vision"`
-	SupportsTools  bool `json:"supports_tools"`
-	SupportsStream bool `json:"supports_stream"`
+	ContextWindow  int    `json:"context_window"`
+	MaxOutput      int    `json:"max_output"`
+	Capabilities   string `json:"capabilities"`
 }
 
 type providerBasicResponse struct {
@@ -108,7 +105,7 @@ func (h *ModelHandler) List(c *gin.Context) {
 
 		enabledCount := calculateEnabledCount(mappings)
 		minContext, minOutput := calculateMinTokens(mappings)
-		supportsVision, supportsTools, supportsStream := calculateCapabilitiesIntersection(mappings)
+		caps := calculateCapabilitiesIntersection(mappings)
 
 		result[i] = modelResponse{
 			ID:               a.ID,
@@ -117,9 +114,7 @@ func (h *ModelHandler) List(c *gin.Context) {
 			MappingCount:     enabledCount,
 			MinContextWindow: minContext,
 			MinMaxOutput:     minOutput,
-			SupportsVision:   supportsVision,
-			SupportsTools:    supportsTools,
-			SupportsStream:   supportsStream,
+			Capabilities:     caps,
 			CreatedAt:        a.CreatedAt.Format("2006-01-02 15:04:05"),
 			Mappings:         mappingResponses,
 		}
@@ -502,9 +497,7 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 		modelInfoResp = &modelInfoResponse{
 			ContextWindow:  m.ProviderModel.ContextWindow,
 			MaxOutput:      m.ProviderModel.MaxOutput,
-			SupportsVision: m.ProviderModel.SupportsVision,
-			SupportsTools:  m.ProviderModel.SupportsTools,
-			SupportsStream: m.ProviderModel.SupportsStream,
+			Capabilities:   m.ProviderModel.Capabilities,
 		}
 		if !m.ProviderModel.IsAvailable && !forcedDisabled {
 			forcedDisabled = true
@@ -583,10 +576,8 @@ func calculateMinTokens(mappings []model.ModelMapping) (int, int) {
 	return minContext, minOutput
 }
 
-func calculateCapabilitiesIntersection(mappings []model.ModelMapping) (bool, bool, bool) {
-	supportsVision := true
-	supportsTools := true
-	supportsStream := true
+func calculateCapabilitiesIntersection(mappings []model.ModelMapping) string {
+	var firstCaps []string
 	hasEnabled := false
 
 	for _, m := range mappings {
@@ -598,30 +589,50 @@ func calculateCapabilitiesIntersection(mappings []model.ModelMapping) (bool, boo
 			continue
 		}
 
-		if m.ProviderModel == nil {
-			supportsVision = false
-			supportsTools = false
-			supportsStream = false
-			continue
+		if m.ProviderModel == nil || m.ProviderModel.Capabilities == "" {
+			// capabilities 为空，直接返回空（交集为空）
+			return ""
 		}
 
 		hasEnabled = true
-		pm := m.ProviderModel
+		caps := splitCaps(m.ProviderModel.Capabilities)
 
-		if !pm.SupportsVision {
-			supportsVision = false
+		if len(firstCaps) == 0 {
+			firstCaps = caps
+			continue
 		}
-		if !pm.SupportsTools {
-			supportsTools = false
+
+		// 取交集
+		intersection := make(map[string]bool)
+		for _, c := range firstCaps {
+			intersection[c] = true
 		}
-		if !pm.SupportsStream {
-			supportsStream = false
+		var newFirstCaps []string
+		for _, c := range caps {
+			if intersection[c] {
+				newFirstCaps = append(newFirstCaps, c)
+			}
 		}
+		firstCaps = newFirstCaps
 	}
 
-	if !hasEnabled {
-		return false, false, false
+	if !hasEnabled || len(firstCaps) == 0 {
+		return ""
 	}
 
-	return supportsVision, supportsTools, supportsStream
+	return strings.Join(firstCaps, ",")
+}
+
+func splitCaps(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' })
+}
+
+func joinCaps(set map[string]bool) string {
+	var parts []string
+	for _, c := range []string{"tools", "stream", "image", "video", "photo"} {
+		if set[c] {
+			parts = append(parts, c)
+		}
+	}
+	return strings.Join(parts, ",")
 }

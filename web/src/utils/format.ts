@@ -33,24 +33,28 @@ export function formatLatency(ms: number | null | undefined): string {
   return seconds.toFixed(1) + 's'
 }
 
+const KILO = 1024
+const MEGA = KILO * KILO
+const GIGA = MEGA * KILO
+
 export function formatTokens(tokens: number | null | undefined): string {
   if (tokens == null) return '0'
-  if (tokens >= 1e9) return (tokens / 1e9).toFixed(1) + 'B'
-  if (tokens >= 1e6) return (tokens / 1e6).toFixed(1) + 'M'
-  if (tokens >= 1e3) return (tokens / 1e3).toFixed(1) + 'K'
+  if (tokens >= GIGA) return (tokens / GIGA).toFixed(1) + 'B'
+  if (tokens >= MEGA) return (tokens / MEGA).toFixed(1) + 'M'
+  if (tokens >= KILO) return (tokens / KILO).toFixed(1) + 'K'
   return tokens.toString()
 }
 
 export function formatToken(value: number | null | undefined): string {
   if (value == null || value === 0) return '0'
-  if (value < 1000) return value.toString()
+  if (value < KILO) return value.toString()
   
-  if (value < 1000000) {
-    const k = value / 1000
+  if (value < MEGA) {
+    const k = value / KILO
     return k % 1 === 0 ? `${k}K` : `${k.toFixed(1)}K`
   }
   
-  const m = value / 1000000
+  const m = value / MEGA
   return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`
 }
 
@@ -58,4 +62,40 @@ export function formatContextDisplay(context: number | null | undefined, output:
   const contextStr = formatToken(context)
   const outputStr = formatToken(output)
   return `${contextStr} / ${outputStr}`
+}
+
+export function parseContextString(str: string): number | null {
+  if (!str) return null
+  const s = str.trim().toLowerCase()
+  if (s === '' || s === '-') return null
+
+  let multiplier = 1
+  let numStr = s
+
+  const lastChar = s[s.length - 1]
+  if (lastChar === 'k') {
+    multiplier = KILO
+    numStr = s.slice(0, -1)
+  } else if (lastChar === 'm') {
+    multiplier = MEGA
+    numStr = s.slice(0, -1)
+  } else if (lastChar === 'b') {
+    multiplier = GIGA
+    numStr = s.slice(0, -1)
+  }
+
+  const num = parseInt(numStr.trim(), 10)
+  if (isNaN(num)) return null
+  return num * multiplier
+}
+
+export function formatContextInput(num: number): string {
+  if (num === 0) return '0'
+  if (num < KILO) return num.toString()
+  if (num < MEGA) {
+    const k = num / KILO
+    return k % 1 === 0 ? `${k}K` : `${k.toFixed(1)}K`
+  }
+  const m = num / MEGA
+  return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`
 }

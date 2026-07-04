@@ -40,11 +40,12 @@
         <el-table-column prop="display_name" :label="t('common.name')" sortable />
         <el-table-column :label="t('provider.capabilities')" width="200">
           <template #default="{ row }">
-            <div class="capability-tags">
-              <el-tag v-if="row.supports_stream" type="primary" size="small" style="margin-right: 4px">Stream</el-tag>
-              <el-tag v-if="row.supports_tools" type="warning" size="small" style="margin-right: 4px">Tools</el-tag>
-              <el-tag v-if="row.supports_vision" type="success" size="small">Vision</el-tag>
+            <div class="capability-tags" v-if="row.capabilities">
+              <el-tag v-for="cap in row.capabilities.split(',')" :key="cap" type="primary" size="small" style="margin-right: 4px">
+                {{ t('provider.' + cap) }}
+              </el-tag>
             </div>
+            <el-tag v-else type="info" size="small">None</el-tag>
           </template>
         </el-table-column>
         <el-table-column :label="t('provider.contextWindow')" width="150" prop="context_window" sortable>
@@ -97,12 +98,12 @@
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item :label="t('provider.contextWindow')">
-              <el-input-number v-model="form.context_window" :min="0" style="width: 100%" />
+              <el-input v-model="form.context_window_display" :placeholder="t('provider.contextInputPlaceholder')" style="width: 100%" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item :label="t('provider.maxOutput')">
-              <el-input-number v-model="form.max_output" :min="0" style="width: 100%" />
+              <el-input v-model="form.max_output_display" :placeholder="t('provider.contextInputPlaceholder')" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -118,23 +119,15 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item :label="t('provider.supportsVision')">
-              <el-switch v-model="form.supports_vision" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item :label="t('provider.supportsTools')">
-              <el-switch v-model="form.supports_tools" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item :label="t('provider.supportsStream')">
-              <el-switch v-model="form.supports_stream" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <el-form-item :label="t('provider.capabilities')">
+          <el-checkbox-group v-model="capabilityList">
+            <el-checkbox label="tools">{{ t('provider.tools') }}</el-checkbox>
+            <el-checkbox label="stream">{{ t('provider.stream') }}</el-checkbox>
+            <el-checkbox label="photo">{{ t('provider.photo') }}</el-checkbox>
+            <el-checkbox label="image">{{ t('provider.image') }}</el-checkbox>
+            <el-checkbox label="video">{{ t('provider.video') }}</el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
@@ -146,8 +139,8 @@
       <el-descriptions :column="2" border>
         <el-descriptions-item :label="t('provider.modelId')">{{ detailModel?.model_id }}</el-descriptions-item>
         <el-descriptions-item :label="t('common.name')">{{ detailModel?.display_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item :label="t('provider.contextWindow')">{{ detailModel?.context_window?.toLocaleString() || '-' }}</el-descriptions-item>
-        <el-descriptions-item :label="t('provider.maxOutput')">{{ detailModel?.max_output?.toLocaleString() || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('provider.contextWindow')">{{ formatContextInput(detailModel?.context_window || 0) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('provider.maxOutput')">{{ formatContextInput(detailModel?.max_output || 0) }}</el-descriptions-item>
         <el-descriptions-item :label="t('provider.inputPrice')">${{ (detailModel?.input_price || 0).toFixed(4) }} / 1K tokens</el-descriptions-item>
         <el-descriptions-item :label="t('provider.outputPrice')">${{ (detailModel?.output_price || 0).toFixed(4) }} / 1K tokens</el-descriptions-item>
         <el-descriptions-item :label="t('provider.source')">
@@ -160,20 +153,13 @@
             {{ detailModel?.is_available ? t('common.enabled') : t('common.disabled') }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item :label="t('provider.supportsVision')">
-          <el-tag :type="detailModel?.supports_vision ? 'success' : 'info'" size="small">
-            {{ detailModel?.supports_vision ? t('common.yes') : t('common.no') }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item :label="t('provider.supportsTools')">
-          <el-tag :type="detailModel?.supports_tools ? 'success' : 'info'" size="small">
-            {{ detailModel?.supports_tools ? t('common.yes') : t('common.no') }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item :label="t('provider.supportsStream')">
-          <el-tag :type="detailModel?.supports_stream ? 'success' : 'info'" size="small">
-            {{ detailModel?.supports_stream ? t('common.yes') : t('common.no') }}
-          </el-tag>
+        <el-descriptions-item :label="t('provider.capabilities')" :span="2">
+          <div class="capability-tags" v-if="detailModel?.capabilities">
+            <el-tag v-for="cap in detailModel.capabilities.split(',')" :key="cap" type="primary" size="small" style="margin-right: 4px">
+              {{ t('provider.' + cap) }}
+            </el-tag>
+          </div>
+          <el-tag v-else type="info" size="small">None</el-tag>
         </el-descriptions-item>
         <el-descriptions-item :label="'Owned By'">{{ detailModel?.owned_by || '-' }}</el-descriptions-item>
         <el-descriptions-item :label="t('common.createdAt')">{{ formatDateTime(detailModel?.created_at) }}</el-descriptions-item>
@@ -232,7 +218,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import CopyButton from '@/components/CopyButton.vue'
 import api from '@/api'
-import { formatDateTime, formatContextDisplay } from '@/utils/format'
+import { formatDateTime, formatContextDisplay, formatContextInput, parseContextString } from '@/utils/format'
 import { getSortConfig, setSortConfig } from '@/utils/tableSort'
 
 const { t } = useI18n()
@@ -262,13 +248,28 @@ const form = reactive({
   model_id: '',
   display_name: '',
   context_window: 0,
+  context_window_display: '0',
   max_output: 0,
+  max_output_display: '0',
   input_price: 0,
   output_price: 0,
-  supports_vision: false,
-  supports_tools: true,
-  supports_stream: true
+  capabilities: '',
 })
+
+const capabilityList = ref<string[]>(['tools', 'stream'])
+
+function updateCapabilityList() {
+  if (!form.capabilities) {
+    capabilityList.value = []
+    return
+  }
+  capabilityList.value = form.capabilities.split(',').filter(Boolean)
+}
+
+function getCapabilitiesString(): string {
+  if (capabilityList.value.length === 0) return ''
+  return capabilityList.value.join(',')
+}
 
 const rules = {
   model_id: [{ required: true, message: () => t('common.required'), trigger: 'blur' }]
@@ -314,13 +315,14 @@ function showAddDialog() {
     model_id: '',
     display_name: '',
     context_window: 0,
+    context_window_display: '0',
     max_output: 0,
+    max_output_display: '0',
     input_price: 0,
     output_price: 0,
-    supports_vision: false,
-    supports_tools: true,
-    supports_stream: true
+    capabilities: '',
   })
+  capabilityList.value = ['tools', 'stream']
   dialogVisible.value = true
 }
 
@@ -330,13 +332,14 @@ function showEditDialog(model: any) {
     model_id: model.model_id,
     display_name: model.display_name || '',
     context_window: model.context_window || 0,
+    context_window_display: formatContextInput(model.context_window || 0),
     max_output: model.max_output || 0,
+    max_output_display: formatContextInput(model.max_output || 0),
     input_price: model.input_price || 0,
     output_price: model.output_price || 0,
-    supports_vision: model.supports_vision || false,
-    supports_tools: model.supports_tools || false,
-    supports_stream: model.supports_stream !== false
+    capabilities: model.capabilities || '',
   })
+  updateCapabilityList()
   dialogVisible.value = true
 }
 
@@ -349,12 +352,32 @@ async function handleSubmit() {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
+  const ctxNum = parseContextString(form.context_window_display)
+  const maxOutNum = parseContextString(form.max_output_display)
+  if (form.context_window_display && form.context_window_display !== '-' && ctxNum === null) {
+    ElMessage.warning('请输入有效格式（数字、或带 K/M/B 单位）')
+    return
+  }
+  if (form.max_output_display && form.max_output_display !== '-' && maxOutNum === null) {
+    ElMessage.warning('请输入有效格式（数字、或带 K/M/B 单位）')
+    return
+  }
+
   submitting.value = true
   try {
+    const payload = {
+      ...form,
+      context_window: ctxNum !== null ? ctxNum : 0,
+      max_output: maxOutNum !== null ? maxOutNum : 0,
+      capabilities: getCapabilitiesString(),
+    }
+    delete (payload as any).context_window_display
+    delete (payload as any).max_output_display
+
     if (editingModel.value) {
-      await api.put(`/providers/${providerId}/models/${editingModel.value.id}`, form)
+      await api.put(`/providers/${providerId}/models/${editingModel.value.id}`, payload)
     } else {
-      await api.post(`/providers/${providerId}/models`, form)
+      await api.post(`/providers/${providerId}/models`, payload)
     }
     ElMessage.success(t('common.success'))
     dialogVisible.value = false

@@ -102,7 +102,7 @@ func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, err
 			MaxOutput:      0,
 			InputPrice:     m.Pricing.Prompt,
 			OutputPrice:    m.Pricing.Completion,
-			SupportsStream: true,
+			Capabilities:   "stream",
 			IsAvailable:    true,
 			Source:         "sync",
 		})

@@ -52,10 +52,10 @@
         </el-table-column>
         <el-table-column :label="t('models.capabilities')">
           <template #default="{ row }">
-            <div v-if="row.model_info" class="capability-tags">
-              <el-tag v-if="row.model_info.supports_stream" type="primary" size="small" style="margin-right: 4px">Stream</el-tag>
-              <el-tag v-if="row.model_info.supports_tools" type="warning" size="small" style="margin-right: 4px">Tools</el-tag>
-              <el-tag v-if="row.model_info.supports_vision" type="success" size="small">Vision</el-tag>
+            <div v-if="row.model_info?.capabilities" class="capability-tags">
+              <el-tag v-for="cap in row.model_info.capabilities.split(',')" :key="cap" type="primary" size="small" style="margin-right: 4px">
+                {{ t('provider.' + cap) }}
+              </el-tag>
             </div>
             <span v-else>-</span>
           </template>
@@ -173,9 +173,7 @@ const router = useRouter()
 interface ModelInfo {
   context_window: number
   max_output: number
-  supports_vision: boolean
-  supports_tools: boolean
-  supports_stream: boolean
+  capabilities: string
 }
 
 interface Mapping {

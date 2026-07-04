@@ -320,9 +320,7 @@ type modelWithStatusResponse struct {
 	MappingCount     int    `json:"mapping_count"`
 	MinContextWindow int    `json:"min_context_window"`
 	MinMaxOutput     int    `json:"min_max_output"`
-	SupportsVision   bool   `json:"supports_vision"`
-	SupportsTools    bool   `json:"supports_tools"`
-	SupportsStream   bool   `json:"supports_stream"`
+	Capabilities     string `json:"capabilities"`
 	Selected         bool   `json:"selected"`
 }
 
@@ -356,7 +354,7 @@ func (h *KeyHandler) ListModels(c *gin.Context) {
 			Find(&mappings)
 
 		minContext, minOutput := calculateMinTokens(mappings)
-		supportsVision, supportsTools, supportsStream := calculateCapabilitiesIntersection(mappings)
+		caps := calculateCapabilitiesIntersection(mappings)
 
 		result[i] = modelWithStatusResponse{
 			ID:               m.ID,
@@ -364,9 +362,7 @@ func (h *KeyHandler) ListModels(c *gin.Context) {
 			MappingCount:     len(mappings),
 			MinContextWindow: minContext,
 			MinMaxOutput:     minOutput,
-			SupportsVision:   supportsVision,
-			SupportsTools:    supportsTools,
-			SupportsStream:   supportsStream,
+			Capabilities:     caps,
 			Selected:         keyModelMap[m.ID],
 		}
 	}

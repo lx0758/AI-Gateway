@@ -104,6 +104,16 @@ func (m *AnthropicProvider) SyncModels(providerID uint) ([]model.ProviderModel, 
 		supportsVision := m.Capabilities.ImageInput.Supported
 		supportsTools := true
 
+		var caps []string
+		caps = append(caps, "stream")
+		if supportsVision {
+			caps = append(caps, "image")
+		}
+		if supportsTools {
+			caps = append(caps, "tools")
+		}
+		capStr := strings.Join(caps, ",")
+
 		models = append(models, model.ProviderModel{
 			ProviderID:     providerID,
 			ModelID:        m.ID,
@@ -111,9 +121,7 @@ func (m *AnthropicProvider) SyncModels(providerID uint) ([]model.ProviderModel, 
 			OwnedBy:        "anthropic",
 			ContextWindow:  m.MaxInputToken,
 			MaxOutput:      m.MaxTokens,
-			SupportsVision: supportsVision,
-			SupportsTools:  supportsTools,
-			SupportsStream: true,
+			Capabilities:   capStr,
 			IsAvailable:    true,
 			Source:         "sync",
 		})
