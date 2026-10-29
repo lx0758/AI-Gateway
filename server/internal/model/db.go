@@ -91,7 +91,7 @@ type ModelMapping struct {
 	ModelID         uint `gorm:"index"`
 	ProviderID      uint `gorm:"index"`
 	ProviderModelID uint `gorm:"index"`
-	Weight          int  `gorm:"default:1"`
+	Weight          int  `gorm:"not null;default:0"`
 	Enabled         bool `gorm:"type:boolean;default:true"`
 	CreatedAt       time.Time
 	UpdatedAt       time.Time

@@ -104,9 +104,6 @@
             <el-option v-for="m in providerModels" :key="m.id" :label="m.model_id" :value="m.id" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('modelMapping.weight')">
-          <el-input-number v-model="mappingForm.weight" :min="0" :max="100" />
-        </el-form-item>
         <el-form-item :label="t('common.status')">
           <el-switch v-model="mappingForm.enabled" />
         </el-form-item>
@@ -224,7 +221,6 @@ const modelId = route.params.id as string
 const mappingForm = reactive({
   provider_id: null as number | null,
   provider_model_id: null as number | null,
-  weight: 0,
   enabled: true
 })
 
@@ -311,7 +307,6 @@ async function showMappingDialog(mapping?: Mapping) {
   Object.assign(mappingForm, {
     provider_id: mapping?.provider_id || null,
     provider_model_id: mapping?.provider_model_id || null,
-    weight: mapping?.weight || mappings.value.length,
     enabled: mapping?.enabled ?? true
   })
   providerModels.value = []

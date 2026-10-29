@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"ai-gateway/internal/model"
 )
@@ -26,7 +27,7 @@ type updateModelRequest struct {
 type createMappingRequest struct {
 	ProviderID      uint `json:"provider_id" binding:"required"`
 	ProviderModelID uint `json:"provider_model_id" binding:"required"`
-	Weight          int  `json:"weight"`
+	Weight          *int `json:"weight"`
 	Enabled         bool `json:"enabled"`
 }
 
@@ -324,17 +325,32 @@ func (h *ModelHandler) CreateMapping(c *gin.Context) {
 		ModelID:         m.ID,
 		ProviderID:      req.ProviderID,
 		ProviderModelID: req.ProviderModelID,
-		Weight:          req.Weight,
-		Enabled:         true,
-	}
-	if mapping.Weight == 0 {
-		mapping.Weight = 1
-	}
-	if !req.Enabled {
-		mapping.Enabled = false
+		Enabled:         req.Enabled,
 	}
 
-	if err := model.DB.Create(&mapping).Error; err != nil {
+	// 权重由系统管理：未携带取末尾（当前最小权重-1）；显式携带则避让到空位（不阻断、不报错）
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
+		lockModelMappings(tx, m.ID)
+		if req.Weight != nil {
+			mapping.Weight = freeWeight(tx, m.ID, *req.Weight, 0)
+		} else {
+			var minWeight *int64
+			if err := tx.Model(&model.ModelMapping{}).Where("model_id = ?", m.ID).Select("MIN(weight)").Scan(&minWeight).Error; err != nil {
+				return err
+			}
+			mapping.Weight = 0
+			if minWeight != nil {
+				mapping.Weight = int(*minWeight) - 1
+			}
+		}
+		// Select 强制写入全部列：weight=0 / enabled=false 是合法零值，
+		// 不用 Select 会被 GORM 跳过而落入数据库 default（default:1 / default:true）
+		if err := tx.Select("ModelID", "ProviderID", "ProviderModelID", "Weight", "Enabled").Create(&mapping).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -394,15 +410,22 @@ func (h *ModelHandler) UpdateMapping(c *gin.Context) {
 		}
 		updates["provider_model_id"] = *req.ProviderModelID
 	}
-	if req.Weight != nil {
-		updates["weight"] = *req.Weight
-	}
 	if req.Enabled != nil {
 		updates["enabled"] = *req.Enabled
 	}
 
-	if len(updates) > 0 {
-		if err := model.DB.Model(&mapping).Updates(updates).Error; err != nil {
+	// 权重变更走避让：排除自身后被占用则 +1 递增至空位（仅移动本映射，不阻断、不报错）
+	if len(updates) > 0 || req.Weight != nil {
+		if err := model.DB.Transaction(func(tx *gorm.DB) error {
+			if req.Weight != nil {
+				lockModelMappings(tx, uint(modelID))
+				updates["weight"] = freeWeight(tx, uint(modelID), *req.Weight, uint(mappingID))
+			}
+			if len(updates) > 0 {
+				return tx.Model(&mapping).Updates(updates).Error
+			}
+			return nil
+		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -432,6 +455,30 @@ func (h *ModelHandler) DeleteMapping(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "mapping deleted"})
+}
+
+// freeWeight 返回从 start 起第一个未被同模型其他映射占用的权重（排除 excludeID）。
+// 权重仅为排序内部值，冲突时递增避让而非报错，保证不阻断操作。
+func freeWeight(tx *gorm.DB, modelID uint, start int, excludeID uint) int {
+	weight := start
+	for {
+		var count int64
+		tx.Model(&model.ModelMapping{}).
+			Where("model_id = ? AND weight = ? AND id <> ?", modelID, weight, excludeID).
+			Count(&count)
+		if count == 0 {
+			return weight
+		}
+		weight++
+	}
+}
+
+// lockModelMappings 在 PostgreSQL 下锁定该模型现有映射行，避免并发选中同一空位；
+// SQLite 为单写者天然串行，且不支持 FOR UPDATE 语法，无需显式行锁。
+func lockModelMappings(tx *gorm.DB, modelID uint) {
+	if tx.Dialector.Name() == "postgres" {
+		tx.Exec("SELECT id FROM model_mappings WHERE model_id = ? FOR UPDATE", modelID)
+	}
 }
 
 func (h *ModelHandler) UpdateMappingsOrder(c *gin.Context) {
