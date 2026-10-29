@@ -231,7 +231,7 @@ async function testConnection(id: number) {
 
 async function handleDelete(id: number) {
   try {
-    await ElMessageBox.confirm(t('common.confirmDelete'), t('common.warning'), {
+    await ElMessageBox.confirm(t('mcp.confirmDelete'), t('mcp.warning'), {
       type: 'warning'
     })
     await api.delete(`/mcps/${id}`)
@@ -254,7 +254,7 @@ async function handleBatchDelete() {
   try {
     await ElMessageBox.confirm(
       t('mcp.confirmBatchDelete', { count: selectedIds.value.length }),
-      t('common.warning'),
+      t('mcp.warning'),
       { type: 'warning' }
     )
     
