@@ -1,4 +1,10 @@
-## ADDED Requirements
+# model-testing 规格
+
+## Purpose
+
+定义模型测试能力：Provider 模型与虚拟模型（映射组合）的测试 API、测试执行行为与 Provider 逻辑复用。
+
+## Requirements
 
 ### Requirement: Provider 模型测试 API
 

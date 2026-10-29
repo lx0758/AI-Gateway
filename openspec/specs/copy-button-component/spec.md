@@ -1,6 +1,10 @@
-# 复制按钮组件
+# copy-button-component 规格
 
-## ADDED Requirements
+## Purpose
+
+定义前端通用复制能力：useCopyText composable 与 CopyButton 组件的行为。
+
+## Requirements
 
 ### Requirement: useCopyText composable
 系统 SHALL 提供 `useCopyText` composable，封装剪贴板写入和消息提示逻辑。

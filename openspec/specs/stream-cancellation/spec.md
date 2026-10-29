@@ -1,4 +1,10 @@
-## ADDED Requirements
+# stream-cancellation 规格
+
+## Purpose
+
+定义流式代理的取消传播：客户端断连时后端请求的 context 取消与流复制的协程协作。
+
+## Requirements
 
 ### Requirement: Stream proxy cancellation on client disconnect
 当 Gateway 代理流式请求时，如果客户端断开连接，系统 SHALL 立即停止从后端读取数据并退出流复制循环。

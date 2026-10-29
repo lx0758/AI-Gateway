@@ -1,4 +1,10 @@
-## ADDED Requirements
+# postgres-support 规格
+
+## Purpose
+
+定义 PostgreSQL 数据库支持：连接参数、驱动集成、Schema 兼容性、数据库类型配置与 SQLite 迁移。
+
+## Requirements
 
 ### Requirement: PostgreSQL 数据库类型选择
 

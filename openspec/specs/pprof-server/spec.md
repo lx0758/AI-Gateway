@@ -1,4 +1,10 @@
-## ADDED Requirements
+# pprof-server 规格
+
+## Purpose
+
+定义 pprof 性能分析服务器：端口配置与标准分析端点的暴露。
+
+## Requirements
 
 ### Requirement: Pprof 服务器配置
 

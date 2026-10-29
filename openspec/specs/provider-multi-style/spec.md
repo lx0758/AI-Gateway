@@ -1,9 +1,11 @@
 # provider-multi-style 规格
 
-## 目的
-待定 - 由归档变更 optimize-provider-config 创建。归档后更新 Purpose。
+## Purpose
+
+定义 Provider 的双 API 风格支持：OpenAI 与 Anthropic 双 BaseURL 配置、API Key 风格间共享、按调用风格创建 Provider 实例。
 
 ## Requirements
+
 ### Requirement: Provider 支持多种 API 风格端点
 
 系统 SHALL 允许单个 Provider 同时配置 OpenAI 风格和 Anthropic 风格的 BaseURL 端点。

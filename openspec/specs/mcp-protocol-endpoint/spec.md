@@ -1,6 +1,10 @@
-# MCP 协议端点
+# mcp-protocol-endpoint 规格
 
-## ADDED Requirements
+## Purpose
+
+定义网关对外暴露的 MCP 协议端点：JSON-RPC 2.0 方法集（initialize、tools、resources、prompts）、API Key 认证、SSE 传输与错误处理。
+
+## Requirements
 
 ### Requirement: JSON-RPC 2.0 端点
 系统 SHALL 在 `/mcp/v1` 提供 JSON-RPC 2.0 端点，接受 POST 请求和 JSON-RPC 2.0 格式消息。

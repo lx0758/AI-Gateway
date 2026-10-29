@@ -1,3 +1,9 @@
+# yaml-config 规格
+
+## Purpose
+
+定义 YAML 配置体系：文件加载、环境变量覆盖优先级、配置结构与验证、Debug 粒度与 Session 配置。
+
 ## Requirements
 
 ### Requirement: YAML 配置文件加载

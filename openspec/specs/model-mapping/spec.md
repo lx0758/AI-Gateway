@@ -1,11 +1,10 @@
-## RENAMED Requirements
+# model-mapping 规格
 
-FROM: `AliasMapping` → TO: `ModelMapping`
-FROM: `alias_mappings` → TO: `model_mappings`
+## Purpose
 
----
+定义模型映射（ModelMapping）的行为契约：映射对 Provider 与 ProviderModel 的引用约束、权重负载均衡与拖拽排序、启用禁用控制，以及 API 层对禁用 Provider 关联映射的过滤。
 
-## MODIFIED Requirements
+## Requirements
 
 ### Requirement: ModelMapping 引用 Provider 和 ProviderModel
 

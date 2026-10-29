@@ -1,6 +1,10 @@
-# MCP 资源同步
+# mcp-resource-sync 规格
 
-## ADDED Requirements
+## Purpose
+
+定义 MCP 服务资源同步：工具、资源、提示词的发现与缓存、同步元数据跟踪、手动触发与错误处理。
+
+## Requirements
 
 ### Requirement: 资源发现
 系统 SHALL 连接到 MCP 服务，使用 MCP 协议方法发现可用的工具、资源和提示词。

@@ -1,3 +1,11 @@
+# provider-fallback 规格
+
+## Purpose
+
+定义 Provider 故障转移：连续 429 触发冷却、冷却期间路由过滤、非 429 错误不触发冷却的冷却状态管理。
+
+## Requirements
+
 ### Requirement: 冷却状态管理
 
 系统 SHALL 维护 Provider+Model 组合的冷却状态，包括连续 429 计数和冷却结束时间。

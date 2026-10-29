@@ -1,3 +1,9 @@
+# alias-mapping 规格
+
+## Purpose
+
+历史遗留规格：AliasMapping 为 ModelMapping 在 Alias 改名为 Model 之前的旧版，内容已由 model-mapping 承接，保留供对照，后续可清理。
+
 ## Requirements
 
 ### Requirement: AliasMapping 引用 Provider 和 ProviderModel

@@ -1,6 +1,10 @@
-# MCP 服务管理
+# mcp-service-management 规格
 
-## ADDED Requirements
+## Purpose
+
+定义 MCP 服务的管理：服务的增删改查、连接测试、资源同步触发、启停控制及列表与详情页交互。
+
+## Requirements
 
 ### Requirement: 创建 MCP 服务
 系统 SHALL 允许管理员创建 MCP 服务配置，包含名称、标识符、类型（远程/本地）和连接参数。

@@ -1,11 +1,10 @@
-## RENAMED Requirements
+# model-management 规格
 
-FROM: `Alias` → TO: `Model`
-FROM: `aliases` → TO: `models`
+## Purpose
 
----
+定义模型（Model）的行为契约：唯一标识与启停控制、与 ModelMapping 的一对多关系及级联删除、模型列表与详情的信息展示（Token 摘要、能力交集、批量操作）与厂商模型编辑表单的输入格式。
 
-## MODIFIED Requirements
+## Requirements
 
 ### Requirement: Model 是唯一标识符
 

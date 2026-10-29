@@ -1,4 +1,10 @@
-## MODIFIED Requirements
+# usage-tracking 规格
+
+## Purpose
+
+定义用量跟踪与统计：API 调用记录、Provider 与 Key 维度统计查询，及仪表盘与使用页展示。
+
+## Requirements
 
 ### Requirement: 记录 API 调用使用量
 
@@ -75,8 +81,6 @@
 
 - **WHEN** 用户打开使用页面
 - **THEN** 系统显示一个表格，包含每个 Key 的名称、调用次数、总 Token 数、平均延迟
-
-## ADDED Requirements
 
 ### Requirement: 仪表盘资产卡片颜色一致性
 

@@ -1,10 +1,8 @@
-# 删除策略规格
+# delete-strategy 规格
 
-## 概述
+## Purpose
 
-本规格定义了系统中业务实体的删除策略，包括软删除、硬删除和级联删除的实现方式。
-
----
+定义数据删除策略：业务实体使用软删除、关联表与子资源使用硬删除、级联删除由代码实现。
 
 ## Requirements
 
@@ -38,8 +36,6 @@
 - **THEN** 系统设置 deleted_at 字段
 - **AND** 关联的 KeyModel, KeyMCPTool, KeyMCPResource, KeyMCPPrompt 被硬删除
 
----
-
 ### Requirement: 关联表和子资源使用硬删除
 
 系统 SHALL 对以下关联表和子资源使用硬删除策略：ProviderModel, ModelMapping, MCPTool, MCPResource, MCPPrompt, KeyModel, KeyMCPTool, KeyMCPResource, KeyMCPPrompt。
@@ -57,8 +53,6 @@
 #### Scenario: 删除 MCPTool 使用硬删除
 - **WHEN** 删除 MCP 服务时级联删除 MCPTool
 - **THEN** 系统从数据库永久删除所有关联的 MCPTool
-
----
 
 ### Requirement: 级联删除由代码实现
 

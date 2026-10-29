@@ -1,4 +1,10 @@
-## ADDED Requirements
+# mcp-call-logging 规格
+
+## Purpose
+
+定义 MCP 调用日志：工具调用、资源读取、提示词获取的记录规则、输入输出大小与延迟统计，及查询与展示 API。
+
+## Requirements
 
 ### Requirement: 记录 MCP 工具调用
 

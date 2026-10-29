@@ -1,6 +1,10 @@
-# API Key MCP 资源
+# api-key-mcp-resources 规格
 
-## ADDED Requirements
+## Purpose
+
+定义 API Key 对 MCP 能力的细粒度权限控制：工具、资源、提示词三级权限配置、MCP 调用时的权限执行与响应过滤，及级联删除。
+
+## Requirements
 
 ### Requirement: 工具权限配置
 系统 SHALL 允许管理员配置每个 API Key 可以访问哪些 MCP 工具。

@@ -1,4 +1,10 @@
-## MODIFIED Requirements
+# manual-model-protection 规格
+
+## Purpose
+
+定义厂商模型的删除保护策略：区分可由管理员自主删除的模型与受同步管理、删除后会随同步回归的模型。
+
+## Requirements
 
 ### Requirement: 允许删除手动模型
 

@@ -1,4 +1,10 @@
-## ADDED Requirements
+# table-sorting 规格
+
+## Purpose
+
+定义列表表格排序：任意列排序、排序偏好保存、空值与日期排序规则，以及模型可用状态与父子禁用状态展示。
+
+## Requirements
 
 ### Requirement: 用户可以按任意可排序列对列表进行排序
 

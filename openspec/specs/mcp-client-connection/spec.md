@@ -1,6 +1,10 @@
-# MCP 客户端连接
+# mcp-client-connection 规格
 
-## ADDED Requirements
+## Purpose
+
+定义网关作为 MCP 客户端的连接管理：HTTP/SSE 与 stdio 两类客户端、按需连接策略、进程生命周期、超时与 JSON-RPC 协议处理。
+
+## Requirements
 
 ### Requirement: 按需连接策略
 系统 SHALL 仅在需要时（工具调用、资源读取、提示词获取或同步）与 MCP 服务建立连接，而非维护持久连接。

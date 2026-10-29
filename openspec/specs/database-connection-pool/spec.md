@@ -1,4 +1,10 @@
-## ADDED Requirements
+# database-connection-pool 规格
+
+## Purpose
+
+定义数据库连接池的行为：池参数配置、连接池日志记录与约束强制。
+
+## Requirements
 
 ### Requirement: 数据库连接池配置
 

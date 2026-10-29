@@ -1,3 +1,9 @@
+# custom-model-testing 规格
+
+## Purpose
+
+定义自定义模型测试能力：不入库的临时模型测试 API 与控制台测试入口 UI。
+
 ## Requirements
 
 ### Requirement: 自定义模型测试 API

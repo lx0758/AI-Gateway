@@ -1,4 +1,10 @@
-## ADDED Requirements
+# manual-model-ui 规格
+
+## Purpose
+
+定义厂商详情页中模型的手动管理界面：手动添加、编辑、删除模型的入口与显隐规则，以及模型来源标识的展示。
+
+## Requirements
 
 ### Requirement: 手动模型管理 UI
 
