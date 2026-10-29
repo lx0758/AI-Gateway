@@ -96,34 +96,23 @@ func (m *AnthropicProvider) SyncModels(providerID uint) ([]model.ProviderModel, 
 		if m.ID == "" {
 			continue
 		}
-		displayName := m.DisplayName
-		if displayName == "" {
-			displayName = m.ID
-		}
 
-		supportsVision := m.Capabilities.ImageInput.Supported
-		supportsTools := true
-
+		// 能力只取厂商接口真实返回的字段，不硬编码 stream/tools；未返回的字段留空
 		var caps []string
-		caps = append(caps, "stream")
-		if supportsVision {
+		if m.Capabilities.ImageInput.Supported {
 			caps = append(caps, "image")
 		}
-		if supportsTools {
-			caps = append(caps, "tools")
+		if m.Capabilities.Thinking.Supported {
+			caps = append(caps, "thinking")
 		}
-		capStr := strings.Join(caps, ",")
 
 		models = append(models, model.ProviderModel{
-			ProviderID:     providerID,
-			ModelID:        m.ID,
-			DisplayName:    displayName,
-			OwnedBy:        "anthropic",
-			ContextWindow:  m.MaxInputToken,
-			MaxOutput:      m.MaxTokens,
-			Capabilities:   capStr,
-			IsAvailable:    true,
-			Source:         "sync",
+			ProviderID:    providerID,
+			ModelID:       m.ID,
+			DisplayName:   m.DisplayName,
+			ContextWindow: m.MaxInputToken,
+			MaxOutput:     m.MaxTokens,
+			Capabilities:  strings.Join(caps, ","),
 		})
 	}
 

@@ -71,8 +71,10 @@ func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, err
 		Data []struct {
 			ID            string    `json:"id"`
 			Name          string    `json:"name"`
+			DisplayName   string    `json:"display_name"`
 			Created       time.Time `json:"created"`
-			Description   time.Time `json:"description"`
+			CreatedAt     time.Time `json:"created_at"`
+			Description   string    `json:"description"`
 			ContextLength int       `json:"context_length"`
 			Object        string    `json:"object"`
 			OwnedBy       string    `json:"owned_by"`
@@ -93,22 +95,29 @@ func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, err
 		if m.ID == "" {
 			continue
 		}
+		// 只填充厂商实际返回的字段，未返回的留空（display_name/max_output/capabilities），
+		// 由同步合并逻辑"空则保留本地值"
 		models = append(models, model.ProviderModel{
-			ProviderID:     providerID,
-			ModelID:        m.ID,
-			DisplayName:    m.ID,
-			OwnedBy:        m.OwnedBy,
-			ContextWindow:  m.ContextLength,
-			MaxOutput:      0,
-			InputPrice:     m.Pricing.Prompt,
-			OutputPrice:    m.Pricing.Completion,
-			Capabilities:   "stream",
-			IsAvailable:    true,
-			Source:         "sync",
+			ProviderID:    providerID,
+			ModelID:       m.ID,
+			DisplayName:   AnyString(m.Name, m.DisplayName),
+			OwnedBy:       m.OwnedBy,
+			ContextWindow: m.ContextLength,
+			InputPrice:    m.Pricing.Prompt,
+			OutputPrice:   m.Pricing.Completion,
 		})
 	}
 
 	return models, nil
+}
+
+func AnyString(texts ...string) string {
+	for _, t := range texts {
+		if t != "" {
+			return t
+		}
+	}
+	return ""
 }
 
 func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {

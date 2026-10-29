@@ -26,19 +26,18 @@ type createProviderModelRequest struct {
 }
 
 type providerModelResponse struct {
-	ID             uint    `json:"id"`
-	ProviderID     uint    `json:"provider_id"`
-	ModelID        string  `json:"model_id"`
-	DisplayName    string  `json:"display_name"`
-	OwnedBy        string  `json:"owned_by"`
-	ContextWindow  int     `json:"context_window"`
-	MaxOutput      int     `json:"max_output"`
-	InputPrice     float64 `json:"input_price"`
-	OutputPrice    float64 `json:"output_price"`
-	Capabilities   string  `json:"capabilities"`
-	IsAvailable    bool    `json:"is_available"`
-	Source         string  `json:"source"`
-	CreatedAt      string  `json:"created_at"`
+	ID            uint    `json:"id"`
+	ProviderID    uint    `json:"provider_id"`
+	ModelID       string  `json:"model_id"`
+	DisplayName   string  `json:"display_name"`
+	OwnedBy       string  `json:"owned_by"`
+	ContextWindow int     `json:"context_window"`
+	MaxOutput     int     `json:"max_output"`
+	InputPrice    float64 `json:"input_price"`
+	OutputPrice   float64 `json:"output_price"`
+	Capabilities  string  `json:"capabilities"`
+	Availability  string  `json:"availability"`
+	CreatedAt     string  `json:"created_at"`
 }
 
 func NewProviderModelHandler() *ProviderModelHandler {
@@ -47,19 +46,18 @@ func NewProviderModelHandler() *ProviderModelHandler {
 
 func toProviderModelResponse(m model.ProviderModel) providerModelResponse {
 	return providerModelResponse{
-		ID:             m.ID,
-		ProviderID:     m.ProviderID,
-		ModelID:        m.ModelID,
-		DisplayName:    m.DisplayName,
-		OwnedBy:        m.OwnedBy,
-		ContextWindow:  m.ContextWindow,
-		MaxOutput:      m.MaxOutput,
-		InputPrice:     m.InputPrice,
-		OutputPrice:    m.OutputPrice,
-		Capabilities:   m.Capabilities,
-		IsAvailable:    m.IsAvailable,
-		Source:         m.Source,
-		CreatedAt:      m.CreatedAt.Format("2006-01-02 15:04:05"),
+		ID:            m.ID,
+		ProviderID:    m.ProviderID,
+		ModelID:       m.ModelID,
+		DisplayName:   m.DisplayName,
+		OwnedBy:       m.OwnedBy,
+		ContextWindow: m.ContextWindow,
+		MaxOutput:     m.MaxOutput,
+		InputPrice:    m.InputPrice,
+		OutputPrice:   m.OutputPrice,
+		Capabilities:  m.Capabilities,
+		Availability:  m.Availability,
+		CreatedAt:     m.CreatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
 
@@ -71,13 +69,7 @@ func (h *ProviderModelHandler) List(c *gin.Context) {
 	}
 
 	var models []model.ProviderModel
-	query := model.DB.Where("provider_id = ?", providerID)
-
-	if c.Query("available_only") == "true" {
-		query = query.Where("is_available = ?", true)
-	}
-
-	if err := query.Find(&models).Error; err != nil {
+	if err := model.DB.Where("provider_id = ?", providerID).Find(&models).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -105,17 +97,16 @@ func (h *ProviderModelHandler) Create(c *gin.Context) {
 
 	ctxWindow := req.ContextWindow
 	pm := model.ProviderModel{
-		ProviderID:     uint(providerID),
-		ModelID:        req.ModelID,
-		DisplayName:    req.DisplayName,
-		OwnedBy:        req.OwnedBy,
-		ContextWindow:  ctxWindow,
-		MaxOutput:      req.MaxOutput,
-		InputPrice:     req.InputPrice,
-		OutputPrice:    req.OutputPrice,
-		Capabilities:   req.Capabilities,
-		IsAvailable:    true,
-		Source:         "manual",
+		ProviderID:    uint(providerID),
+		ModelID:       req.ModelID,
+		DisplayName:   req.DisplayName,
+		OwnedBy:       req.OwnedBy,
+		ContextWindow: ctxWindow,
+		MaxOutput:     req.MaxOutput,
+		InputPrice:    req.InputPrice,
+		OutputPrice:   req.OutputPrice,
+		Capabilities:  req.Capabilities,
+		Availability:  model.AvailabilityUnknown,
 	}
 
 	if err := model.DB.Create(&pm).Error; err != nil {
@@ -239,24 +230,63 @@ func (h *ProviderModelHandler) Sync(c *gin.Context) {
 
 	added := 0
 	updated := 0
+	deactivated := 0
 
-	for _, pm := range models {
-		var existing model.ProviderModel
-		res := model.DB.Where("provider_id = ? AND model_id = ?", provider.ID, pm.ModelID).First(&existing)
+	// 空列表保护：接口异常返回空列表时不推进任何状态，防误灭全部模型
+	if len(models) > 0 {
+		syncedSet := make(map[string]bool, len(models))
+		for _, pm := range models {
+			syncedSet[pm.ModelID] = true
 
-		if res.Error != nil {
-			model.DB.Create(&pm)
-			added++
-		} else if existing.Source != "manual" {
-			model.DB.Model(&existing).Updates(map[string]interface{}{
-				"display_name":    pm.DisplayName,
-				"owned_by":        pm.OwnedBy,
-				"context_window":  pm.ContextWindow,
-				"max_output":      pm.MaxOutput,
-				"capabilities":    pm.Capabilities,
-				"is_available":    true,
-			})
-			updated++
+			var existing model.ProviderModel
+			res := model.DB.Where("provider_id = ? AND model_id = ?", provider.ID, pm.ModelID).First(&existing)
+
+			if res.Error != nil {
+				pm.Availability = model.AvailabilityAvailable
+				model.DB.Create(&pm)
+				added++
+			} else {
+				// 逐字段空值合并：同步值为空/零值的字段不进 updates map，保留本地现值
+				updates := map[string]interface{}{
+					"availability": model.AvailabilityAvailable,
+				}
+				if pm.DisplayName != "" {
+					updates["display_name"] = pm.DisplayName
+				}
+				if pm.OwnedBy != "" {
+					updates["owned_by"] = pm.OwnedBy
+				}
+				if pm.ContextWindow > 0 {
+					updates["context_window"] = pm.ContextWindow
+				}
+				if pm.MaxOutput > 0 {
+					updates["max_output"] = pm.MaxOutput
+				}
+				if pm.Capabilities != "" {
+					updates["capabilities"] = pm.Capabilities
+				}
+				model.DB.Model(&existing).Updates(updates)
+				updated++
+			}
+		}
+
+		// 失效识别：此前 available 但不在本次列表中的模型置 unavailable（unknown 不参与失效）
+		var availableModels []model.ProviderModel
+		if err := model.DB.
+			Where("provider_id = ? AND availability = ?", provider.ID, model.AvailabilityAvailable).
+			Find(&availableModels).Error; err == nil {
+			var missingIDs []uint
+			for _, am := range availableModels {
+				if !syncedSet[am.ModelID] {
+					missingIDs = append(missingIDs, am.ID)
+				}
+			}
+			if len(missingIDs) > 0 {
+				result := model.DB.Model(&model.ProviderModel{}).
+					Where("id IN ?", missingIDs).
+					Update("availability", model.AvailabilityUnavailable)
+				deactivated = int(result.RowsAffected)
+			}
 		}
 	}
 
@@ -264,9 +294,10 @@ func (h *ProviderModelHandler) Sync(c *gin.Context) {
 	model.DB.Model(&provider).Update("last_sync_at", &now)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("%s models synced", provider.Name),
-		"added":   added,
-		"updated": updated,
-		"total":   len(models),
+		"message":     fmt.Sprintf("%s models synced", provider.Name),
+		"added":       added,
+		"updated":     updated,
+		"total":       len(models),
+		"deactivated": deactivated,
 	})
 }

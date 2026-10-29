@@ -546,7 +546,7 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 			MaxOutput:      m.ProviderModel.MaxOutput,
 			Capabilities:   m.ProviderModel.Capabilities,
 		}
-		if !m.ProviderModel.IsAvailable && !forcedDisabled {
+		if m.ProviderModel.Availability == model.AvailabilityUnavailable && !forcedDisabled {
 			forcedDisabled = true
 			disableReason = "provider_model_unavailable"
 		}
@@ -575,7 +575,7 @@ func calculateEnabledCount(mappings []model.ModelMapping) int {
 		if m.Provider == nil || !m.Provider.Enabled {
 			continue
 		}
-		if m.ProviderModel == nil || !m.ProviderModel.IsAvailable {
+		if m.ProviderModel == nil || m.ProviderModel.Availability == model.AvailabilityUnavailable {
 			continue
 		}
 		enabledCount++
@@ -598,6 +598,11 @@ func calculateMinTokens(mappings []model.ModelMapping) (int, int) {
 		}
 
 		if m.ProviderModel == nil {
+			continue
+		}
+
+		// 失效模型不计入聚合统计，使展示与真实路由能力一致
+		if m.ProviderModel.Availability == model.AvailabilityUnavailable {
 			continue
 		}
 
@@ -636,7 +641,16 @@ func calculateCapabilitiesIntersection(mappings []model.ModelMapping) string {
 			continue
 		}
 
-		if m.ProviderModel == nil || m.ProviderModel.Capabilities == "" {
+		if m.ProviderModel == nil {
+			continue
+		}
+
+		// 失效模型不参与能力交集
+		if m.ProviderModel.Availability == model.AvailabilityUnavailable {
+			continue
+		}
+
+		if m.ProviderModel.Capabilities == "" {
 			// capabilities 为空，直接返回空（交集为空）
 			return ""
 		}

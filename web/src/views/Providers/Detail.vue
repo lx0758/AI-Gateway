@@ -63,17 +63,10 @@
             {{ row.input_price }} / {{ row.output_price }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('provider.source')" width="100" prop="source" sortable>
+        <el-table-column :label="t('common.status')" width="100" prop="availability" sortable>
           <template #default="{ row }">
-            <el-tag :type="row.source === 'manual' ? 'warning' : 'info'" size="small">
-              {{ row.source === 'manual' ? 'Manual' : 'Sync' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('common.status')" width="100" prop="is_available" sortable>
-          <template #default="{ row }">
-            <el-tag :type="row.is_available ? 'success' : 'danger'" size="small">
-              {{ row.is_available ? t('provider.available') : t('provider.unavailable') }}
+            <el-tag :type="availabilityTagType(row.availability)" size="small">
+              {{ availabilityLabel(row.availability) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -143,14 +136,9 @@
         <el-descriptions-item :label="t('provider.maxOutput')">{{ formatContextInput(detailModel?.max_output || 0) }}</el-descriptions-item>
         <el-descriptions-item :label="t('provider.inputPrice')">${{ (detailModel?.input_price || 0).toFixed(4) }} / 1K tokens</el-descriptions-item>
         <el-descriptions-item :label="t('provider.outputPrice')">${{ (detailModel?.output_price || 0).toFixed(4) }} / 1K tokens</el-descriptions-item>
-        <el-descriptions-item :label="t('provider.source')">
-          <el-tag :type="detailModel?.source === 'manual' ? 'warning' : 'info'" size="small">
-            {{ detailModel?.source === 'manual' ? 'Manual' : 'Sync' }}
-          </el-tag>
-        </el-descriptions-item>
         <el-descriptions-item :label="t('common.status')">
-          <el-tag :type="detailModel?.is_available ? 'success' : 'danger'" size="small">
-            {{ detailModel?.is_available ? t('common.enabled') : t('common.disabled') }}
+          <el-tag :type="availabilityTagType(detailModel?.availability)" size="small">
+            {{ availabilityLabel(detailModel?.availability) }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item :label="t('provider.capabilities')" :span="2">
@@ -244,6 +232,19 @@ const testResults = ref<any[]>([])
 
 const providerId = route.params.id as string
 
+// 模型可用性三态：未知（info）/ 可用（success）/ 失效（danger）
+function availabilityTagType(availability?: string) {
+  if (availability === 'available') return 'success'
+  if (availability === 'unavailable') return 'danger'
+  return 'info'
+}
+
+function availabilityLabel(availability?: string) {
+  if (availability === 'available') return t('provider.availabilityAvailable')
+  if (availability === 'unavailable') return t('provider.availabilityUnavailable')
+  return t('provider.availabilityUnknown')
+}
+
 const form = reactive({
   model_id: '',
   display_name: '',
@@ -299,8 +300,13 @@ function handleSelectionChange(selection: any[]) {
 async function syncModels() {
   syncing.value = true
   try {
-    await api.post(`/providers/${providerId}/sync`)
-    ElMessage.success(t('common.success'))
+    const res = await api.post(`/providers/${providerId}/sync`)
+    const deactivated = res.data?.deactivated || 0
+    if (deactivated > 0) {
+      ElMessage.warning(t('provider.deactivatedModels', { count: deactivated }))
+    } else {
+      ElMessage.success(t('common.success'))
+    }
     fetchProvider()
   } catch (e: any) {
     ElMessage.error(e.response?.data?.error || t('common.error'))

@@ -46,7 +46,7 @@ func (r *ModelRouter) Route(name string) (*RouteResult, error) {
 			continue
 		}
 
-		if mapping.ProviderModel == nil || !mapping.ProviderModel.IsAvailable {
+		if mapping.ProviderModel == nil || mapping.ProviderModel.Availability == model.AvailabilityUnavailable {
 			continue
 		}
 

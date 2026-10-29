@@ -54,9 +54,9 @@ func (h *UsageHandler) Dashboard(c *gin.Context) {
 		SELECT COUNT(DISTINCT pm.id)
 		FROM provider_models pm
 		JOIN providers p ON pm.provider_id = p.id
-		WHERE pm.is_available = ? AND p.enabled = ?
+		WHERE pm.availability != ? AND p.enabled = ?
 			AND p.deleted_at IS NULL
-	`, true, true).Scan(&activeProviderModels)
+	`, model.AvailabilityUnavailable, true).Scan(&activeProviderModels)
 
 	var totalMCPs int64
 	model.DB.Model(&model.MCP{}).Count(&totalMCPs)

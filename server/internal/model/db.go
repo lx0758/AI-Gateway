@@ -50,22 +50,28 @@ func (Provider) TableName() string {
 	return "providers"
 }
 
+// ProviderModel 可用性三态：unknown=从未被同步验证 / available=同步确认在列表 / unavailable=同步确认下线
+const (
+	AvailabilityUnknown     = "unknown"
+	AvailabilityAvailable   = "available"
+	AvailabilityUnavailable = "unavailable"
+)
+
 type ProviderModel struct {
-	ID             uint `gorm:"primaryKey"`
-	ProviderID     uint `gorm:"index"`
-	ModelID        string
-	DisplayName    string
-	OwnedBy        string
-	ContextWindow  int     `gorm:"default:0"`
-	MaxOutput      int     `gorm:"default:0"`
-	InputPrice     float64 `gorm:"default:0"`
-	OutputPrice    float64 `gorm:"default:0"`
-	Capabilities   string  `gorm:"type:text;column:capabilities"`
-	Metadata       string  `gorm:"type:text"`
-	IsAvailable    bool    `gorm:"type:boolean;default:true"`
-	Source         string  `gorm:"default:sync"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID            uint `gorm:"primaryKey"`
+	ProviderID    uint `gorm:"index"`
+	ModelID       string
+	DisplayName   string
+	OwnedBy       string
+	ContextWindow int     `gorm:"default:0"`
+	MaxOutput     int     `gorm:"default:0"`
+	InputPrice    float64 `gorm:"default:0"`
+	OutputPrice   float64 `gorm:"default:0"`
+	Capabilities  string  `gorm:"type:text;column:capabilities"`
+	Metadata      string  `gorm:"type:text"`
+	Availability  string  `gorm:"type:varchar(20);default:unknown"`
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 func (ProviderModel) TableName() string {
