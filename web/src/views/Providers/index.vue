@@ -12,7 +12,22 @@
       </template>
       <el-table :data="providers" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="name" :label="t('provider.name')" width="220" sortable />
+        <el-table-column prop="name" :label="t('provider.name')" width="220" sortable>
+          <template #default="{ row }">
+            <span>{{ row.name }}</span>
+            <el-link v-if="row.homepage" :href="row.homepage" target="_blank" class="homepage-link" :title="t('provider.homepage')">
+              <el-icon><Link /></el-icon>
+            </el-link>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('provider.billingType')" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.billing_type" :type="billingTagType(row.billing_type)">
+              {{ t('provider.billing.' + row.billing_type) }}
+            </el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column :label="t('provider.apiStyles')">
           <template #default="{ row }">
             <el-tag v-if="row.openai_base_url" type="success" style="margin-right: 4px">OpenAI</el-tag>
@@ -54,6 +69,17 @@
         <el-form-item :label="t('provider.key')" prop="api_key">
           <el-input v-model="form.api_key" type="password" show-password :placeholder="editingId ? t('provider.keyPlaceholder') : ''" />
         </el-form-item>
+        <el-form-item :label="t('provider.homepage')" prop="homepage">
+          <el-input v-model="form.homepage" placeholder="https://console.example.com" />
+        </el-form-item>
+        <el-form-item :label="t('provider.billingType')">
+          <el-select v-model="form.billing_type" clearable style="width: 100%">
+            <el-option :label="t('provider.billing.none')" value="" />
+            <el-option :label="t('provider.billing.subscription')" value="subscription" />
+            <el-option :label="t('provider.billing.usage')" value="usage" />
+            <el-option :label="t('provider.billing.free')" value="free" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
@@ -68,6 +94,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Link } from '@element-plus/icons-vue'
 import api from '@/api'
 import { getSortConfig, setSortConfig, sortByArrayLength } from '@/utils/tableSort'
 
@@ -88,12 +115,27 @@ const form = reactive({
   name: '',
   openai_base_url: '',
   anthropic_base_url: '',
-  api_key: ''
+  api_key: '',
+  homepage: '',
+  billing_type: ''
 })
+
+// URL 格式校验（可选字段，空值放行）
+function validateHomepage(rule: any, value: string, callback: any) {
+  if (!value) return callback()
+  try {
+    const u = new URL(value)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('invalid protocol')
+    callback()
+  } catch {
+    callback(new Error(t('provider.homepageInvalid')))
+  }
+}
 
 const rules = computed(() => ({
   name: [{ required: true, message: 'Required', trigger: 'blur' }],
-  api_key: editingId.value ? [] : [{ required: true, message: 'Required', trigger: 'blur' }]
+  api_key: editingId.value ? [] : [{ required: true, message: 'Required', trigger: 'blur' }],
+  homepage: [{ validator: validateHomepage, trigger: 'blur' }]
 }))
 
 function validateBaseURL() {
@@ -124,7 +166,7 @@ function handleSelectionChange(selection: any[]) {
 
 async function showDialog(id?: number) {
   editingId.value = id || null
-  Object.assign(form, { name: '', openai_base_url: '', anthropic_base_url: '', api_key: '' })
+  Object.assign(form, { name: '', openai_base_url: '', anthropic_base_url: '', api_key: '', homepage: '', billing_type: '' })
   dialogVisible.value = true
   
   if (id) {
@@ -137,7 +179,9 @@ async function showDialog(id?: number) {
           name: provider.name || '',
           openai_base_url: provider.openai_base_url || '',
           anthropic_base_url: provider.anthropic_base_url || '',
-          api_key: ''
+          api_key: '',
+          homepage: provider.homepage || '',
+          billing_type: provider.billing_type || ''
         })
       }
     } catch (e) {
@@ -200,6 +244,13 @@ function goDetail(id: number) {
   router.push(`/providers/${id}`)
 }
 
+// 付费类型 tag 颜色：套餐 primary / 按量付费 success / 免费 info
+function billingTagType(billingType: string) {
+  if (billingType === 'subscription') return 'primary'
+  if (billingType === 'usage') return 'success'
+  return 'info'
+}
+
 function handleSortChange({ prop, order }: any) {
   if (prop && order) {
     setSortConfig('providers', { prop, order })
@@ -221,5 +272,10 @@ function handleSortChange({ prop, order }: any) {
 .header-actions {
   display: flex;
   gap: 10px;
+}
+
+.homepage-link {
+  margin-left: 6px;
+  vertical-align: middle;
 }
 </style>

@@ -128,6 +128,16 @@ export default {
     availabilityAvailable: 'Available',
     availabilityUnavailable: 'Unavailable',
     deactivatedModels: 'Marked {count} model(s) as unavailable',
+    homepage: 'Homepage',
+    homepageInvalid: 'Please enter a valid URL (http/https)',
+    billingType: 'Billing Type',
+    workStatus: 'Work Status',
+    billing: {
+      none: 'Not set',
+      subscription: 'Subscription',
+      usage: 'Pay-as-you-go',
+      free: 'Free'
+    },
     latency: 'Latency',
     response: 'Response',
     directCall: 'Direct',

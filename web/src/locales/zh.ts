@@ -129,6 +129,16 @@ export default {
     availabilityAvailable: '可用',
     availabilityUnavailable: '失效',
     deactivatedModels: '标记 {count} 个失效模型',
+    homepage: '官方主页',
+    homepageInvalid: '请输入合法的 URL（http/https）',
+    billingType: '付费类型',
+    workStatus: '工作状态',
+    billing: {
+      none: '未设置',
+      subscription: '套餐',
+      usage: '按量付费',
+      free: '免费'
+    },
     latency: '延迟',
     response: '响应',
     directCall: '直通',

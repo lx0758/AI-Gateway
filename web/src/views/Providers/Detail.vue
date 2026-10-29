@@ -12,12 +12,22 @@
           <el-tag v-if="provider?.openai_base_url" type="success" style="margin-right: 4px">OpenAI</el-tag>
           <el-tag v-if="provider?.anthropic_base_url" type="primary">Anthropic</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item :label="t('common.status')">
+        <el-descriptions-item :label="t('provider.billingType')">
+          <el-tag v-if="provider?.billing_type">
+            {{ t('provider.billing.' + provider.billing_type) }}
+          </el-tag>
+          <span v-else>-</span>
+        </el-descriptions-item>
+        <el-descriptions-item :label="t('provider.workStatus')">
           <el-tag :type="provider?.enabled ? 'success' : 'info'">
             {{ provider?.enabled ? t('common.enabled') : t('common.disabled') }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item :label="t('provider.lastSync')">{{ formatDateTime(provider?.last_sync_at) }}</el-descriptions-item>
+        <el-descriptions-item :label="t('provider.homepage')" :span="2">
+          <el-link v-if="provider?.homepage" :href="provider.homepage" target="_blank">{{ provider.homepage }}</el-link>
+          <span v-else>-</span>
+        </el-descriptions-item>
       </el-descriptions>
       <div class="actions">
         <el-button type="primary" @click="syncModels" :loading="syncing">{{ t('provider.syncModels') }}</el-button>

@@ -18,6 +18,8 @@ type createProviderRequest struct {
 	OpenAIBaseURL    string `json:"openai_base_url"`
 	AnthropicBaseURL string `json:"anthropic_base_url"`
 	APIKey           string `json:"api_key" binding:"required"`
+	Homepage         string `json:"homepage"`
+	BillingType      string `json:"billing_type"`
 	Priority         int    `json:"priority"`
 }
 
@@ -26,8 +28,23 @@ type updateProviderRequest struct {
 	OpenAIBaseURL    *string `json:"openai_base_url"`
 	AnthropicBaseURL *string `json:"anthropic_base_url"`
 	APIKey           string  `json:"api_key"`
+	Homepage         *string `json:"homepage"`
+	BillingType      *string `json:"billing_type"`
 	Enabled          *bool   `json:"enabled"`
 	Priority         *int    `json:"priority"`
+}
+
+// 付费类型值域：空串 = 未设置。binding tag 的 oneof 对指针空串与未传字段无法两全，
+// 故在 handler 集中校验（见 validateBillingType）
+var validBillingTypes = map[string]bool{
+	"":             true,
+	"subscription": true,
+	"usage":        true,
+	"free":         true,
+}
+
+func validateBillingType(billingType string) bool {
+	return validBillingTypes[billingType]
 }
 
 type providerResponse struct {
@@ -36,6 +53,8 @@ type providerResponse struct {
 	OpenAIBaseURL    string                  `json:"openai_base_url"`
 	AnthropicBaseURL string                  `json:"anthropic_base_url"`
 	APIKeyMasked     string                  `json:"api_key_masked"`
+	Homepage         string                  `json:"homepage"`
+	BillingType      string                  `json:"billing_type"`
 	Enabled          bool                    `json:"enabled"`
 	Priority         int                     `json:"priority"`
 	Models           []providerModelResponse `json:"models,omitempty"`
@@ -66,6 +85,8 @@ func (h *ProviderHandler) List(c *gin.Context) {
 			OpenAIBaseURL:    p.OpenAIBaseURL,
 			AnthropicBaseURL: p.AnthropicBaseURL,
 			APIKeyMasked:     maskAPIKey(p.APIKey),
+			Homepage:         p.Homepage,
+			BillingType:      p.BillingType,
 			Enabled:          p.Enabled,
 			Priority:         p.Priority,
 			Models:           models,
@@ -100,6 +121,8 @@ func (h *ProviderHandler) Get(c *gin.Context) {
 		OpenAIBaseURL:    provider.OpenAIBaseURL,
 		AnthropicBaseURL: provider.AnthropicBaseURL,
 		APIKeyMasked:     maskAPIKey(provider.APIKey),
+		Homepage:         provider.Homepage,
+		BillingType:      provider.BillingType,
 		Enabled:          provider.Enabled,
 		Priority:         provider.Priority,
 		Models:           models,
@@ -114,11 +137,18 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 		return
 	}
 
+	if !validateBillingType(req.BillingType) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid billing_type: must be one of subscription/usage/free"})
+		return
+	}
+
 	provider := model.Provider{
 		Name:             req.Name,
 		OpenAIBaseURL:    strings.TrimSuffix(req.OpenAIBaseURL, "/"),
 		AnthropicBaseURL: strings.TrimSuffix(req.AnthropicBaseURL, "/"),
 		APIKey:           req.APIKey,
+		Homepage:         req.Homepage,
+		BillingType:      req.BillingType,
 		Enabled:          true,
 		Priority:         req.Priority,
 	}
@@ -139,6 +169,8 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 		OpenAIBaseURL:    provider.OpenAIBaseURL,
 		AnthropicBaseURL: provider.AnthropicBaseURL,
 		APIKeyMasked:     maskAPIKey(provider.APIKey),
+		Homepage:         provider.Homepage,
+		BillingType:      provider.BillingType,
 		Enabled:          provider.Enabled,
 		Priority:         provider.Priority,
 		CreatedAt:        provider.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -164,6 +196,11 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 		return
 	}
 
+	if req.BillingType != nil && !validateBillingType(*req.BillingType) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid billing_type: must be one of subscription/usage/free"})
+		return
+	}
+
 	updates := map[string]interface{}{}
 	if req.Name != "" {
 		updates["name"] = req.Name
@@ -179,6 +216,13 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 
 	if req.APIKey != "" {
 		updates["api_key"] = req.APIKey
+	}
+	// 元信息：指针语义，未传不覆盖；显式传空串则清空（编辑表单支持清除）
+	if req.Homepage != nil {
+		updates["homepage"] = *req.Homepage
+	}
+	if req.BillingType != nil {
+		updates["billing_type"] = *req.BillingType
 	}
 	if req.Enabled != nil {
 		updates["enabled"] = *req.Enabled
@@ -223,6 +267,8 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 		OpenAIBaseURL:    provider.OpenAIBaseURL,
 		AnthropicBaseURL: provider.AnthropicBaseURL,
 		APIKeyMasked:     maskAPIKey(provider.APIKey),
+		Homepage:         provider.Homepage,
+		BillingType:      provider.BillingType,
 		Enabled:          provider.Enabled,
 		Priority:         provider.Priority,
 		Models:           models,

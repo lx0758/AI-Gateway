@@ -36,6 +36,8 @@ type Provider struct {
 	OpenAIBaseURL    string `gorm:"column:openai_base_url"`
 	AnthropicBaseURL string `gorm:"column:anthropic_base_url"`
 	APIKey           string
+	Homepage         string `gorm:"type:text"`                    // 官方可页/控制台入口，可选
+	BillingType      string `gorm:"type:varchar(20);default:''"`  // 付费类型：subscription/usage/free，空=未设置
 	Enabled          bool   `gorm:"type:boolean;default:true"`
 	Priority         int    `gorm:"default:0"`
 	Config           string `gorm:"type:text"`
