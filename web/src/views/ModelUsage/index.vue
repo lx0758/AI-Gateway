@@ -128,7 +128,9 @@
       <el-table :data="providerModelStats" stripe size="small">
         <el-table-column :label="t('usage.model')">
           <template #default="{ row }">
-            {{ row.actual_model_name }}
+            <el-tooltip :content="row.actual_model_name" placement="top" :disabled="row.actual_model_name.length < 10">
+              <span>{{ row.actual_model_name }}</span>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column :label="t('usage.provider')">
@@ -173,7 +175,13 @@
         </el-table-column>
         <el-table-column :label="t('usage.providerModel') || '厂商/模型'" width="150">
           <template #default="{ row }">
-            <el-tag size="small" type="info">{{ row.provider_name }}/{{ row.actual_model_name }}</el-tag>
+            <el-tooltip
+              :content="row.provider_name + '/' + row.actual_model_name"
+              placement="top"
+              :disabled="(row.provider_name + '/' + row.actual_model_name).length < 10"
+            >
+              <el-tag size="small" type="info">{{ row.provider_name }}/{{ row.actual_model_name }}</el-tag>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column prop="call_method" :label="t('usage.callMethod') || '调用方式'" width="100">

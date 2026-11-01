@@ -350,7 +350,7 @@ func (h *KeyHandler) ListModels(c *gin.Context) {
 		var mappings []model.ModelMapping
 		model.DB.Preload("Provider").
 			Where("model_id = ? AND model_mappings.enabled = ?", m.ID, true).
-			Order("weight DESC").
+			Order("weight DESC, id DESC").
 			Find(&mappings)
 
 		minContext, minOutput := calculateMinTokens(mappings)

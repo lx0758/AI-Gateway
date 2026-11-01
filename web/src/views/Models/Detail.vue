@@ -70,7 +70,6 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="weight" :label="t('modelMapping.weight')" width="120" />
         <el-table-column :label="t('common.status')" width="120">
           <template #default="{ row }">
             <el-tooltip v-if="!modelEnabled" :content="t('models.modelDisabled')" placement="top">
@@ -270,13 +269,11 @@ function initSortable() {
       
       try {
         await api.put(`/models/${modelId}/mappings/order`, { order })
-        mappings.value = newMappings
-        mappings.value.forEach((m, i) => {
-          m.weight = mappings.value.length - 1 - i
-        })
         ElMessage.success(t('common.success'))
       } catch (e: any) {
         ElMessage.error(e.response?.data?.error || t('common.error'))
+      } finally {
+        // 以后端返回的列表为准刷新显示，不在前端本地重排或推算权重
         fetchModel()
       }
     }

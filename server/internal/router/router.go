@@ -28,7 +28,7 @@ func (r *ModelRouter) Route(name string) (*RouteResult, error) {
 	var mappings []model.ModelMapping
 	if err := model.DB.Preload("Provider").Preload("ProviderModel").
 		Where("model_id = ? AND enabled = ?", m.ID, true).
-		Order("weight DESC").
+		Order("weight DESC, id DESC").
 		Find(&mappings).Error; err != nil {
 		return nil, err
 	}

@@ -96,7 +96,7 @@ func (h *ModelHandler) List(c *gin.Context) {
 		var mappings []model.ModelMapping
 		model.DB.Preload("Provider").Preload("ProviderModel").
 			Where("model_id = ?", a.ID).
-			Order("weight DESC").
+			Order("weight DESC, id DESC").
 			Find(&mappings)
 
 	mappingResponses := make([]mappingResponse, len(mappings))
@@ -140,7 +140,7 @@ func (h *ModelHandler) Get(c *gin.Context) {
 	var mappings []model.ModelMapping
 	model.DB.Preload("Provider").Preload("ProviderModel").
 		Where("model_id = ?", m.ID).
-		Order("weight DESC").
+		Order("weight DESC, id DESC").
 		Find(&mappings)
 
 	mappingResponses := make([]mappingResponse, len(mappings))
@@ -225,7 +225,7 @@ func (h *ModelHandler) Update(c *gin.Context) {
 	var mappings []model.ModelMapping
 	model.DB.Preload("Provider").Preload("ProviderModel").
 		Where("model_id = ?", m.ID).
-		Order("weight DESC").
+		Order("weight DESC, id DESC").
 		Find(&mappings)
 
 	mappingResponses := make([]mappingResponse, len(mappings))
@@ -280,7 +280,7 @@ func (h *ModelHandler) ListMappings(c *gin.Context) {
 	var mappings []model.ModelMapping
 	model.DB.Preload("Provider").Preload("ProviderModel").
 		Where("model_id = ?", m.ID).
-		Order("weight DESC").
+		Order("weight DESC, id DESC").
 		Find(&mappings)
 
 	result := make([]mappingResponse, len(mappings))
@@ -328,27 +328,17 @@ func (h *ModelHandler) CreateMapping(c *gin.Context) {
 		Enabled:         req.Enabled,
 	}
 
-	// 权重由系统管理：未携带取末尾（当前最小权重-1）；显式携带则避让到空位（不阻断、不报错）
+	// 权重由系统管理：先把已存在的映射按当前相对顺序重编号 1..n，再插入新映射 weight=0，
+	// 使其恒处于列表末尾、最低路由优先级；忽略请求中传入的 weight
+	mapping.Weight = 0
 	err = model.DB.Transaction(func(tx *gorm.DB) error {
 		lockModelMappings(tx, m.ID)
-		if req.Weight != nil {
-			mapping.Weight = freeWeight(tx, m.ID, *req.Weight, 0)
-		} else {
-			var minWeight *int64
-			if err := tx.Model(&model.ModelMapping{}).Where("model_id = ?", m.ID).Select("MIN(weight)").Scan(&minWeight).Error; err != nil {
-				return err
-			}
-			mapping.Weight = 0
-			if minWeight != nil {
-				mapping.Weight = int(*minWeight) - 1
-			}
+		if err := renumberMappings(tx, m.ID, 1); err != nil {
+			return err
 		}
 		// Select 强制写入全部列：weight=0 / enabled=false 是合法零值，
 		// 不用 Select 会被 GORM 跳过而落入数据库 default（default:1 / default:true）
-		if err := tx.Select("ModelID", "ProviderID", "ProviderModelID", "Weight", "Enabled").Create(&mapping).Error; err != nil {
-			return err
-		}
-		return nil
+		return tx.Select("ModelID", "ProviderID", "ProviderModelID", "Weight", "Enabled").Create(&mapping).Error
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -414,18 +404,9 @@ func (h *ModelHandler) UpdateMapping(c *gin.Context) {
 		updates["enabled"] = *req.Enabled
 	}
 
-	// 权重变更走避让：排除自身后被占用则 +1 递增至空位（仅移动本映射，不阻断、不报错）
-	if len(updates) > 0 || req.Weight != nil {
-		if err := model.DB.Transaction(func(tx *gorm.DB) error {
-			if req.Weight != nil {
-				lockModelMappings(tx, uint(modelID))
-				updates["weight"] = freeWeight(tx, uint(modelID), *req.Weight, uint(mappingID))
-			}
-			if len(updates) > 0 {
-				return tx.Model(&mapping).Updates(updates).Error
-			}
-			return nil
-		}); err != nil {
+	// 编辑不修改权重：weight 由拖拽排序接口统一管理，请求中的 weight 一律忽略
+	if len(updates) > 0 {
+		if err := model.DB.Model(&mapping).Updates(updates).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -449,7 +430,14 @@ func (h *ModelHandler) DeleteMapping(c *gin.Context) {
 		return
 	}
 
-	if err := model.DB.Where("id = ? AND model_id = ?", mappingID, modelID).Delete(&model.ModelMapping{}).Error; err != nil {
+	// 删除后归一化重编号，保证剩余映射权重连续无空洞
+	if err := model.DB.Transaction(func(tx *gorm.DB) error {
+		lockModelMappings(tx, uint(modelID))
+		if err := tx.Where("id = ? AND model_id = ?", mappingID, modelID).Delete(&model.ModelMapping{}).Error; err != nil {
+			return err
+		}
+		return renumberMappings(tx, uint(modelID), 0)
+	}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -459,18 +447,27 @@ func (h *ModelHandler) DeleteMapping(c *gin.Context) {
 
 // freeWeight 返回从 start 起第一个未被同模型其他映射占用的权重（排除 excludeID）。
 // 权重仅为排序内部值，冲突时递增避让而非报错，保证不阻断操作。
-func freeWeight(tx *gorm.DB, modelID uint, start int, excludeID uint) int {
-	weight := start
-	for {
-		var count int64
-		tx.Model(&model.ModelMapping{}).
-			Where("model_id = ? AND weight = ? AND id <> ?", modelID, weight, excludeID).
-			Count(&count)
-		if count == 0 {
-			return weight
-		}
-		weight++
+// renumberMappings 在事务内将该模型已存在的映射按当前相对顺序（weight DESC, id DESC）
+// 重编号为 base..base+n-1。新增时 base=1（已有映射得 1..n，新映射随后以 weight=0 插入末尾），
+// 删除时 base=0（剩余映射归一化为 0..n-1，无空洞）。
+func renumberMappings(tx *gorm.DB, modelID uint, base int) error {
+	var mappings []model.ModelMapping
+	if err := tx.Select("id").
+		Where("model_id = ?", modelID).
+		Order("weight DESC, id DESC").
+		Find(&mappings).Error; err != nil {
+		return err
 	}
+
+	total := len(mappings)
+	for i, m := range mappings {
+		if err := tx.Model(&model.ModelMapping{}).
+			Where("id = ?", m.ID).
+			Update("weight", base+total-1-i).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // lockModelMappings 在 PostgreSQL 下锁定该模型现有映射行，避免并发选中同一空位；
@@ -505,15 +502,24 @@ func (h *ModelHandler) UpdateMappingsOrder(c *gin.Context) {
 		return
 	}
 
+	// 整体重编号在同一事务内完成：避免逐条 UPDATE 中途失败留下半更新的权重状态
 	totalMappings := len(req.Order)
-	for i, mappingID := range req.Order {
-		weight := totalMappings - 1 - i
-		if err := model.DB.Model(&model.ModelMapping{}).
-			Where("id = ? AND model_id = ?", mappingID, modelID).
-			Update("weight", weight).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to update mapping %d: %v", mappingID, err)})
-			return
+	var failedID uint
+	if err := model.DB.Transaction(func(tx *gorm.DB) error {
+		lockModelMappings(tx, uint(modelID))
+		for i, mappingID := range req.Order {
+			weight := totalMappings - 1 - i
+			if err := tx.Model(&model.ModelMapping{}).
+				Where("id = ? AND model_id = ?", mappingID, modelID).
+				Update("weight", weight).Error; err != nil {
+				failedID = mappingID
+				return err
+			}
 		}
+		return nil
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to update mapping %d: %v", failedID, err)})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "mappings order updated"})
