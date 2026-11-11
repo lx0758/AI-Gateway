@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定义 pprof 性能分析服务器：端口配置与标准分析端点的暴露。
+定义 pprof 性能分析服务器：独立监听端口的配置开关，以及 Go 标准 pprof 分析端点（CPU、内存、goroutine 等）的暴露方式，便于在线诊断网关的性能问题。
 
 ## Requirements
 

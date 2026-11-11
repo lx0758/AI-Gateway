@@ -86,6 +86,8 @@ POST /api/v1/models/:id/test
 
 ### Requirement: 测试执行行为
 
+系统 SHALL 以固定参数执行测试请求，测量延迟、提取 Token 使用量与响应内容，并在请求超时（30 秒）时返回超时错误。
+
 #### Scenario: 测试使用固定消息
 
 - **WHEN** 执行测试时
@@ -114,6 +116,8 @@ POST /api/v1/models/:id/test
 - **THEN** 系统返回超时错误
 
 ### Requirement: 测试代码复用现有的 Provider 逻辑
+
+系统 SHALL 复用现有的 Provider 请求执行逻辑，而不是为测试实现独立的 HTTP 客户端。
 
 #### Scenario: 测试使用 httptest 上下文
 

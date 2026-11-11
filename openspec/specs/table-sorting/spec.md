@@ -6,26 +6,17 @@
 
 ## Requirements
 
-### Requirement: 用户可以按任意可排序列对列表进行排序
+### Requirement: 主列表支持按列排序
 
-系统 SHALL 为每个列表页面提供多列排序功能，用户可以通过点击表头来改变排序方式。
+系统 SHALL 为每个主列表页面提供多列排序功能，用户可以通过点击表头来改变排序方式。
 
-支持的主列表和可排序字段：
-- **Models**: 名称、映射数量、Token 汇总、状态
-- **Providers**: 名称、模型数量、状态
-- **Keys**: 名称、模型数、工具数、资源数、提示词数、状态
-- **MCPs**: 名称、类型、工具数、资源数、提示词数、状态、最后同步时间
+#### Scenario: 主列表支持的可排序字段
 
-支持的子页面列表和可排序字段：
-- **Models Detail (映射列表)**: 厂商名称、实际模型、上下文窗口、权重、状态
-- **Providers Detail (模型列表)**: 模型ID、名称、上下文窗口、价格、来源、状态
-- **Keys Detail (models)**: 名称、映射数量、上下文窗口、状态
-- **Keys Detail (tools)**: 名称、描述、状态
-- **Keys Detail (resources)**: 名称、描述、URI、MIME Type、状态
-- **Keys Detail (prompts)**: 名称、描述、状态
-- **MCPs Detail (tools)**: 名称、描述、状态
-- **MCPs Detail (resources)**: 名称、描述、URI、MIME Type、状态
-- **MCPs Detail (prompts)**: 名称、描述、状态
+- **WHEN** 用户在主列表页点击表头进行排序
+- **THEN** Models 支持按名称、映射数量、Token 汇总、状态排序
+- **AND** Providers 支持按名称、模型数量、状态排序
+- **AND** Keys 支持按名称、模型数、工具数、资源数、提示词数、状态排序
+- **AND** MCPs 支持按名称、类型、工具数、资源数、提示词数、状态、最后同步时间排序
 
 #### Scenario: 用户点击表头排序
 - **WHEN** 用户点击可排序的表头
@@ -38,6 +29,26 @@
 #### Scenario: 用户第三次点击表头取消排序
 - **WHEN** 用户在降序排序的列表上再次点击同一表头
 - **THEN** 系统恢复默认排序（按名称升序）
+
+### Requirement: 详情子页面列表支持按列排序
+
+系统 SHALL 为详情页的子列表提供与主列表一致的点击表头排序交互。
+
+#### Scenario: 子页面列表支持的可排序字段
+
+- **WHEN** 用户在详情子页面列表点击表头进行排序
+- **THEN** 映射列表支持按厂商名称、实际模型、上下文窗口、权重、状态排序
+- **AND** 厂商模型列表支持按模型ID、名称、上下文窗口、价格、来源、状态排序
+- **AND** 密钥 models 列表支持按名称、映射数量、上下文窗口、状态排序
+- **AND** 密钥 tools/prompts 列表支持按名称、描述、状态排序
+- **AND** 密钥 resources 列表支持按名称、描述、URI、MIME Type、状态排序
+- **AND** MCP tools/prompts 列表支持按名称、描述、状态排序
+- **AND** MCP resources 列表支持按名称、描述、URI、MIME Type、状态排序
+
+#### Scenario: 用户在子页面列表点击表头排序
+
+- **WHEN** 用户点击子页面列表中可排序的表头
+- **THEN** 系统按该列进行升序排序，并显示排序指示器
 
 ### Requirement: 排序偏好自动保存
 

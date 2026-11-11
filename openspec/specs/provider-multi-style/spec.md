@@ -56,14 +56,6 @@
 - **THEN** 响应包含 openai_base_url 和 anthropic_base_url 字段
 - **AND** 非空值表示支持的 API 风格
 
-### Requirement: Factory 根据调用风格创建 Provider
-
-**REMOVED** - Factory 层已删除，Provider 实例由 Router 内部创建
-
-**Reason**: Router 已经掌握所有信息（Provider 数据 + requestStyle），无需额外的 Factory 层；合并后简化调用链，支持返回实例列表用于负载均衡。
-
-**Migration**: Router 内部直接创建 Provider 实例，Handler 直接使用 Router 返回的实例列表。
-
 ### Requirement: Provider 构造器接受 Config
 
 系统 SHALL 允许 Provider 实现使用包含 BaseURL 和 APIKey 的 Config 结构体构造，而不依赖 model.Provider。

@@ -1,6 +1,6 @@
 ## Purpose
 
-定义 ProviderModel 实体的能力（capabilities）管理需求。
+定义 ProviderModel 实体的能力（capabilities）管理：管理员通过多选表单为模型配置 Tools、Stream、Photo、Image、Video 等能力类型，列表以标签形式展示，便于识别模型支持的调用能力。
 
 ## Requirements
 

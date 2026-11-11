@@ -1,7 +1,7 @@
 # api-key-reset Specification
 
 ## Purpose
-TBD - created by archiving change reset-api-key. Update Purpose after archive.
+定义 API Key 重置能力：用户可在控制台自助重置自己的 API Key，重置操作原子执行、旧 Key 立即失效、新 Key 安全生成，并保留该 Key 原有的模型绑定等配置。
 ## Requirements
 ### Requirement: 用户可以重置 API Key
 系统 SHALL 提供 API Key 重置功能，生成新的 Key 值并保留原有配置（名称、启用状态、过期时间、模型绑定）。
