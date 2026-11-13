@@ -21,22 +21,30 @@ func NewMCPProxyHandler() *MCPProxyHandler {
 	return &MCPProxyHandler{}
 }
 
+// hasFull*Access 按白名单开关短路（设计 D2）：开关关闭 = 全部允许；开关开启 = 仅允许已勾选项。
+// 开关读取失败时保守返回 false，走关联表判定（fail-closed）。
 func (h *MCPProxyHandler) hasFullToolAccess(keyID uint) bool {
-	var count int64
-	model.DB.Model(&model.KeyMCPTool{}).Where("key_id = ?", keyID).Count(&count)
-	return count == 0
+	var key model.Key
+	if err := model.DB.First(&key, keyID).Error; err != nil {
+		return false
+	}
+	return !key.ToolsWhitelist
 }
 
 func (h *MCPProxyHandler) hasFullResourceAccess(keyID uint) bool {
-	var count int64
-	model.DB.Model(&model.KeyMCPResource{}).Where("key_id = ?", keyID).Count(&count)
-	return count == 0
+	var key model.Key
+	if err := model.DB.First(&key, keyID).Error; err != nil {
+		return false
+	}
+	return !key.ResourcesWhitelist
 }
 
 func (h *MCPProxyHandler) hasFullPromptAccess(keyID uint) bool {
-	var count int64
-	model.DB.Model(&model.KeyMCPPrompt{}).Where("key_id = ?", keyID).Count(&count)
-	return count == 0
+	var key model.Key
+	if err := model.DB.First(&key, keyID).Error; err != nil {
+		return false
+	}
+	return !key.PromptsWhitelist
 }
 
 func (h *MCPProxyHandler) Handle(c *gin.Context) {

@@ -16,7 +16,7 @@
           {{ service?.last_sync_at ? new Date(service.last_sync_at).toLocaleString() : '-' }}
         </el-descriptions-item>
         <el-descriptions-item :label="t('mcp.status')">
-          <el-tag :type="service?.enabled ? 'success' : 'info'" size="small">
+          <el-tag :type="service?.enabled ? 'success' : 'danger'" size="small">
             {{ service?.enabled ? t('common.enabled') : t('common.disabled') }}
           </el-tag>
         </el-descriptions-item>
@@ -34,7 +34,7 @@
     <el-card class="tabs-card">
       <el-tabs v-model="activeTab">
         <el-tab-pane :label="t('mcp.tools')" name="tools">
-          <el-table :data="tools" stripe v-loading="toolsLoading" :default-sort="toolsDefaultSort" @sort-change="(e: any) => handleSortChange('mcp-tools', e)">
+          <el-table :ref="(el: any) => { tableRefs['mcp-tools'] = el }" :data="tools" stripe v-loading="toolsLoading" :default-sort="toolsDefaultSort" @sort-change="(e: any) => handleSortChange('mcp-tools', e)">
             <el-table-column prop="name" :label="t('mcp.toolName')" width="220" sortable>
               <template #default="{ row }">
                 <span>{{ row.name }}</span>
@@ -56,12 +56,9 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.status')" width="100" prop="enabled" sortable>
+            <el-table-column :label="t('common.status')" width="100" prop="enabled" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRefs['mcp-tools'])">
               <template #default="{ row }">
-                <el-tooltip v-if="!service?.enabled" :content="t('mcp.serviceDisabled')" placement="top">
-                  <el-switch :model-value="false" disabled />
-                </el-tooltip>
-                <el-switch v-else v-model="row.enabled" @change="toggleToolEnabled(row)" />
+                <el-switch v-model="row.enabled" @change="toggleToolEnabled(row)" />
               </template>
             </el-table-column>
             <el-table-column :label="t('common.action')" width="150">
@@ -73,7 +70,7 @@
         </el-tab-pane>
 
         <el-tab-pane :label="t('mcp.resources')" name="resources">
-          <el-table :data="resources" stripe v-loading="resourcesLoading" :default-sort="resourcesDefaultSort" @sort-change="(e: any) => handleSortChange('mcp-resources', e)">
+          <el-table :ref="(el: any) => { tableRefs['mcp-resources'] = el }" :data="resources" stripe v-loading="resourcesLoading" :default-sort="resourcesDefaultSort" @sort-change="(e: any) => handleSortChange('mcp-resources', e)">
             <el-table-column prop="name" :label="t('mcp.resourceName')" width="220" sortable>
               <template #default="{ row }">
                 <span>{{ row.name }}</span>
@@ -97,12 +94,9 @@
             </el-table-column>
             <el-table-column prop="uri" :label="t('mcp.resourceUri')" width="300" sortable />
             <el-table-column prop="mime_type" label="MIME Type" width="200" sortable />
-            <el-table-column :label="t('common.status')" width="100" prop="enabled" sortable>
+            <el-table-column :label="t('common.status')" width="100" prop="enabled" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRefs['mcp-resources'])">
               <template #default="{ row }">
-                <el-tooltip v-if="!service?.enabled" :content="t('mcp.serviceDisabled')" placement="top">
-                  <el-switch :model-value="false" disabled />
-                </el-tooltip>
-                <el-switch v-else v-model="row.enabled" @change="toggleResourceEnabled(row)" />
+                <el-switch v-model="row.enabled" @change="toggleResourceEnabled(row)" />
               </template>
             </el-table-column>
             <el-table-column :label="t('common.action')" width="150">
@@ -114,7 +108,7 @@
         </el-tab-pane>
 
         <el-tab-pane :label="t('mcp.prompts')" name="prompts">
-          <el-table :data="prompts" stripe v-loading="promptsLoading" :default-sort="promptsDefaultSort" @sort-change="(e: any) => handleSortChange('mcp-prompts', e)">
+          <el-table :ref="(el: any) => { tableRefs['mcp-prompts'] = el }" :data="prompts" stripe v-loading="promptsLoading" :default-sort="promptsDefaultSort" @sort-change="(e: any) => handleSortChange('mcp-prompts', e)">
             <el-table-column prop="name" :label="t('mcp.promptName')" width="220" sortable>
               <template #default="{ row }">
                 <span>{{ row.name }}</span>
@@ -136,12 +130,9 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.status')" width="100" prop="enabled" sortable>
+            <el-table-column :label="t('common.status')" width="100" prop="enabled" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRefs['mcp-prompts'])">
               <template #default="{ row }">
-                <el-tooltip v-if="!service?.enabled" :content="t('mcp.serviceDisabled')" placement="top">
-                  <el-switch :model-value="false" disabled />
-                </el-tooltip>
-                <el-switch v-else v-model="row.enabled" @change="togglePromptEnabled(row)" />
+                <el-switch v-model="row.enabled" @change="togglePromptEnabled(row)" />
               </template>
             </el-table-column>
             <el-table-column :label="t('common.action')" width="150">
@@ -191,7 +182,7 @@ import { ElMessage } from 'element-plus'
 import CopyButton from '@/components/CopyButton.vue'
 import JsonViewer from '@/components/JsonViewer.vue'
 import api from '@/api'
-import { getSortConfig, setSortConfig } from '@/utils/tableSort'
+import { getSortConfig, setSortConfig, removeSortConfig, sortByPropAsc, sortByStatusThenName } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -218,6 +209,7 @@ const detailData = ref<any>({})
 const toolsDefaultSort = getSortConfig('mcp-tools', 'name')
 const resourcesDefaultSort = getSortConfig('mcp-resources', 'name')
 const promptsDefaultSort = getSortConfig('mcp-prompts', 'name')
+const tableRefs: Record<string, any> = {}
 
 onMounted(() => {
   fetchService()
@@ -247,7 +239,8 @@ async function fetchTools() {
   toolsLoading.value = true
   try {
     const res = await api.get(`/mcps/${serviceId}/tools`)
-    tools.value = res.data.tools || []
+    // 数据源预排序承担默认顺序（名称升序，design D4）
+    tools.value = sortByPropAsc(res.data.tools || [])
   } finally {
     toolsLoading.value = false
   }
@@ -257,7 +250,7 @@ async function fetchResources() {
   resourcesLoading.value = true
   try {
     const res = await api.get(`/mcps/${serviceId}/resources`)
-    resources.value = res.data.resources || []
+    resources.value = sortByPropAsc(res.data.resources || [])
   } finally {
     resourcesLoading.value = false
   }
@@ -267,7 +260,7 @@ async function fetchPrompts() {
   promptsLoading.value = true
   try {
     const res = await api.get(`/mcps/${serviceId}/prompts`)
-    prompts.value = res.data.prompts || []
+    prompts.value = sortByPropAsc(res.data.prompts || [])
   } finally {
     promptsLoading.value = false
   }
@@ -376,6 +369,9 @@ async function togglePromptEnabled(prompt: any) {
 function handleSortChange(key: string, { prop, order }: any) {
   if (prop && order) {
     setSortConfig(key, { prop, order })
+  } else if (!order) {
+    // 第三次点击取消排序：仅清除偏好（表格已自行复位，design D4）
+    removeSortConfig(key)
   }
 }
 </script>

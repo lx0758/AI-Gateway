@@ -23,6 +23,7 @@
 #### Scenario: 更新主页
 - **WHEN** 管理员更新 Provider 的 `homepage` 为新地址
 - **THEN** 系统存储新地址并在响应中返回
+
 ### Requirement: 主页在控制台可点击跳转
 
 系统 SHALL 在厂商列表的名称列显示主页跳转图标（仅当 `homepage` 非空），在厂商详情页头部显示主页链接，点击均在新窗口打开。
@@ -40,6 +41,7 @@
 - **WHEN** 管理员打开 `homepage` 非空的厂商详情页
 - **THEN** 头部信息区显示主页链接
 - **AND** 点击在新窗口打开
+
 ### Requirement: Provider 可记录付费类型
 
 系统 SHALL 允许为 Provider 记录可选的付费类型（`billing_type`），取值限定为 `subscription`、`usage`、`free` 或空（未设置），存储英文枚举值并在展示层翻译为当前语言。
@@ -63,6 +65,7 @@
 #### Scenario: 付费类型在列表以 tag 展示
 - **WHEN** 厂商列表中某厂商 `billing_type="subscription"`
 - **THEN** 付费类型列显示 tag "套餐"（中文）/ "Subscription"（英文）
+
 ### Requirement: 编辑表单支持元信息字段
 
 系统 SHALL 在厂商新增 / 编辑表单中提供主页与付费类型两个可选输入：主页为 URL 格式校验的文本框，付费类型为枚举下拉框。
@@ -76,3 +79,24 @@
 - **WHEN** 管理员在主页输入框填写非 URL 文本并提交
 - **THEN** 表单提示格式错误
 - **AND** 不发起提交请求
+
+### Requirement: 厂商新增与编辑表单提供启用状态控制
+
+系统 SHALL 在厂商新增与编辑对话框中提供启用状态开关，其状态与列表行内状态开关联动一致。
+
+#### Scenario: 新增表单默认启用
+- **WHEN** 管理员打开新增厂商对话框
+- **THEN** 状态开关显示为启用且可调
+
+#### Scenario: 创建时省略启用状态
+- **WHEN** 管理员创建厂商时未提供 enabled 字段
+- **THEN** 创建的厂商为启用状态
+
+#### Scenario: 创建时指定禁用状态
+- **WHEN** 管理员创建厂商时携带 enabled=false
+- **THEN** 创建的厂商为禁用状态
+
+#### Scenario: 编辑表单回显当前状态
+- **WHEN** 管理员打开某个禁用厂商的编辑对话框
+- **THEN** 状态开关显示为禁用
+- **AND** 保存后该厂商保持禁用状态

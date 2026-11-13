@@ -11,30 +11,20 @@
         </div>
       </template>
 
-      <el-table :data="models" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
+      <el-table ref="tableRef" :data="models" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="name" :label="t('models.name')" width="240" sortable>
+        <el-table-column prop="name" :label="t('models.name')" min-width="240" sortable>
           <template #default="{ row }">
             <span>{{ row.name }}</span>
             <CopyButton :text="row.name" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('models.mappingCount')" width="120" prop="mapping_count" sortable>
+        <el-table-column :label="t('models.mappingCount')" width="150" prop="mapping_count" sortable>
           <template #default="{ row }">
             {{ row.mapping_count }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('models.capabilities')">
-          <template #default="{ row }">
-            <div v-if="row.capabilities" class="capability-tags">
-              <el-tag v-for="cap in row.capabilities.split(',')" :key="cap" type="primary" size="small" style="margin-right: 4px">
-                {{ t('provider.' + cap) }}
-              </el-tag>
-            </div>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('models.tokenSummary')" prop="min_context_window" sortable>
+        <el-table-column :label="t('models.contextWindow')" width="150" prop="min_context_window" sortable>
           <template #default="{ row }">
             <el-tooltip v-if="row.min_context_window > 0 || row.min_max_output > 0" 
               :content="`${row.min_context_window.toLocaleString()} / ${row.min_max_output.toLocaleString()}`" 
@@ -44,7 +34,7 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="120" prop="enabled" sortable>
+        <el-table-column :label="t('common.status')" width="120" prop="enabled" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRef)">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleModelEnabled(row)" />
           </template>
@@ -127,7 +117,7 @@ import { Loading } from '@element-plus/icons-vue'
 import CopyButton from '@/components/CopyButton.vue'
 import api from '@/api'
 import { formatContextDisplay } from '@/utils/format'
-import { getSortConfig, setSortConfig } from '@/utils/tableSort'
+import { getSortConfig, setSortConfig, removeSortConfig, sortByPropAsc, sortByStatusThenName } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -139,7 +129,6 @@ interface Model {
   mapping_count: number
   min_context_window: number
   min_max_output: number
-  capabilities: string
 }
 
 const models = ref<Model[]>([])
@@ -149,6 +138,7 @@ const modelDialogVisible = ref(false)
 const submitting = ref(false)
 const editingModel = ref<Model | null>(null)
 const modelFormRef = ref()
+const tableRef = ref()
 const defaultSort = getSortConfig('models', 'name')
 
 const testDialogVisible = ref(false)
@@ -173,15 +163,15 @@ async function fetchModels() {
   loading.value = true
   try {
     const res = await api.get('/models')
-    models.value = (res.data.models || []).map((m: any) => ({
+    // 数据源预排序承担默认顺序（名称升序，design D4）：与名称列内置比较一致
+    models.value = sortByPropAsc((res.data.models || []).map((m: any) => ({
       id: m.id,
       name: m.model,
       enabled: m.enabled,
       mapping_count: m.mapping_count,
       min_context_window: m.min_context_window || 0,
-      min_max_output: m.min_max_output || 0,
-      capabilities: m.capabilities || ''
-    }))
+      min_max_output: m.min_max_output || 0
+    })))
   } finally {
     loading.value = false
   }
@@ -269,6 +259,9 @@ async function testModel(model: Model) {
 function handleSortChange({ prop, order }: any) {
   if (prop && order) {
     setSortConfig('models', { prop, order })
+  } else if (!order) {
+    // 第三次点击取消排序：仅清除偏好（表格已自行复位，design D4）
+    removeSortConfig('models')
   }
 }
 </script>
@@ -287,12 +280,6 @@ function handleSortChange({ prop, order }: any) {
 .header-actions {
   display: flex;
   gap: 10px;
-}
-
-.capability-tags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
 }
 
 .test-mapping-item {

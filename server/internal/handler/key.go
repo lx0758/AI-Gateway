@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"ai-gateway/internal/model"
 )
@@ -18,6 +19,7 @@ type createKeyRequest struct {
 	Name      string  `json:"name" binding:"required"`
 	Models    []uint  `json:"models"`
 	ExpiresAt *string `json:"expires_at"`
+	Enabled   *bool   `json:"enabled"`
 }
 
 type updateKeyRequest struct {
@@ -34,13 +36,17 @@ type keyModelResponse struct {
 }
 
 type keyResponse struct {
-	ID        uint               `json:"id"`
-	Key       string             `json:"key"`
-	Name      string             `json:"name"`
-	Enabled   bool               `json:"enabled"`
-	ExpiresAt *time.Time         `json:"expires_at"`
-	CreatedAt time.Time          `json:"created_at"`
-	Models    []keyModelResponse `json:"models,omitempty"`
+	ID                 uint               `json:"id"`
+	Key                string             `json:"key"`
+	Name               string             `json:"name"`
+	Enabled            bool               `json:"enabled"`
+	ModelsWhitelist    bool               `json:"models_whitelist"`
+	ToolsWhitelist     bool               `json:"tools_whitelist"`
+	ResourcesWhitelist bool               `json:"resources_whitelist"`
+	PromptsWhitelist   bool               `json:"prompts_whitelist"`
+	ExpiresAt          *time.Time         `json:"expires_at"`
+	CreatedAt          time.Time          `json:"created_at"`
+	Models             []keyModelResponse `json:"models,omitempty"`
 }
 
 type keyCreateResponse struct {
@@ -84,13 +90,17 @@ func generateKey() string {
 }
 
 type keyListItemResponse struct {
-	ID                uint               `json:"id"`
-	Key               string             `json:"key"`
-	Name              string             `json:"name"`
-	Enabled           bool               `json:"enabled"`
-	ExpiresAt         *time.Time         `json:"expires_at"`
-	CreatedAt         time.Time          `json:"created_at"`
-	Models            []keyModelResponse `json:"models,omitempty"`
+	ID                 uint               `json:"id"`
+	Key                string             `json:"key"`
+	Name               string             `json:"name"`
+	Enabled            bool               `json:"enabled"`
+	ModelsWhitelist    bool               `json:"models_whitelist"`
+	ToolsWhitelist     bool               `json:"tools_whitelist"`
+	ResourcesWhitelist bool               `json:"resources_whitelist"`
+	PromptsWhitelist   bool               `json:"prompts_whitelist"`
+	ExpiresAt          *time.Time         `json:"expires_at"`
+	CreatedAt          time.Time          `json:"created_at"`
+	Models             []keyModelResponse `json:"models,omitempty"`
 	MCPToolsCount     int                `json:"mcp_tools_count"`
 	MCPResourcesCount int                `json:"mcp_resources_count"`
 	MCPPromptsCount   int                `json:"mcp_prompts_count"`
@@ -133,6 +143,10 @@ func (h *KeyHandler) List(c *gin.Context) {
 			Key:               maskedKey,
 			Name:              k.Name,
 			Enabled:           k.Enabled,
+			ModelsWhitelist:    k.ModelsWhitelist,
+			ToolsWhitelist:     k.ToolsWhitelist,
+			ResourcesWhitelist: k.ResourcesWhitelist,
+			PromptsWhitelist:   k.PromptsWhitelist,
 			ExpiresAt:         k.ExpiresAt,
 			CreatedAt:         k.CreatedAt,
 			Models:            models,
@@ -160,16 +174,27 @@ func (h *KeyHandler) Create(c *gin.Context) {
 		}
 	}
 
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
+
 	key := model.Key{
 		Key:       generateKey(),
 		Name:      req.Name,
 		ExpiresAt: expiresAt,
-		Enabled:   true,
+		Enabled:   enabled,
+		// 携带模型列表即以白名单方式限定（设计 D1 不变量：有记录则开关必须为开）
+		ModelsWhitelist: len(req.Models) > 0,
 	}
 
 	if err := model.DB.Create(&key).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	// GORM 会跳过带 default 标签字段的零值插入（落库走 DB 默认 true），禁用状态需显式回写
+	if !enabled {
+		model.DB.Model(&key).Update("enabled", false)
 	}
 
 	for _, modelID := range req.Models {
@@ -202,13 +227,17 @@ func (h *KeyHandler) Create(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"key": keyResponse{
-			ID:        key.ID,
-			Key:       key.Key,
-			Name:      key.Name,
-			Enabled:   key.Enabled,
-			ExpiresAt: key.ExpiresAt,
-			CreatedAt: key.CreatedAt,
-			Models:    models,
+			ID:                 key.ID,
+			Key:                key.Key,
+			Name:               key.Name,
+			Enabled:            key.Enabled,
+			ModelsWhitelist:    key.ModelsWhitelist,
+			ToolsWhitelist:     key.ToolsWhitelist,
+			ResourcesWhitelist: key.ResourcesWhitelist,
+			PromptsWhitelist:   key.PromptsWhitelist,
+			ExpiresAt:          key.ExpiresAt,
+			CreatedAt:          key.CreatedAt,
+			Models:             models,
 		},
 		"raw_key": key.Key,
 	})
@@ -286,6 +315,10 @@ func (h *KeyHandler) Update(c *gin.Context) {
 			akm := model.KeyModel{KeyID: key.ID, ModelID: modelID}
 			model.DB.Create(&akm)
 		}
+		// 携带非空模型列表即以白名单方式限定（设计 D1 不变量）；空列表不改开关状态
+		if len(req.Models) > 0 {
+			model.DB.Model(&model.Key{}).Where("id = ?", key.ID).Update("models_whitelist", true)
+		}
 	}
 
 	model.DB.Preload("Models.Model").First(&key, id)
@@ -304,14 +337,86 @@ func (h *KeyHandler) Update(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"key": keyResponse{
-		ID:        key.ID,
-		Key:       key.Key,
-		Name:      key.Name,
-		Enabled:   key.Enabled,
-		ExpiresAt: key.ExpiresAt,
-		CreatedAt: key.CreatedAt,
-		Models:    models,
+		ID:                 key.ID,
+		Key:                key.Key,
+		Name:               key.Name,
+		Enabled:            key.Enabled,
+		ModelsWhitelist:    key.ModelsWhitelist,
+		ToolsWhitelist:     key.ToolsWhitelist,
+		ResourcesWhitelist: key.ResourcesWhitelist,
+		PromptsWhitelist:   key.PromptsWhitelist,
+		ExpiresAt:          key.ExpiresAt,
+		CreatedAt:          key.CreatedAt,
+		Models:             models,
 	}})
+}
+
+type updateWhitelistRequest struct {
+	Enabled *bool `json:"enabled" binding:"required"`
+}
+
+// UpdateWhitelist 切换某类型资源的白名单开关。
+// 关闭 = 全部允许：同事务清除该类型已保存的关联记录，维持"flag=false => 记录为空"的数据不变量。
+// 开启 = 仅勾选者允许：记录保持为空，等待管理员勾选（开启前的确认警示由前端负责）。
+func (h *KeyHandler) UpdateWhitelist(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	resourceType := c.Param("type")
+	flagColumn := map[string]string{
+		"models":    "models_whitelist",
+		"tools":     "tools_whitelist",
+		"resources": "resources_whitelist",
+		"prompts":   "prompts_whitelist",
+	}[resourceType]
+	if flagColumn == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid whitelist type"})
+		return
+	}
+
+	var key model.Key
+	if err := model.DB.First(&key, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "key not found"})
+		return
+	}
+
+	var req updateWhitelistRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "enabled is required"})
+		return
+	}
+
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Key{}).Where("id = ?", key.ID).Update(flagColumn, *req.Enabled).Error; err != nil {
+			return err
+		}
+		if !*req.Enabled {
+			switch resourceType {
+			case "models":
+				return tx.Where("key_id = ?", key.ID).Delete(&model.KeyModel{}).Error
+			case "tools":
+				return tx.Where("key_id = ?", key.ID).Delete(&model.KeyMCPTool{}).Error
+			case "resources":
+				return tx.Where("key_id = ?", key.ID).Delete(&model.KeyMCPResource{}).Error
+			case "prompts":
+				return tx.Where("key_id = ?", key.ID).Delete(&model.KeyMCPPrompt{}).Error
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "whitelist updated",
+		"type":    resourceType,
+		"enabled": *req.Enabled,
+	})
 }
 
 type modelWithStatusResponse struct {
@@ -320,7 +425,6 @@ type modelWithStatusResponse struct {
 	MappingCount     int    `json:"mapping_count"`
 	MinContextWindow int    `json:"min_context_window"`
 	MinMaxOutput     int    `json:"min_max_output"`
-	Capabilities     string `json:"capabilities"`
 	Selected         bool   `json:"selected"`
 }
 
@@ -348,21 +452,21 @@ func (h *KeyHandler) ListModels(c *gin.Context) {
 	result := make([]modelWithStatusResponse, len(allModels))
 	for i, m := range allModels {
 		var mappings []model.ModelMapping
-		model.DB.Preload("Provider").
+		// 必须同时 Preload ProviderModel：calculateMinTokens/calculateEnabledCount
+		// 依赖它判断 availability，缺失会导致 min_context 恒为 0
+		model.DB.Preload("Provider").Preload("ProviderModel").
 			Where("model_id = ? AND model_mappings.enabled = ?", m.ID, true).
 			Order("weight DESC, id DESC").
 			Find(&mappings)
 
 		minContext, minOutput := calculateMinTokens(mappings)
-		caps := calculateCapabilitiesIntersection(mappings)
 
 		result[i] = modelWithStatusResponse{
 			ID:               m.ID,
 			Name:             m.Name,
-			MappingCount:     len(mappings),
+			MappingCount:     calculateEnabledCount(mappings),
 			MinContextWindow: minContext,
 			MinMaxOutput:     minOutput,
-			Capabilities:     caps,
 			Selected:         keyModelMap[m.ID],
 		}
 	}
@@ -463,12 +567,16 @@ func (h *KeyHandler) Get(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"key": keyResponse{
-			ID:        key.ID,
-			Key:       maskedKey,
-			Name:      key.Name,
-			Enabled:   key.Enabled,
-			ExpiresAt: key.ExpiresAt,
-			CreatedAt: key.CreatedAt,
+			ID:                 key.ID,
+			Key:                maskedKey,
+			Name:               key.Name,
+			Enabled:            key.Enabled,
+			ModelsWhitelist:    key.ModelsWhitelist,
+			ToolsWhitelist:     key.ToolsWhitelist,
+			ResourcesWhitelist: key.ResourcesWhitelist,
+			PromptsWhitelist:   key.PromptsWhitelist,
+			ExpiresAt:          key.ExpiresAt,
+			CreatedAt:          key.CreatedAt,
 		},
 	})
 }
@@ -515,13 +623,17 @@ func (h *KeyHandler) Reset(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"key": keyResponse{
-			ID:        key.ID,
-			Key:       maskedKey,
-			Name:      key.Name,
-			Enabled:   key.Enabled,
-			ExpiresAt: key.ExpiresAt,
-			CreatedAt: key.CreatedAt,
-			Models:    models,
+			ID:                 key.ID,
+			Key:                maskedKey,
+			Name:               key.Name,
+			Enabled:            key.Enabled,
+			ModelsWhitelist:    key.ModelsWhitelist,
+			ToolsWhitelist:     key.ToolsWhitelist,
+			ResourcesWhitelist: key.ResourcesWhitelist,
+			PromptsWhitelist:   key.PromptsWhitelist,
+			ExpiresAt:          key.ExpiresAt,
+			CreatedAt:          key.CreatedAt,
+			Models:             models,
 		},
 		"raw_key": key.Key,
 	})

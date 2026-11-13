@@ -10,7 +10,7 @@
           </div>
         </div>
       </template>
-      <el-table :data="services" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
+      <el-table ref="tableRef" :data="services" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="55" />
         <el-table-column prop="name" :label="t('mcp.name')" width="220" sortable>
           <template #default="{ row }">
@@ -38,7 +38,7 @@
             {{ row.prompt_count || 0 }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="100" prop="enabled" sortable>
+        <el-table-column :label="t('common.status')" width="120" prop="enabled" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRef)">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
@@ -97,7 +97,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import CopyButton from '@/components/CopyButton.vue'
 import api from '@/api'
-import { getSortConfig, setSortConfig, sortByDate } from '@/utils/tableSort'
+import { getSortConfig, setSortConfig, removeSortConfig, sortByDate, sortByPropAsc, sortByStatusThenName } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -110,6 +110,7 @@ const editingId = ref<number | null>(null)
 const submitting = ref(false)
 const formRef = ref()
 const selectedIds = ref<number[]>([])
+const tableRef = ref()
 const defaultSort = getSortConfig('mcps', 'name')
 
 const form = reactive({
@@ -137,7 +138,8 @@ async function fetchServices() {
   loading.value = true
   try {
     const res = await api.get('/mcps')
-    services.value = res.data.mcps || []
+    // 数据源预排序承担默认顺序（名称升序，design D4）：与名称列内置比较一致
+    services.value = sortByPropAsc(res.data.mcps || [])
   } finally {
     loading.value = false
   }
@@ -272,6 +274,9 @@ async function handleBatchDelete() {
 function handleSortChange({ prop, order }: any) {
   if (prop && order) {
     setSortConfig('mcps', { prop, order })
+  } else if (!order) {
+    // 第三次点击取消排序：仅清除偏好（表格已自行复位，design D4）
+    removeSortConfig('mcps')
   }
 }
 </script>

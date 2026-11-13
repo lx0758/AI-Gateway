@@ -109,20 +109,10 @@ export default {
     price: '单价',
     source: '来源',
     maxOutput: '最大输出',
-    supportsVision: '支持视觉',
-    supportsTools: '支持工具',
-    supportsStream: '支持流式',
     addModel: '添加模型',
-    tools: '工具',
-    stream: '流式',
-    photo: '照片',
-    image: '图片',
-    video: '视频',
     contextInputPlaceholder: '如 128K, 1M, 256k',
     inputPrice: '输入价格',
     outputPrice: '输出价格',
-    capabilities: '能力特性',
-    providerDisabled: '厂商已禁用',
     available: '可用',
     unavailable: '不可用',
     availabilityUnknown: '未知',
@@ -158,10 +148,9 @@ export default {
     resetConfirmTitle: '重置 API 密钥',
     resetConfirmMessage: '重置后旧密钥将立即失效，所有使用旧密钥的请求将失败。确定要继续吗？',
     resetSuccess: '密钥重置成功，请立即保存新的密钥值',
-    default: '默认',
-    allowOnly: '允许',
-    allowAll: '全部允许',
-    keyDisabled: '密钥已禁用'
+    whitelistMode: '白名单模式',
+    whitelistEnableConfirm: '开启后该类型将默认拒绝所有调用，请立即勾选允许的资源。确定开启？',
+    whitelistDisabledTip: '白名单已关闭，全部允许'
   },
   usage: {
     stats: '统计',
@@ -215,17 +204,11 @@ export default {
     editModel: '编辑模型',
     name: '模型名称',
     mappingCount: '映射数量',
-    tokenSummary: 'Token 汇总',
     contextWindow: '上下文窗口',
-    capabilities: '能力特性',
     mappings: '映射列表',
     addMapping: '添加映射',
     editMapping: '编辑映射',
     providerType: '厂商类型',
-    modelDisabled: '模型已禁用',
-    providerDisabledReason: '厂商已禁用，此映射无法启用',
-    providerModelUnavailableReason: '厂商模型不可用，此映射无法启用',
-    providerOrModelDisabled: '厂商或模型被禁用',
     testAllMappings: '测试所有映射'
   },
   mcp: {
@@ -266,8 +249,7 @@ export default {
     copyJson: '复制 JSON',
     warning: '警告',
     confirmDelete: '确定要删除此 MCP服务吗？相关的工具、资源和提示词也会被删除。',
-    confirmBatchDelete: '确定要删除选中的 {count} 个MCP服务吗？相关的工具、资源和提示词也会被删除。',
-    serviceDisabled: '服务已禁用'
+    confirmBatchDelete: '确定要删除选中的 {count} 个MCP服务吗？相关的工具、资源和提示词也会被删除。'
   },
   mcpUsage: {
     stats: '统计',

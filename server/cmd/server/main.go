@@ -151,6 +151,7 @@ func main() {
 			protected.GET("/keys/:id", keyHandler.Get)
 			protected.POST("/keys", keyHandler.Create)
 			protected.PUT("/keys/:id", keyHandler.Update)
+			protected.PUT("/keys/:id/whitelist/:type", keyHandler.UpdateWhitelist)
 			protected.DELETE("/keys/:id", keyHandler.Delete)
 			protected.POST("/keys/:id/reset", keyHandler.Reset)
 			protected.GET("/keys/:id/models", keyHandler.ListModels)

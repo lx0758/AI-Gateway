@@ -10,7 +10,7 @@
       <el-descriptions :column="2" border>
         <el-descriptions-item :label="t('models.name')">{{ model?.model || '-' }} <CopyButton :text="model?.model" /></el-descriptions-item>
         <el-descriptions-item :label="t('common.status')">
-          <el-tag :type="modelEnabled ? 'success' : 'info'" size="small">
+          <el-tag :type="modelEnabled ? 'success' : 'danger'" size="small">
             {{ modelEnabled ? t('common.enabled') : t('common.disabled') }}
           </el-tag>
         </el-descriptions-item>
@@ -24,6 +24,7 @@
     <el-card v-loading="loading">
       <template #header>{{ t('models.mappings') }}</template>
       <el-table 
+        ref="tableRef"
         :data="mappings" 
         stripe 
         @selection-change="handleSelectionChange"
@@ -35,10 +36,10 @@
             <el-icon class="drag-handle"><Rank /></el-icon>
           </template>
         </el-table-column>
-        <el-table-column :label="t('provider.name')" width="180">
+        <el-table-column :label="t('provider.name')" width="200">
           <template #default="{ row }">{{ row.provider?.name }}</template>
         </el-table-column>
-        <el-table-column :label="t('models.providerType')" width="120">
+        <el-table-column :label="t('models.providerType')" width="200">
           <template #default="{ row }">
             <el-tag v-if="row.provider?.openai_base_url" type="success" size="small" style="margin-right: 4px">OpenAI</el-tag>
             <el-tag v-if="row.provider?.anthropic_base_url" type="primary" size="small">Anthropic</el-tag>
@@ -50,17 +51,7 @@
             <CopyButton :text="row.provider_model_name" />
           </template>
         </el-table-column>
-        <el-table-column :label="t('models.capabilities')">
-          <template #default="{ row }">
-            <div v-if="row.model_info?.capabilities" class="capability-tags">
-              <el-tag v-for="cap in row.model_info.capabilities.split(',')" :key="cap" type="primary" size="small" style="margin-right: 4px">
-                {{ t('provider.' + cap) }}
-              </el-tag>
-            </div>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column :label="t('models.contextWindow')">
+        <el-table-column :label="t('models.contextWindow')" width="150">
           <template #default="{ row }">
             <el-tooltip v-if="row.model_info && (row.model_info.context_window > 0 || row.model_info.max_output > 0)" 
               :content="`${row.model_info.context_window.toLocaleString()} / ${row.model_info.max_output.toLocaleString()}`" 
@@ -70,15 +61,9 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="120">
+        <el-table-column :label="t('common.status')" width="150" prop="enabled" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRef, 'enabled', 'provider.name')">
           <template #default="{ row }">
-            <el-tooltip v-if="!modelEnabled" :content="t('models.modelDisabled')" placement="top">
-              <el-switch :model-value="false" disabled />
-            </el-tooltip>
-            <el-tooltip v-else-if="row.forced_disabled" :content="getDisableTooltip(row)" placement="top">
-              <el-switch :model-value="false" disabled />
-            </el-tooltip>
-            <el-switch v-else v-model="row.enabled" @change="toggleMappingEnabled(row)" />
+            <el-switch v-model="row.enabled" @change="toggleMappingEnabled(row)" />
           </template>
         </el-table-column>
         <el-table-column :label="t('common.action')" width="180">
@@ -94,7 +79,7 @@
     <el-dialog v-model="mappingDialogVisible" :title="editingMapping ? t('models.editMapping') : t('models.addMapping')" width="500px">
       <el-form :model="mappingForm" :rules="mappingRules" ref="mappingFormRef" label-width="auto" v-loading="mappingDialogLoading">
         <el-form-item :label="t('provider.name')" prop="provider_id">
-          <el-select v-model="mappingForm.provider_id" @change="loadProviderModels" style="width: 100%" filterable>
+          <el-select v-model="mappingForm.provider_id" @change="handleProviderChange" style="width: 100%" filterable>
             <el-option v-for="p in providers" :key="p.id" :label="p.name" :value="p.id" />
           </el-select>
         </el-form-item>
@@ -161,6 +146,7 @@ import CopyButton from '@/components/CopyButton.vue'
 import Sortable from 'sortablejs'
 import api from '@/api'
 import { formatContextDisplay } from '@/utils/format'
+import { compareName, sortByStatusThenName } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -169,7 +155,6 @@ const router = useRouter()
 interface ModelInfo {
   context_window: number
   max_output: number
-  capabilities: string
 }
 
 interface Mapping {
@@ -202,6 +187,7 @@ const mappings = ref<Mapping[]>([])
 const providers = ref<any[]>([])
 const providerModels = ref<any[]>([])
 const selectedIds = ref<number[]>([])
+const tableRef = ref()
 const loading = ref(false)
 const mappingDialogVisible = ref(false)
 const mappingDialogLoading = ref(false)
@@ -282,13 +268,20 @@ function initSortable() {
 
 async function fetchProviders() {
   const res = await api.get('/providers')
-  providers.value = (res.data.providers || []).sort((a: any, b: any) => a.name.localeCompare(b.name))
+  providers.value = (res.data.providers || []).sort((a: any, b: any) => compareName(a.name, b.name))
 }
 
 async function loadProviderModels() {
   if (!mappingForm.provider_id) return
   const res = await api.get(`/providers/${mappingForm.provider_id}/models`)
-  providerModels.value = (res.data.models || []).sort((a: any, b: any) => a.model_id.localeCompare(b.model_id))
+  providerModels.value = (res.data.models || []).sort((a: any, b: any) => compareName(a.model_id, b.model_id))
+}
+
+// 切换厂商立即清空已选模型（model-mapping 规格：杜绝陈旧 provider_model_id 触发 provider mismatch）
+async function handleProviderChange() {
+  mappingForm.provider_model_id = null
+  providerModels.value = []
+  await loadProviderModels()
 }
 
 function handleSelectionChange(selection: Mapping[]) {
@@ -358,16 +351,6 @@ async function toggleMappingEnabled(mapping: Mapping) {
   await api.put(`/models/${modelId}/mappings/${mapping.id}`, { enabled: mapping.enabled })
 }
 
-function getDisableTooltip(row: Mapping): string {
-  if (row.disable_reason === 'provider_disabled') {
-    return t('models.providerDisabledReason')
-  }
-  if (row.disable_reason === 'provider_model_unavailable') {
-    return t('models.providerModelUnavailableReason')
-  }
-  return t('models.providerOrModelDisabled')
-}
-
 async function testSingleMapping(mapping: Mapping) {
   testing.value = true
   testResults.value = []
@@ -421,12 +404,6 @@ async function testSingleMapping(mapping: Mapping) {
 
 .drag-handle:hover {
   color: #409eff;
-}
-
-.capability-tags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
 }
 
 .test-mapping-item {

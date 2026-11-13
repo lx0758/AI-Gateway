@@ -10,9 +10,9 @@
           </div>
         </div>
       </template>
-      <el-table :data="providers" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
+      <el-table ref="tableRef" :data="providers" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="50" />
-        <el-table-column prop="name" :label="t('provider.name')" width="220" sortable>
+        <el-table-column prop="name" :label="t('provider.name')" width="250" sortable>
           <template #default="{ row }">
             <span>{{ row.name }}</span>
             <el-link v-if="row.homepage" :href="row.homepage" target="_blank" class="homepage-link" :title="t('provider.homepage')">
@@ -20,7 +20,7 @@
             </el-link>
           </template>
         </el-table-column>
-        <el-table-column :label="t('provider.billingType')" width="120">
+        <el-table-column :label="t('provider.billingType')" width="200">
           <template #default="{ row }">
             <el-tag v-if="row.billing_type" :type="billingTagType(row.billing_type)">
               {{ t('provider.billing.' + row.billing_type) }}
@@ -35,12 +35,12 @@
             <span v-if="!row.openai_base_url && !row.anthropic_base_url">-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('provider.models')" width="120" prop="models" sortable :sort-method="(a: any, b: any) => sortByArrayLength(a, b, 'models')">
+        <el-table-column :label="t('provider.models')" width="150" prop="models" sortable :sort-method="(a: any, b: any) => sortByArrayLength(a, b, 'models')">
           <template #default="{ row }">
             {{ row.models?.length || 0 }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="120" prop="enabled" sortable>
+        <el-table-column :label="t('common.status')" width="150" prop="enabled" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRef)">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
@@ -80,6 +80,9 @@
             <el-option :label="t('provider.billing.free')" value="free" />
           </el-select>
         </el-form-item>
+        <el-form-item :label="t('common.status')">
+          <el-switch v-model="form.enabled" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
@@ -96,7 +99,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Link } from '@element-plus/icons-vue'
 import api from '@/api'
-import { getSortConfig, setSortConfig, sortByArrayLength } from '@/utils/tableSort'
+import { getSortConfig, setSortConfig, removeSortConfig, sortByArrayLength, sortByStatusThenName } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -109,7 +112,8 @@ const dialogLoading = ref(false)
 const editingId = ref<number | null>(null)
 const submitting = ref(false)
 const formRef = ref()
-const defaultSort = getSortConfig('providers', 'name')
+const tableRef = ref()
+const defaultSort = getSortConfig('providers', 'enabled')
 
 const form = reactive({
   name: '',
@@ -117,7 +121,8 @@ const form = reactive({
   anthropic_base_url: '',
   api_key: '',
   homepage: '',
-  billing_type: ''
+  billing_type: '',
+  enabled: true
 })
 
 // URL 格式校验（可选字段，空值放行）
@@ -154,7 +159,9 @@ async function fetchProviders() {
   loading.value = true
   try {
     const res = await api.get('/providers')
-    providers.value = res.data.providers || []
+    // 数据源预排序承担默认顺序（状态升序+名称，design D4）：无排序偏好时
+    // 表格无排序指示器，直接展示此顺序；与状态列 sort-method 升序结果一致
+    providers.value = (res.data.providers || []).sort((a: any, b: any) => sortByStatusThenName(a, b))
   } finally {
     loading.value = false
   }
@@ -166,7 +173,7 @@ function handleSelectionChange(selection: any[]) {
 
 async function showDialog(id?: number) {
   editingId.value = id || null
-  Object.assign(form, { name: '', openai_base_url: '', anthropic_base_url: '', api_key: '', homepage: '', billing_type: '' })
+  Object.assign(form, { name: '', openai_base_url: '', anthropic_base_url: '', api_key: '', homepage: '', billing_type: '', enabled: true })
   dialogVisible.value = true
   
   if (id) {
@@ -181,7 +188,8 @@ async function showDialog(id?: number) {
           anthropic_base_url: provider.anthropic_base_url || '',
           api_key: '',
           homepage: provider.homepage || '',
-          billing_type: provider.billing_type || ''
+          billing_type: provider.billing_type || '',
+          enabled: provider.enabled ?? true
         })
       }
     } catch (e) {
@@ -254,6 +262,10 @@ function billingTagType(billingType: string) {
 function handleSortChange({ prop, order }: any) {
   if (prop && order) {
     setSortConfig('providers', { prop, order })
+  } else if (!order) {
+    // 第三次点击取消排序：仅清除偏好。表格此时已自行复位（箭头消失、
+    // 数据回数据源顺序=预排序默认序），无需编程式恢复（design D4）
+    removeSortConfig('providers')
   }
 }
 </script>

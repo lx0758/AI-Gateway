@@ -193,6 +193,12 @@ type Key struct {
 	Name    string
 	Enabled bool `gorm:"type:boolean;default:true"`
 
+	// 显式白名单开关（默认关 = 全部允许；数据不变量：flag=false 时对应关联表记录为空）
+	ModelsWhitelist    bool `gorm:"type:boolean;default:false"`
+	ToolsWhitelist     bool `gorm:"type:boolean;default:false"`
+	ResourcesWhitelist bool `gorm:"type:boolean;default:false"`
+	PromptsWhitelist   bool `gorm:"type:boolean;default:false"`
+
 	ExpiresAt *time.Time
 	CreatedAt time.Time
 	DeletedAt gorm.DeletedAt

@@ -19,7 +19,7 @@
           <span v-else>-</span>
         </el-descriptions-item>
         <el-descriptions-item :label="t('provider.workStatus')">
-          <el-tag :type="provider?.enabled ? 'success' : 'info'">
+          <el-tag :type="provider?.enabled ? 'success' : 'danger'">
             {{ provider?.enabled ? t('common.enabled') : t('common.disabled') }}
           </el-tag>
         </el-descriptions-item>
@@ -39,7 +39,7 @@
 
     <el-card v-loading="loading">
       <template #header>{{ t('provider.models') }}</template>
-      <el-table :data="models" stripe @row-click="showModelDetail" @selection-change="handleSelectionChange" class="clickable-table" :default-sort="defaultSort" @sort-change="handleSortChange">
+      <el-table ref="tableRef" :data="models" stripe @row-click="showModelDetail" @selection-change="handleSelectionChange" class="clickable-table" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="50" />
         <el-table-column prop="model_id" :label="t('provider.modelId')" width="300" sortable>
           <template #default="{ row }">
@@ -48,16 +48,6 @@
           </template>
         </el-table-column>
         <el-table-column prop="display_name" :label="t('common.name')" min-width="240" sortable />
-        <el-table-column :label="t('provider.capabilities')" width="200">
-          <template #default="{ row }">
-            <div class="capability-tags" v-if="row.capabilities">
-              <el-tag v-for="cap in row.capabilities.split(',')" :key="cap" type="primary" size="small" style="margin-right: 4px">
-                {{ t('provider.' + cap) }}
-              </el-tag>
-            </div>
-            <el-tag v-else type="info" size="small">None</el-tag>
-          </template>
-        </el-table-column>
         <el-table-column :label="t('provider.contextWindow')" width="150" prop="context_window" sortable>
           <template #default="{ row }">
             <el-tooltip v-if="row.context_window > 0 || row.max_output > 0" 
@@ -68,12 +58,12 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('provider.price')" width="100" sortable :sort-method="sortByPrice">
+        <el-table-column :label="t('provider.price')" width="150" sortable :sort-method="sortByPrice">
           <template #default="{ row }">
             {{ row.input_price }} / {{ row.output_price }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="100" prop="availability" sortable>
+        <el-table-column :label="t('common.status')" width="150" prop="availability" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRef, 'availability', 'display_name')">
           <template #default="{ row }">
             <el-tag :type="availabilityTagType(row.availability)" size="small">
               {{ availabilityLabel(row.availability) }}
@@ -122,15 +112,6 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item :label="t('provider.capabilities')">
-          <el-checkbox-group v-model="capabilityList">
-            <el-checkbox label="tools">{{ t('provider.tools') }}</el-checkbox>
-            <el-checkbox label="stream">{{ t('provider.stream') }}</el-checkbox>
-            <el-checkbox label="photo">{{ t('provider.photo') }}</el-checkbox>
-            <el-checkbox label="image">{{ t('provider.image') }}</el-checkbox>
-            <el-checkbox label="video">{{ t('provider.video') }}</el-checkbox>
-          </el-checkbox-group>
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">{{ t('common.cancel') }}</el-button>
@@ -150,14 +131,6 @@
           <el-tag :type="availabilityTagType(detailModel?.availability)" size="small">
             {{ availabilityLabel(detailModel?.availability) }}
           </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item :label="t('provider.capabilities')" :span="2">
-          <div class="capability-tags" v-if="detailModel?.capabilities">
-            <el-tag v-for="cap in detailModel.capabilities.split(',')" :key="cap" type="primary" size="small" style="margin-right: 4px">
-              {{ t('provider.' + cap) }}
-            </el-tag>
-          </div>
-          <el-tag v-else type="info" size="small">None</el-tag>
         </el-descriptions-item>
         <el-descriptions-item :label="'Owned By'">{{ detailModel?.owned_by || '-' }}</el-descriptions-item>
         <el-descriptions-item :label="t('common.createdAt')">{{ formatDateTime(detailModel?.created_at) }}</el-descriptions-item>
@@ -217,7 +190,7 @@ import { Loading } from '@element-plus/icons-vue'
 import CopyButton from '@/components/CopyButton.vue'
 import api from '@/api'
 import { formatDateTime, formatContextDisplay, formatContextInput, parseContextString } from '@/utils/format'
-import { getSortConfig, setSortConfig } from '@/utils/tableSort'
+import { getSortConfig, setSortConfig, removeSortConfig, sortByPropAsc, sortByStatusThenName } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -233,6 +206,7 @@ const detailModel = ref<any>(null)
 const submitting = ref(false)
 const editingModel = ref<any>(null)
 const formRef = ref()
+const tableRef = ref()
 const defaultSort = getSortConfig('provider-models', 'model_id')
 
 const testDialogVisible = ref(false)
@@ -264,23 +238,7 @@ const form = reactive({
   max_output_display: '0',
   input_price: 0,
   output_price: 0,
-  capabilities: '',
 })
-
-const capabilityList = ref<string[]>(['tools', 'stream'])
-
-function updateCapabilityList() {
-  if (!form.capabilities) {
-    capabilityList.value = []
-    return
-  }
-  capabilityList.value = form.capabilities.split(',').filter(Boolean)
-}
-
-function getCapabilitiesString(): string {
-  if (capabilityList.value.length === 0) return ''
-  return capabilityList.value.join(',')
-}
 
 const rules = {
   model_id: [{ required: true, message: () => t('common.required'), trigger: 'blur' }]
@@ -295,7 +253,8 @@ async function fetchProvider() {
   try {
     const res = await api.get(`/providers/${providerId}`)
     provider.value = res.data.provider
-    models.value = res.data.provider?.models || []
+    // 数据源预排序承担默认顺序（模型ID升序，design D4）：与该列内置比较一致
+    models.value = sortByPropAsc(res.data.provider?.models || [], 'model_id')
   } catch (e) {
     console.error(e)
   } finally {
@@ -336,9 +295,7 @@ function showAddDialog() {
     max_output_display: '0',
     input_price: 0,
     output_price: 0,
-    capabilities: '',
   })
-  capabilityList.value = ['tools', 'stream']
   dialogVisible.value = true
 }
 
@@ -353,9 +310,7 @@ function showEditDialog(model: any) {
     max_output_display: formatContextInput(model.max_output || 0),
     input_price: model.input_price || 0,
     output_price: model.output_price || 0,
-    capabilities: model.capabilities || '',
   })
-  updateCapabilityList()
   dialogVisible.value = true
 }
 
@@ -385,7 +340,6 @@ async function handleSubmit() {
       ...form,
       context_window: ctxNum !== null ? ctxNum : 0,
       max_output: maxOutNum !== null ? maxOutNum : 0,
-      capabilities: getCapabilitiesString(),
     }
     delete (payload as any).context_window_display
     delete (payload as any).max_output_display
@@ -482,6 +436,9 @@ async function testCustomModel() {
 function handleSortChange({ prop, order }: any) {
   if (prop && order) {
     setSortConfig('provider-models', { prop, order })
+  } else if (!order) {
+    // 第三次点击取消排序：仅清除偏好（表格已自行复位，design D4）
+    removeSortConfig('provider-models')
   }
 }
 
@@ -522,12 +479,6 @@ function sortByPrice(a: any, b: any): number {
 
 .clickable-table :deep(.el-table__row:hover) {
   background-color: #f5f7fa;
-}
-
-.capability-tags {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
 }
 
 .test-result-item {

@@ -13,7 +13,7 @@
           {{ key?.created_at ? new Date(key.created_at).toLocaleString() : '-' }}
         </el-descriptions-item>
         <el-descriptions-item :label="t('common.status')">
-          <el-tag :type="key?.enabled ? 'success' : 'info'" size="small">
+          <el-tag :type="key?.enabled ? 'success' : 'danger'" size="small">
             {{ key?.enabled ? t('common.enabled') : t('common.disabled') }}
           </el-tag>
         </el-descriptions-item>
@@ -33,26 +33,12 @@
       <el-tabs v-model="activeTab">
         <el-tab-pane :label="t('key.model')" name="models">
           <div class="tab-actions">
-            <el-button @click="clearModels" :loading="clearingModels" :disabled="!key?.enabled">{{ t('key.allowAll') }}</el-button>
+            <span class="whitelist-label">{{ t('key.whitelistMode') }}</span>
+            <el-switch v-model="whitelist.models" :loading="whitelistLoading.models" @change="(v: any) => handleWhitelistChange('models', v)" />
           </div>
-          <el-table :data="models" stripe v-loading="modelsLoading" :default-sort="modelsDefaultSort" @sort-change="(e: any) => handleSortChange('key-models', e)">
-            <el-table-column prop="name" :label="t('models.name')" width="200" sortable />
-            <el-table-column :label="t('models.mappingCount')" width="120" prop="mapping_count" sortable>
-              <template #default="{ row }">
-                {{ row.mapping_count || 0 }}
-              </template>
-            </el-table-column>
-            <el-table-column :label="t('models.capabilities')">
-              <template #default="{ row }">
-                <div class="capability-tags">
-                  <el-tag v-if="row.supports_stream" type="primary" size="small" style="margin-right: 4px">Stream</el-tag>
-                  <el-tag v-if="row.supports_tools" type="warning" size="small" style="margin-right: 4px">Tools</el-tag>
-                  <el-tag v-if="row.supports_vision" type="success" size="small">Vision</el-tag>
-                  <span v-if="!row.supports_stream && !row.supports_tools && !row.supports_vision">-</span>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column :label="t('models.contextWindow')" width="150" prop="min_context_window" sortable>
+          <el-table :ref="(el: any) => { tableRefs['key-models'] = el }" :data="models" stripe v-loading="modelsLoading" :default-sort="modelsDefaultSort" @sort-change="(e: any) => handleSortChange('key-models', e)">
+            <el-table-column prop="name" :label="t('models.name')" min-width="300" sortable />
+            <el-table-column :label="t('models.contextWindow')" width="200" prop="min_context_window" sortable>
               <template #default="{ row }">
                 <el-tooltip v-if="row.min_context_window > 0 || row.min_max_output > 0"
                   :content="`${row.min_context_window?.toLocaleString() || 0} / ${row.min_max_output?.toLocaleString() || 0}`"
@@ -62,18 +48,12 @@
                 <span v-else>-</span>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.status')" width="180" prop="selected" sortable>
+            <el-table-column :label="t('common.status')" width="100" prop="selected" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRefs['key-models'], 'selected')">
               <template #default="{ row }">
-                <el-tooltip v-if="!key?.enabled" :content="t('key.keyDisabled')" placement="top">
-                  <el-radio-group v-model="row.selected" disabled>
-                    <el-radio :label="false">{{ t('key.default') }}</el-radio>
-                    <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
-                  </el-radio-group>
+                <el-tooltip v-if="!whitelist.models" :content="t('key.whitelistDisabledTip')" placement="top">
+                  <el-switch :model-value="true" disabled />
                 </el-tooltip>
-                <el-radio-group v-else v-model="row.selected" @change="toggleModel(row)">
-                  <el-radio :label="false">{{ t('key.default') }}</el-radio>
-                  <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
-                </el-radio-group>
+                <el-switch v-else v-model="row.selected" @change="toggleModel(row)" />
               </template>
             </el-table-column>
           </el-table>
@@ -81,9 +61,10 @@
 
         <el-tab-pane :label="t('mcp.tools')" name="tools">
           <div class="tab-actions">
-            <el-button @click="clearTools" :loading="clearingTools" :disabled="!key?.enabled">{{ t('key.allowAll') }}</el-button>
+            <span class="whitelist-label">{{ t('key.whitelistMode') }}</span>
+            <el-switch v-model="whitelist.tools" :loading="whitelistLoading.tools" @change="(v: any) => handleWhitelistChange('tools', v)" />
           </div>
-          <el-table :data="tools" stripe v-loading="toolsLoading" :default-sort="toolsDefaultSort" @sort-change="(e: any) => handleSortChange('key-tools', e)">
+          <el-table :ref="(el: any) => { tableRefs['key-tools'] = el }" :data="tools" stripe v-loading="toolsLoading" :default-sort="toolsDefaultSort" @sort-change="(e: any) => handleSortChange('key-tools', e)">
             <el-table-column :label="t('mcp.toolName')" width="300" prop="name" sortable>
               <template #default="{ row }">
                 <div>{{ row.mcp_name }}.{{ row.name }}</div>
@@ -104,18 +85,12 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.status')" width="180" prop="selected" sortable>
+            <el-table-column :label="t('common.status')" width="100" prop="selected" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRefs['key-tools'], 'selected')">
               <template #default="{ row }">
-                <el-tooltip v-if="!key?.enabled" :content="t('key.keyDisabled')" placement="top">
-                  <el-radio-group v-model="row.selected" disabled>
-                    <el-radio :label="false">{{ t('key.default') }}</el-radio>
-                    <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
-                  </el-radio-group>
+                <el-tooltip v-if="!whitelist.tools" :content="t('key.whitelistDisabledTip')" placement="top">
+                  <el-switch :model-value="true" disabled />
                 </el-tooltip>
-                <el-radio-group v-else v-model="row.selected" @change="toggleTool(row)">
-                  <el-radio :label="false">{{ t('key.default') }}</el-radio>
-                  <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
-                </el-radio-group>
+                <el-switch v-else v-model="row.selected" @change="toggleTool(row)" />
               </template>
             </el-table-column>
           </el-table>
@@ -123,9 +98,10 @@
 
         <el-tab-pane :label="t('mcp.resources')" name="resources">
           <div class="tab-actions">
-            <el-button @click="clearResources" :loading="clearingResources" :disabled="!key?.enabled">{{ t('key.allowAll') }}</el-button>
+            <span class="whitelist-label">{{ t('key.whitelistMode') }}</span>
+            <el-switch v-model="whitelist.resources" :loading="whitelistLoading.resources" @change="(v: any) => handleWhitelistChange('resources', v)" />
           </div>
-          <el-table :data="resources" stripe v-loading="resourcesLoading" :default-sort="resourcesDefaultSort" @sort-change="(e: any) => handleSortChange('key-resources', e)">
+          <el-table :ref="(el: any) => { tableRefs['key-resources'] = el }" :data="resources" stripe v-loading="resourcesLoading" :default-sort="resourcesDefaultSort" @sort-change="(e: any) => handleSortChange('key-resources', e)">
             <el-table-column :label="t('mcp.resourceName')" width="300" prop="name" sortable>
               <template #default="{ row }">
                 <div>{{ row.mcp_name }}.{{ row.name }}</div>
@@ -148,18 +124,12 @@
             </el-table-column>
             <el-table-column prop="uri" :label="t('mcp.resourceUri')" width="300" sortable />
             <el-table-column prop="mime_type" label="MIME Type" width="200" sortable />
-            <el-table-column :label="t('common.status')" width="180" prop="selected" sortable>
+            <el-table-column :label="t('common.status')" width="100" prop="selected" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRefs['key-resources'], 'selected')">
               <template #default="{ row }">
-                <el-tooltip v-if="!key?.enabled" :content="t('key.keyDisabled')" placement="top">
-                  <el-radio-group v-model="row.selected" disabled>
-                    <el-radio :label="false">{{ t('key.default') }}</el-radio>
-                    <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
-                  </el-radio-group>
+                <el-tooltip v-if="!whitelist.resources" :content="t('key.whitelistDisabledTip')" placement="top">
+                  <el-switch :model-value="true" disabled />
                 </el-tooltip>
-                <el-radio-group v-else v-model="row.selected" @change="toggleResource(row)">
-                  <el-radio :label="false">{{ t('key.default') }}</el-radio>
-                  <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
-                </el-radio-group>
+                <el-switch v-else v-model="row.selected" @change="toggleResource(row)" />
               </template>
             </el-table-column>
           </el-table>
@@ -167,9 +137,10 @@
 
         <el-tab-pane :label="t('mcp.prompts')" name="prompts">
           <div class="tab-actions">
-            <el-button @click="clearPrompts" :loading="clearingPrompts" :disabled="!key?.enabled">{{ t('key.allowAll') }}</el-button>
+            <span class="whitelist-label">{{ t('key.whitelistMode') }}</span>
+            <el-switch v-model="whitelist.prompts" :loading="whitelistLoading.prompts" @change="(v: any) => handleWhitelistChange('prompts', v)" />
           </div>
-          <el-table :data="prompts" stripe v-loading="promptsLoading" :default-sort="promptsDefaultSort" @sort-change="(e: any) => handleSortChange('key-prompts', e)">
+          <el-table :ref="(el: any) => { tableRefs['key-prompts'] = el }" :data="prompts" stripe v-loading="promptsLoading" :default-sort="promptsDefaultSort" @sort-change="(e: any) => handleSortChange('key-prompts', e)">
             <el-table-column :label="t('mcp.promptName')" width="300" prop="name" sortable>
               <template #default="{ row }">
                 <div>{{ row.mcp_name }}.{{ row.name }}</div>
@@ -190,18 +161,12 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column :label="t('common.status')" width="180" prop="selected" sortable>
+            <el-table-column :label="t('common.status')" width="100" prop="selected" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRefs['key-prompts'], 'selected')">
               <template #default="{ row }">
-                <el-tooltip v-if="!key?.enabled" :content="t('key.keyDisabled')" placement="top">
-                  <el-radio-group v-model="row.selected" disabled>
-                    <el-radio :label="false">{{ t('key.default') }}</el-radio>
-                    <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
-                  </el-radio-group>
+                <el-tooltip v-if="!whitelist.prompts" :content="t('key.whitelistDisabledTip')" placement="top">
+                  <el-switch :model-value="true" disabled />
                 </el-tooltip>
-                <el-radio-group v-else v-model="row.selected" @change="togglePrompt(row)">
-                  <el-radio :label="false">{{ t('key.default') }}</el-radio>
-                  <el-radio :label="true">{{ t('key.allowOnly') }}</el-radio>
-                </el-radio-group>
+                <el-switch v-else v-model="row.selected" @change="togglePrompt(row)" />
               </template>
             </el-table-column>
           </el-table>
@@ -221,7 +186,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -229,7 +194,7 @@ import { useCopyText } from '@/composables/useCopyText'
 import CopyButton from '@/components/CopyButton.vue'
 import api from '@/api'
 import { formatContextDisplay } from '@/utils/format'
-import { getSortConfig, setSortConfig } from '@/utils/tableSort'
+import { getSortConfig, setSortConfig, removeSortConfig, sortByPropAsc, sortByStatusThenName } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -255,15 +220,15 @@ const toolsLoading = ref(false)
 const resourcesLoading = ref(false)
 const promptsLoading = ref(false)
 
-const clearingModels = ref(false)
-const clearingTools = ref(false)
-const clearingResources = ref(false)
-const clearingPrompts = ref(false)
+// 白名单开关状态（与 GET /keys/:id 返回的 4 个 whitelist 字段同步）
+const whitelist = reactive({ models: false, tools: false, resources: false, prompts: false })
+const whitelistLoading = reactive({ models: false, tools: false, resources: false, prompts: false })
 
 const modelsDefaultSort = getSortConfig('key-models', 'name')
 const toolsDefaultSort = getSortConfig('key-tools', 'name')
 const resourcesDefaultSort = getSortConfig('key-resources', 'name')
 const promptsDefaultSort = getSortConfig('key-prompts', 'name')
+const tableRefs: Record<string, any> = {}
 
 onMounted(() => {
   fetchKey()
@@ -281,6 +246,12 @@ async function fetchKey() {
   try {
     const res = await api.get(`/keys/${keyId}`)
     key.value = res.data.key
+    Object.assign(whitelist, {
+      models: key.value.models_whitelist || false,
+      tools: key.value.tools_whitelist || false,
+      resources: key.value.resources_whitelist || false,
+      prompts: key.value.prompts_whitelist || false,
+    })
     fetchModels()
   } catch (e: any) {
     ElMessage.error(e.response?.data?.error || t('common.error'))
@@ -294,7 +265,8 @@ async function fetchModels() {
   modelsLoading.value = true
   try {
     const res = await api.get(`/keys/${keyId}/models`)
-    models.value = res.data.models || []
+    // 数据源预排序承担默认顺序（名称升序，design D4）
+    models.value = sortByPropAsc(res.data.models || [])
   } finally {
     modelsLoading.value = false
   }
@@ -304,7 +276,7 @@ async function fetchTools() {
   toolsLoading.value = true
   try {
     const res = await api.get(`/keys/${keyId}/mcp-tools`)
-    tools.value = res.data.tools || []
+    tools.value = sortByPropAsc(res.data.tools || [])
   } finally {
     toolsLoading.value = false
   }
@@ -314,7 +286,7 @@ async function fetchResources() {
   resourcesLoading.value = true
   try {
     const res = await api.get(`/keys/${keyId}/mcp-resources`)
-    resources.value = res.data.resources || []
+    resources.value = sortByPropAsc(res.data.resources || [])
   } finally {
     resourcesLoading.value = false
   }
@@ -324,7 +296,7 @@ async function fetchPrompts() {
   promptsLoading.value = true
   try {
     const res = await api.get(`/keys/${keyId}/mcp-prompts`)
-    prompts.value = res.data.prompts || []
+    prompts.value = sortByPropAsc(res.data.prompts || [])
   } finally {
     promptsLoading.value = false
   }
@@ -386,55 +358,32 @@ async function togglePrompt(row: any) {
   }
 }
 
-async function clearModels() {
-  clearingModels.value = true
-  try {
-    await api.delete(`/keys/${keyId}/models`)
-    ElMessage.success(t('common.success'))
-    models.value.forEach(m => m.selected = false)
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.error || t('common.error'))
-  } finally {
-    clearingModels.value = false
-  }
+const whitelistFetchers: Record<string, () => Promise<void>> = {
+  models: fetchModels,
+  tools: fetchTools,
+  resources: fetchResources,
+  prompts: fetchPrompts,
 }
 
-async function clearTools() {
-  clearingTools.value = true
-  try {
-    await api.delete(`/keys/${keyId}/mcp-tools`)
-    ElMessage.success(t('common.success'))
-    tools.value.forEach(t => t.selected = false)
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.error || t('common.error'))
-  } finally {
-    clearingTools.value = false
+// 白名单开关交互（设计 D2）：开启前确认"将拒绝所有调用"；关闭由后端清除该类型关联记录后刷新
+async function handleWhitelistChange(type: 'models' | 'tools' | 'resources' | 'prompts', enabled: boolean) {
+  if (enabled) {
+    try {
+      await ElMessageBox.confirm(t('key.whitelistEnableConfirm'), t('key.whitelistMode'), { type: 'warning' })
+    } catch {
+      whitelist[type] = false
+      return
+    }
   }
-}
-
-async function clearResources() {
-  clearingResources.value = true
+  whitelistLoading[type] = true
   try {
-    await api.delete(`/keys/${keyId}/mcp-resources`)
-    ElMessage.success(t('common.success'))
-    resources.value.forEach(r => r.selected = false)
+    await api.put(`/keys/${keyId}/whitelist/${type}`, { enabled })
+    await whitelistFetchers[type]()
   } catch (e: any) {
+    whitelist[type] = !enabled
     ElMessage.error(e.response?.data?.error || t('common.error'))
   } finally {
-    clearingResources.value = false
-  }
-}
-
-async function clearPrompts() {
-  clearingPrompts.value = true
-  try {
-    await api.delete(`/keys/${keyId}/mcp-prompts`)
-    ElMessage.success(t('common.success'))
-    prompts.value.forEach(p => p.selected = false)
-  } catch (e: any) {
-    ElMessage.error(e.response?.data?.error || t('common.error'))
-  } finally {
-    clearingPrompts.value = false
+    whitelistLoading[type] = false
   }
 }
 
@@ -480,6 +429,9 @@ function isLongText(text: string): boolean {
 function handleSortChange(key: string, { prop, order }: any) {
   if (prop && order) {
     setSortConfig(key, { prop, order })
+  } else if (!order) {
+    // 第三次点击取消排序：仅清除偏好（表格已自行复位，design D4）
+    removeSortConfig(key)
   }
 }
 </script>
@@ -514,7 +466,14 @@ function handleSortChange(key: string, { prop, order }: any) {
 
 .tab-actions {
   margin-bottom: 16px;
+  padding-right: 45px;
   text-align: right;
+}
+
+.whitelist-label {
+  margin-right: 8px;
+  font-size: 14px;
+  color: var(--el-text-color-regular);
 }
 
 code {

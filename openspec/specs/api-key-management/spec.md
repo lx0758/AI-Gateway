@@ -18,27 +18,14 @@
 - **WHEN** 管理员为 Key 设置过期日期
 - **THEN** 系统存储 expires_at 时间戳
 
-### Requirement: 设置 Key 权限
+#### Scenario: 创建时指定启用状态
+- **WHEN** 管理员创建 Key 时携带 enabled=false
+- **THEN** 创建的 Key 为禁用状态
+- **AND** 该 Key 的后续代理请求被拒绝
 
-系统 SHALL 支持使用 AliasID 引用限制 Key 可以访问的模型。
-
-#### Scenario: 允许所有模型
-- **WHEN** 管理员将模型列表留空
-- **THEN** Key 可以访问所有可用模型
-
-#### Scenario: 通过 AliasID 限制特定模型
-- **WHEN** 管理员指定 AliasID 值的模型列表
-- **THEN** Key 只能访问对应这些 AliasIDs 的模型
-- **AND** 系统验证每个 AliasID 存在于 aliases 表
-
-#### Scenario: 创建使用无效 AliasID
-- **WHEN** 管理员提供不存在的 AliasID
-- **THEN** 系统返回 400 Bad Request 错误，消息为 "alias 未找到"
-
-#### Scenario: Key 创建后 Alias 重命名
-- **WHEN** Alias 在被分配给 API Key 后重命名
-- **THEN** API Key 仍引用相同的 AliasID
-- **AND** API Key 自动显示新的 Alias 名称
+#### Scenario: 创建时省略启用状态
+- **WHEN** 管理员创建 Key 时未提供 enabled 字段
+- **THEN** 创建的 Key 为启用状态
 
 ### Requirement: 设置 Key 配额
 
@@ -94,14 +81,18 @@
 
 ### Requirement: 在请求时验证模型访问权限
 
-系统 SHALL 在处理 API 请求时验证模型权限。
+系统 SHALL 在处理 API 请求时按模型白名单开关验证模型权限。
+
+#### Scenario: 白名单关闭时放行所有模型
+- **WHEN** 客户端请求的 Key 模型白名单开关为关闭
+- **THEN** 系统正常处理请求
 
 #### Scenario: 授权访问请求的模型
 - **WHEN** 客户端请求一个 Key 有权限的模型
 - **THEN** 系统正常处理请求
 
 #### Scenario: 拒绝访问受限模型
-- **WHEN** 客户端请求一个 Key 无权限的模型
+- **WHEN** 客户端请求一个 Key 白名单开启但未勾选的模型
 - **THEN** 系统返回 403 错误，消息为 "模型不允许"
 
 ### Requirement: 响应中返回 AliasID 和名称
@@ -132,14 +123,71 @@
 - **THEN** 所有引用该 AliasID 的 KeyModel 记录自动删除
 - **AND** API Keys 失去访问该模型的权限
 
-### Requirement: 通过 API 管理模型权限
+### Requirement: API Key 创建与编辑表单提供启用状态控制
+系统 SHALL 在 API Key 的新增与编辑对话框中提供启用状态开关，其状态与列表行内状态开关联动一致。
 
-系统 SHALL 提供用于管理 Key-Model 权限的 API 端点。
+#### Scenario: 新增对话框默认启用
+- **WHEN** 管理员打开新增 API Key 对话框
+- **THEN** 状态开关显示为启用且可调
 
-#### Scenario: 列出 Key 的允许模型
-- **WHEN** 管理员请求 API Key 的权限
-- **THEN** 系统返回 Key 可访问的模型 Alias 列表
+#### Scenario: 编辑对话框回显当前状态
+- **WHEN** 管理员打开某个禁用 Key 的编辑对话框
+- **THEN** 状态开关显示为禁用
+- **AND** 保存后该 Key 保持禁用状态
 
-#### Scenario: 更新 Key 权限
-- **WHEN** 管理员更新 API Key 的权限
-- **THEN** 系统用新列表替换所有现有权限
+### Requirement: 设置 Key 模型白名单权限
+
+系统 SHALL 通过显式的模型白名单开关限制 Key 可以访问的模型：开关关闭时允许全部模型，开启时仅允许勾选的模型。
+
+#### Scenario: 白名单关闭时允许全部模型
+- **WHEN** 管理员将模型白名单开关关闭
+- **THEN** Key 可以访问所有可用模型
+- **AND** 系统清除该 Key 已保存的模型关联记录
+
+#### Scenario: 白名单开启时仅允许勾选模型
+- **WHEN** 管理员开启模型白名单并勾选部分模型
+- **THEN** Key 只能访问勾选的模型
+- **AND** 请求未勾选的模型被拒绝
+
+#### Scenario: 白名单开启但未勾选任何模型
+- **WHEN** 管理员开启模型白名单且未勾选任何模型
+- **THEN** 该 Key 的所有模型请求被拒绝
+- **AND** 管理员在开启白名单前看到"将拒绝所有调用"的确认警示
+
+#### Scenario: 主列表统计反映白名单状态
+- **WHEN** 管理员在 API Key 主列表查看某 Key 各类型资源的放行统计
+- **THEN** 白名单开关关闭时统计显示"不限制"
+- **AND** 白名单开关开启且已勾选 N 项时统计显示"允许 N 个"
+- **AND** 白名单开关开启且未勾选任何项时统计显示"允许 0 个"而非"不限制"
+
+#### Scenario: 白名单关闭时勾选开关显示为开启且禁用
+- **WHEN** 管理员打开白名单开关关闭的 Key 的模型列表
+- **THEN** 每个模型的勾选开关显示为开启状态且不可操作
+- **AND** 开关提示"白名单已关闭，全部允许"
+
+#### Scenario: 创建时携带模型列表自动开启白名单
+- **WHEN** 管理员创建 Key 时携带模型列表
+- **THEN** 模型白名单开关为开启状态
+- **AND** 仅列表中的模型被允许
+
+### Requirement: 通过 API 管理模型白名单
+
+系统 SHALL 提供用于管理 Key-模型白名单的 API 端点。
+
+#### Scenario: 查看 Key 的白名单开关状态
+- **WHEN** 管理员请求 GET /keys/:id
+- **THEN** 响应包含 models/tools/resources/prompts 四个白名单开关字段
+
+#### Scenario: 查看 Key 的模型勾选状态
+- **WHEN** 管理员请求 GET /keys/:id/models
+- **THEN** 系统返回全部可用模型及每项的勾选状态
+
+#### Scenario: 切换模型白名单开关
+- **WHEN** 管理员调用 PUT /keys/:id/whitelist/models 且 enabled=false
+- **THEN** 开关关闭且该 Key 的模型关联记录被清除
+- **WHEN** 管理员调用同一端点且 enabled=true
+- **THEN** 开关开启且模型关联记录保持为空，等待管理员勾选
+
+#### Scenario: 勾选与取消勾选模型
+- **WHEN** 管理员通过 POST 或 DELETE /keys/:id/models/:model_id 勾选或取消勾选模型
+- **THEN** 系统创建或删除对应关联记录

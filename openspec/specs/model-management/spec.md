@@ -2,7 +2,7 @@
 
 ## Purpose
 
-定义模型（Model）的行为契约：唯一标识与启停控制、与 ModelMapping 的一对多关系及级联删除、模型列表与详情的信息展示（Token 摘要、能力交集、批量操作）与厂商模型编辑表单的输入格式。
+定义模型（Model）的行为契约：唯一标识与启停控制、与 ModelMapping 的一对多关系及级联删除、模型列表与详情的信息展示（Token 摘要、批量操作）与厂商模型编辑表单的输入格式。
 
 ## Requirements
 
@@ -58,39 +58,6 @@
 - **WHEN** 管理员删除 Model "gpt-4"
 - **THEN** 系统删除所有 model_id=gpt-4.id 的 ModelMappings
 - **AND** 不留下孤立的映射
-
-### Requirement: Model 列表以扁平表格布局显示
-
-系统 SHALL 以扁平表格布局（而非折叠面板）显示模型，与 Providers 页面风格一致。
-
-#### Scenario: Model 列表以扁平表格显示
-- **WHEN** 管理员查看 `/models` 页面
-- **THEN** 系统显示表格，列：Select、Name、Mapping Count、Token Summary、Status、Actions
-- **AND** 每行代表一个 Model
-- **AND** 不使用折叠面板
-
-#### Scenario: Token Summary 显示最小值并附带 Tooltip
-- **WHEN** 模型有启用的映射
-- **THEN** 系统从启用的映射计算 min_context_window
-- **AND** 系统从启用的映射计算 min_max_output
-- **AND** Token Summary 列显示格式化显示（例如 "125K / 4K"，使用 1024-based 单位）
-- **AND** 鼠标悬停显示原始值（例如 "128,000 / 4,096"）
-- **WHEN** 模型没有启用的映射
-- **THEN** Token Summary 列显示 "-"
-
-#### Scenario: 能力交集正确显示
-- **WHEN** 模型有启用的映射
-- **THEN** 系统为所有启用的映射计算能力交集
-- **AND** capabilities 列显示交集后的能力标签组
-- **AND** 全部未选时显示 "None"
-- **WHEN** 模型没有启用的映射
-- **THEN** Capabilities 列显示 "-"
-
-#### Scenario: Token Summary 使用 1024-based 单位格式化
-- **WHEN** 系统格式化 min_context_window 和 min_max_output
-- **THEN** 值 < 1024 显示为原始数字
-- **AND** 值 >= 1024 且 < 1048576 显示为 "XK" 或 "X.XK"（例如 "128K"、"153.6K"，1K = 1024）
-- **AND** 值 >= 1048576 显示为 "XM" 或 "X.XM"（例如 "2M"、"1.5M"，1M = 1048576）
 
 ### Requirement: Model 列表支持批量操作
 
@@ -177,3 +144,28 @@
 #### Scenario: 点击 model_id 文本仍可触发行点击
 - **WHEN** 管理员点击 model_id 文本区域（非复制按钮）
 - **THEN** 系统正常触发 `showModelDetail` 打开详情对话框
+
+### Requirement: Model 列表以扁平表格显示 Token 摘要
+
+系统 SHALL 以扁平表格布局（而非折叠面板）显示模型，与 Providers 页面风格一致。
+
+#### Scenario: Model 列表以扁平表格显示
+- **WHEN** 管理员查看 `/models` 页面
+- **THEN** 系统显示表格，列：Select、Name、Mapping Count、Token Summary、Status、Actions
+- **AND** 每行代表一个 Model
+- **AND** 不使用折叠面板
+
+#### Scenario: Token Summary 显示最小值并附带 Tooltip
+- **WHEN** 模型有启用的映射
+- **THEN** 系统从启用的映射计算 min_context_window
+- **AND** 系统从启用的映射计算 min_max_output
+- **AND** Token Summary 列显示格式化显示（例如 "125K / 4K"，使用 1024-based 单位）
+- **AND** 鼠标悬停显示原始值（例如 "128,000 / 4,096"）
+- **WHEN** 模型没有启用的映射
+- **THEN** Token Summary 列显示 "-"
+
+#### Scenario: Token Summary 使用 1024-based 单位格式化
+- **WHEN** 系统格式化 min_context_window 和 min_max_output
+- **THEN** 值 < 1024 显示为原始数字
+- **AND** 值 >= 1024 且 < 1048576 显示为 "XK" 或 "X.XK"（例如 "128K"、"153.6K"，1K = 1024）
+- **AND** 值 >= 1048576 显示为 "XM" 或 "X.XM"（例如 "2M"、"1.5M"，1M = 1048576）

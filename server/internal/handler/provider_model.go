@@ -15,14 +15,13 @@ import (
 type ProviderModelHandler struct{}
 
 type createProviderModelRequest struct {
-	ModelID        string  `json:"model_id"`
-	DisplayName    string  `json:"display_name"`
-	OwnedBy        string  `json:"owned_by"`
-	ContextWindow  int     `json:"context_window"`
-	MaxOutput      int     `json:"max_output"`
-	InputPrice     float64 `json:"input_price"`
-	OutputPrice    float64 `json:"output_price"`
-	Capabilities   string  `json:"capabilities"`
+	ModelID       string  `json:"model_id"`
+	DisplayName   string  `json:"display_name"`
+	OwnedBy       string  `json:"owned_by"`
+	ContextWindow int     `json:"context_window"`
+	MaxOutput     int     `json:"max_output"`
+	InputPrice    float64 `json:"input_price"`
+	OutputPrice   float64 `json:"output_price"`
 }
 
 type providerModelResponse struct {
@@ -35,7 +34,6 @@ type providerModelResponse struct {
 	MaxOutput     int     `json:"max_output"`
 	InputPrice    float64 `json:"input_price"`
 	OutputPrice   float64 `json:"output_price"`
-	Capabilities  string  `json:"capabilities"`
 	Availability  string  `json:"availability"`
 	CreatedAt     string  `json:"created_at"`
 }
@@ -55,7 +53,6 @@ func toProviderModelResponse(m model.ProviderModel) providerModelResponse {
 		MaxOutput:     m.MaxOutput,
 		InputPrice:    m.InputPrice,
 		OutputPrice:   m.OutputPrice,
-		Capabilities:  m.Capabilities,
 		Availability:  m.Availability,
 		CreatedAt:     m.CreatedAt.Format("2006-01-02 15:04:05"),
 	}
@@ -105,7 +102,6 @@ func (h *ProviderModelHandler) Create(c *gin.Context) {
 		MaxOutput:     req.MaxOutput,
 		InputPrice:    req.InputPrice,
 		OutputPrice:   req.OutputPrice,
-		Capabilities:  req.Capabilities,
 		Availability:  model.AvailabilityUnknown,
 	}
 
@@ -144,12 +140,11 @@ func (h *ProviderModelHandler) Update(c *gin.Context) {
 
 	ctxWindow := req.ContextWindow
 	updates := map[string]interface{}{
-		"display_name":    req.DisplayName,
-		"context_window":  ctxWindow,
-		"max_output":      req.MaxOutput,
-		"input_price":     req.InputPrice,
-		"output_price":    req.OutputPrice,
-		"capabilities":    req.Capabilities,
+		"display_name":   req.DisplayName,
+		"context_window": ctxWindow,
+		"max_output":     req.MaxOutput,
+		"input_price":    req.InputPrice,
+		"output_price":   req.OutputPrice,
 	}
 
 	if req.ModelID != "" && req.ModelID != pm.ModelID {

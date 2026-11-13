@@ -108,20 +108,10 @@ export default {
     price: 'Price',
     source: 'Source',
     maxOutput: 'Max Output',
-    supportsVision: 'Supports Vision',
-    supportsTools: 'Supports Tools',
-    supportsStream: 'Supports Stream',
     addModel: 'Add Model',
-    tools: 'Tools',
-    stream: 'Stream',
-    photo: 'Photo',
-    image: 'Image',
-    video: 'Video',
     contextInputPlaceholder: 'e.g. 128K, 1M, 256k',
     inputPrice: 'Input Price',
     outputPrice: 'Output Price',
-    capabilities: 'Capabilities',
-    providerDisabled: 'Provider is disabled',
     available: 'Available',
     unavailable: 'Unavailable',
     availabilityUnknown: 'Unknown',
@@ -157,10 +147,9 @@ export default {
     resetConfirmTitle: 'Reset API Key',
     resetConfirmMessage: 'After reset, the old key will immediately become invalid. All requests using the old key will fail. Are you sure to continue?',
     resetSuccess: 'Key reset successful. Please save the new key immediately',
-    default: 'Default',
-    allowOnly: 'Allow',
-    allowAll: 'Allow All',
-    keyDisabled: 'Key is disabled'
+    whitelistMode: 'Whitelist Mode',
+    whitelistEnableConfirm: 'Enabling will deny all calls of this type by default. Select allowed resources immediately. Enable now?',
+    whitelistDisabledTip: 'Whitelist disabled — all allowed'
   },
   usage: {
     stats: 'Statistics',
@@ -214,17 +203,11 @@ export default {
     editModel: 'Edit Model',
     name: 'Model Name',
     mappingCount: 'Mapping Count',
-    tokenSummary: 'Token Summary',
     contextWindow: 'Context Window',
-    capabilities: 'Capabilities',
     mappings: 'Mappings',
     addMapping: 'Add Mapping',
     editMapping: 'Edit Mapping',
     providerType: 'Provider Type',
-    modelDisabled: 'Model is disabled',
-    providerDisabledReason: 'Provider is disabled, this mapping cannot be enabled',
-    providerModelUnavailableReason: 'Provider model is unavailable, this mapping cannot be enabled',
-    providerOrModelDisabled: 'Provider or model is disabled',
     testAllMappings: 'Test All Mappings'
   },
   mcp: {
@@ -265,7 +248,6 @@ export default {
     copyJson: 'Copy JSON',
     warning: 'Warning',
     confirmDelete: 'Are you sure you want to delete this MCP service? Associated tools, resources, and prompts will also be deleted.',
-    confirmBatchDelete: 'Are you sure you want to delete {count} selected MCP services? Associated tools, resources, and prompts will also be deleted.',
-    serviceDisabled: 'Service is disabled'
+    confirmBatchDelete: 'Are you sure you want to delete {count} selected MCP services? Associated tools, resources, and prompts will also be deleted.'
   }
 }

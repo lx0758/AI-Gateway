@@ -8,7 +8,7 @@
 
 ### Requirement: AliasMapping 引用 Provider 和 ProviderModel
 
-系统 SHALL 将 AliasMapping 与 Provider（通过 provider_id）关联，并通过 model_id 字符串引用 ProviderModel，包含模型能力和 Token 信息。
+系统 SHALL 将 AliasMapping 与 Provider（通过 provider_id）关联，并通过 model_id 字符串引用 ProviderModel，包含 Token 信息。
 
 #### Scenario: 映射使用有效 Provider
 - **WHEN** 管理员创建 AliasMapping，provider_id=5，provider_model_name="gpt-4-turbo"
@@ -27,7 +27,7 @@
 #### Scenario: 映射在 API 响应中包含模型信息
 - **WHEN** API 在详情页返回 AliasMapping
 - **THEN** 每个映射包含 model_info 对象
-- **AND** model_info 包含 {context_window, max_output, supports_vision, supports_tools, supports_stream}
+- **AND** model_info 包含 {context_window, max_output}
 - **AND** 值从 ProviderModel 表实时检索
 
 ### Requirement: AliasMapping 属于 Alias
@@ -78,23 +78,8 @@
 
 #### Scenario: UI 为禁用的映射显示模型信息
 - **WHEN** AliasMapping.enabled=false
-- **THEN** 管理员可以看到模型 Token 和能力信息
+- **THEN** 管理员可以看到模型 Token 信息
 - **AND** 信息帮助管理员决定重新启用或删除
-
-### Requirement: AliasMapping 支持 Provider 关联
-
-系统 SHALL 为 AliasMapping 查询 Preload Provider 关系。
-
-#### Scenario: 映射包含 Provider 信息
-- **WHEN** API 返回 AliasMapping
-- **THEN** 映射包含 provider 对象，带 {id, name, openai_base_url, anthropic_base_url}
-- **AND** UI 可以显示 Provider 名称和类型标签
-
-#### Scenario: UI 在详情页显示模型能力
-- **WHEN** 管理员查看 Alias 详情页映射表
-- **THEN** 系统显示 Capabilities 列，显示 Vision、Tools、Stream 标签
-- **AND** 标签使用颜色显示：Vision（绿色）、Tools（橙色）、Stream（蓝色）
-- **AND** 标签基于 model_info 值
 
 ### Requirement: AliasMapping 支持拖拽重新排序
 
@@ -115,3 +100,12 @@
 - **WHEN** 系统通过拖拽更新权重
 - **THEN** alias_id、provider_id、provider_model_name、enabled 保持不变
 - **AND** 仅权重值被修改
+
+### Requirement: AliasMapping 响应包含 Provider 信息
+
+系统 SHALL 为 AliasMapping 查询 Preload Provider 关系。
+
+#### Scenario: 映射包含 Provider 信息
+- **WHEN** API 返回 AliasMapping
+- **THEN** 映射包含 provider 对象，带 {id, name, openai_base_url, anthropic_base_url}
+- **AND** UI 可以显示 Provider 名称和类型标签

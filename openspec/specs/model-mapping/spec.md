@@ -42,7 +42,7 @@
 - **THEN** 每个映射包含 provider_model_id
 - **AND** 每个映射包含 provider_model_name（从关联的 ProviderModel.ModelID 获取）
 - **AND** 每个映射包含 model_info 对象
-- **AND** model_info 包含 {context_window, max_output, supports_vision, supports_tools, supports_stream}
+- **AND** model_info 包含 {context_window, max_output}
 
 #### Scenario: 同一 ProviderModel 可多次映射
 - **WHEN** 管理员为 Model "gpt-4" 创建两个 ModelMapping
@@ -109,7 +109,6 @@
 - **THEN** 创建成功，且该映射的 weight 仍为 0
 - **AND** 请求不被拒绝
 
-
 ### Requirement: ModelMapping 可以启用或禁用
 
 系统 SHALL 允许启用/禁用单个 ModelMapping 而不影响同级映射。
@@ -125,23 +124,8 @@
 
 #### Scenario: UI 为禁用的映射显示模型信息
 - **WHEN** ModelMapping.enabled=false
-- **THEN** 管理员可以看到模型 Token 和能力信息
+- **THEN** 管理员可以看到模型 Token 信息
 - **AND** 信息帮助管理员决定重新启用或删除
-
-### Requirement: ModelMapping 支持 Provider 关联
-
-系统 SHALL 为 ModelMapping 查询 Preload Provider 关系。
-
-#### Scenario: 映射包含 Provider 信息
-- **WHEN** API 返回 ModelMapping
-- **THEN** 映射包含 provider 对象，带 {id, name, openai_base_url, anthropic_base_url}
-- **AND** UI 可以显示 Provider 名称和类型标签
-
-#### Scenario: UI 在详情页显示模型能力
-- **WHEN** 管理员查看模型详情页映射表
-- **THEN** 系统显示 Capabilities 列，显示 Vision、Tools、Stream 标签
-- **AND** 标签使用颜色显示：Vision（绿色）、Tools（橙色）、Stream（蓝色）
-- **AND** 标签基于 model_info 值
 
 ### Requirement: ModelMapping 支持拖拽重新排序
 
@@ -177,7 +161,7 @@
 - **AND** Model 有 ModelMappings，其中部分有 Provider.enabled=false
 - **THEN** 响应 mappings 数组仅包含 Provider.enabled=true 的映射
 - **AND** mapping_count 仅反映启用的 Provider 映射
-- **AND** min_context_window、min_max_output、capabilities 仅从启用的 Provider 映射计算
+- **AND** min_context_window、min_max_output 仅从启用的 Provider 映射计算
 
 #### Scenario: Model 详情排除禁用 Provider 映射
 - **WHEN** 管理员请求 GET /api/v1/models/:id
@@ -193,15 +177,12 @@
 #### Scenario: Key 模型列表排除禁用 Provider 映射
 - **WHEN** 管理员请求 GET /api/v1/keys/:id/models
 - **AND** Model 有 Provider.enabled=false 的 ModelMappings
-- **THEN** 响应 mapping_count、min_context_window、min_max_output 和 capabilities 仅从启用的 Provider 映射计算
+- **THEN** 响应 mapping_count、min_context_window、min_max_output 仅从启用的 Provider 映射计算
 
 #### Scenario: 统计计算忽略禁用 Provider 映射
 - **WHEN** 系统计算 min_context_window 或 min_max_output
 - **AND** ModelMapping 有 Provider.enabled=false
 - **THEN** 该映射从计算中排除
-- **WHEN** 系统计算能力交集
-- **AND** ModelMapping 有 Provider.enabled=false
-- **THEN** 该映射从交集中排除
 
 #### Scenario: Model 更新响应排除禁用 Provider 映射
 - **WHEN** 管理员通过 PUT /api/v1/models/:id 更新 Model
@@ -276,21 +257,40 @@
 - **WHEN** 编辑映射的请求体不包含 weight 字段（前端表单无权重输入）
 - **THEN** 服务端保持该映射权重不变
 
-### Requirement: 统计计算排除失效模型的映射
+### Requirement: 映射对话框切换厂商清空模型选择
 
-系统 SHALL 在计算 min_context_window、min_max_output 与能力交集时，除排除禁用 Provider 的映射外，同样排除关联模型 `availability="unavailable"`（失效）的映射，使统计与真实路由能力一致。
+系统 SHALL 在映射新增/编辑对话框中，当管理员切换厂商时立即清空已选模型并重新加载该厂商的模型列表，防止陈旧的模型选择触发不匹配拒绝。
+
+#### Scenario: 切换厂商清空已选模型
+- **WHEN** 管理员在映射对话框中将厂商从 A 切换为 B
+- **THEN** 已选模型被清空且模型下拉展示厂商 B 的模型列表
+
+#### Scenario: 未选厂商时模型选择器为空
+- **WHEN** 管理员清空厂商选择
+- **THEN** 模型选择器为空且不加载任何模型
+
+#### Scenario: 清空后必须重新选择模型才能保存
+- **WHEN** 管理员切换厂商后未重新选择模型即提交
+- **THEN** 表单提示模型为必填，不发起保存请求
+
+### Requirement: ModelMapping 响应包含 Provider 信息
+
+系统 SHALL 为 ModelMapping 查询 Preload Provider 关系。
+
+#### Scenario: 映射包含 Provider 信息
+- **WHEN** API 返回 ModelMapping
+- **THEN** 映射包含 provider 对象，带 {id, name, openai_base_url, anthropic_base_url}
+- **AND** UI 可以显示 Provider 名称和类型标签
+
+### Requirement: Token 统计排除失效模型的映射
+
+系统 SHALL 在计算 min_context_window、min_max_output 时，除排除禁用 Provider 的映射外，同样排除关联模型 `availability="unavailable"`（失效）的映射，使统计与真实路由能力一致。
 
 #### Scenario: Token 统计排除失效模型映射
 - **WHEN** 系统计算 min_context_window 或 min_max_output
 - **AND** 某启用映射关联的 ProviderModel `availability="unavailable"`
 - **THEN** 该映射从计算中排除
 
-#### Scenario: 能力交集排除失效模型映射
-- **WHEN** 系统计算能力交集
-- **AND** 某启用映射关联的 ProviderModel `availability="unavailable"`
-- **THEN** 该映射从交集中排除
-
 #### Scenario: 全部映射指向失效模型时统计为空
 - **WHEN** 模型的所有启用映射均关联 `availability="unavailable"` 的 ProviderModel
 - **THEN** Token Summary 显示 "-"
-- **AND** 能力交集显示 "-"

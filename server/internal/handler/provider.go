@@ -20,6 +20,7 @@ type createProviderRequest struct {
 	APIKey           string `json:"api_key" binding:"required"`
 	Homepage         string `json:"homepage"`
 	BillingType      string `json:"billing_type"`
+	Enabled          *bool  `json:"enabled"`
 	Priority         int    `json:"priority"`
 }
 
@@ -142,6 +143,11 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 		return
 	}
 
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
+
 	provider := model.Provider{
 		Name:             req.Name,
 		OpenAIBaseURL:    strings.TrimSuffix(req.OpenAIBaseURL, "/"),
@@ -149,7 +155,7 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 		APIKey:           req.APIKey,
 		Homepage:         req.Homepage,
 		BillingType:      req.BillingType,
-		Enabled:          true,
+		Enabled:          enabled,
 		Priority:         req.Priority,
 	}
 
@@ -161,6 +167,10 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 	if err := model.DB.Create(&provider).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	// GORM 会跳过带 default 标签字段的零值插入（落库走 DB 默认 true），禁用状态需显式回写
+	if !enabled {
+		model.DB.Model(&provider).Update("enabled", false)
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"provider": providerResponse{

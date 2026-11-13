@@ -10,35 +10,35 @@
           </div>
         </div>
       </template>
-      <el-table :data="keys" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
+      <el-table ref="tableRef" :data="keys" stripe v-loading="loading" @selection-change="handleSelectionChange" :default-sort="defaultSort" @sort-change="handleSortChange">
         <el-table-column type="selection" width="50" />
         <el-table-column prop="name" :label="t('key.name')" width="180" sortable />
         <el-table-column prop="key" :label="t('key.key')" width="240" />
         <el-table-column :label="t('key.model')" prop="models" sortable :sort-method="(a: any, b: any) => sortByArrayLength(a, b, 'models')">
           <template #default="{ row }">
-            <span v-if="!row.models || row.models.length === 0" style="color: #999">{{ t('key.allModels') }}</span>
-            <span v-else>{{ t('key.allowedCount', { count: row.models.length }) }}</span>
+            <span v-if="!row.models_whitelist" style="color: #999">{{ t('key.allModels') }}</span>
+            <span v-else>{{ t('key.allowedCount', { count: row.models?.length || 0 }) }}</span>
           </template>
         </el-table-column>
         <el-table-column :label="t('mcp.tools')" prop="mcp_tools_count" sortable>
           <template #default="{ row }">
-            <span v-if="row.mcp_tools_count === 0" style="color: #999">{{ t('key.allModels') }}</span>
+            <span v-if="!row.tools_whitelist" style="color: #999">{{ t('key.allModels') }}</span>
             <span v-else>{{ t('key.allowedCount', { count: row.mcp_tools_count }) }}</span>
           </template>
         </el-table-column>
         <el-table-column :label="t('mcp.resources')" prop="mcp_resources_count" sortable>
           <template #default="{ row }">
-            <span v-if="row.mcp_resources_count === 0" style="color: #999">{{ t('key.allModels') }}</span>
+            <span v-if="!row.resources_whitelist" style="color: #999">{{ t('key.allModels') }}</span>
             <span v-else>{{ t('key.allowedCount', { count: row.mcp_resources_count }) }}</span>
           </template>
         </el-table-column>
         <el-table-column :label="t('mcp.prompts')" prop="mcp_prompts_count" sortable>
           <template #default="{ row }">
-            <span v-if="row.mcp_prompts_count === 0" style="color: #999">{{ t('key.allModels') }}</span>
+            <span v-if="!row.prompts_whitelist" style="color: #999">{{ t('key.allModels') }}</span>
             <span v-else>{{ t('key.allowedCount', { count: row.mcp_prompts_count }) }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('common.status')" width="150" prop="enabled" sortable>
+        <el-table-column :label="t('common.status')" width="150" prop="enabled" sortable :sort-method="(a: any, b: any) => sortByStatusThenName(a, b, tableRef)">
           <template #default="{ row }">
             <el-switch v-model="row.enabled" @change="toggleEnabled(row)" />
           </template>
@@ -57,6 +57,9 @@
        <el-form :model="form" ref="formRef" label-width="auto">
          <el-form-item :label="t('key.name')" required>
            <el-input v-model="form.name" />
+         </el-form-item>
+         <el-form-item :label="t('common.status')">
+           <el-switch v-model="form.enabled" />
          </el-form-item>
        </el-form>
        <template #footer>
@@ -83,7 +86,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCopyText } from '@/composables/useCopyText'
 import api from '@/api'
-import { getSortConfig, setSortConfig, sortByArrayLength } from '@/utils/tableSort'
+import { getSortConfig, setSortConfig, removeSortConfig, sortByArrayLength, sortByPropAsc, sortByStatusThenName } from '@/utils/tableSort'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -99,10 +102,12 @@ const newKey = ref('')
 const editingId = ref<number | null>(null)
 const formRef = ref()
 const submitting = ref(false)
+const tableRef = ref()
 const defaultSort = getSortConfig('keys', 'name')
 
 const form = reactive({
-  name: ''
+  name: '',
+  enabled: true
 })
 
 onMounted(() => {
@@ -113,7 +118,8 @@ async function fetchKeys() {
   loading.value = true
   try {
     const res = await api.get('/keys')
-    keys.value = res.data.keys || []
+    // 数据源预排序承担默认顺序（名称升序，design D4）：与名称列内置比较一致
+    keys.value = sortByPropAsc(res.data.keys || [])
   } finally {
     loading.value = false
   }
@@ -128,8 +134,10 @@ async function showDialog(key?: any) {
   
   if (key) {
     form.name = key.name || ''
+    form.enabled = key.enabled ?? true
   } else {
     form.name = ''
+    form.enabled = true
   }
   
   dialogVisible.value = true
@@ -139,11 +147,11 @@ async function handleSubmit() {
   submitting.value = true
   try {
     if (editingId.value) {
-      await api.put(`/keys/${editingId.value}`, { name: form.name })
+      await api.put(`/keys/${editingId.value}`, { name: form.name, enabled: form.enabled })
       ElMessage.success(t('common.success'))
       dialogVisible.value = false
     } else {
-      const res = await api.post('/keys', { name: form.name })
+      const res = await api.post('/keys', { name: form.name, enabled: form.enabled })
       newKey.value = res.data.raw_key
       dialogVisible.value = false
       keyDialogVisible.value = true
@@ -171,6 +179,9 @@ function goDetail(id: number) {
 function handleSortChange({ prop, order }: any) {
   if (prop && order) {
     setSortConfig('keys', { prop, order })
+  } else if (!order) {
+    // 第三次点击取消排序：仅清除偏好（表格已自行复位，design D4）
+    removeSortConfig('keys')
   }
 }
 

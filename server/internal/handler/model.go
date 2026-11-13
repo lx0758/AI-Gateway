@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -49,7 +48,6 @@ type modelResponse struct {
 	MappingCount     int               `json:"mapping_count"`
 	MinContextWindow int               `json:"min_context_window"`
 	MinMaxOutput     int               `json:"min_max_output"`
-	Capabilities     string            `json:"capabilities"`
 	CreatedAt        string            `json:"created_at"`
 	Mappings         []mappingResponse `json:"mappings,omitempty"`
 }
@@ -68,9 +66,8 @@ type mappingResponse struct {
 }
 
 type modelInfoResponse struct {
-	ContextWindow  int    `json:"context_window"`
-	MaxOutput      int    `json:"max_output"`
-	Capabilities   string `json:"capabilities"`
+	ContextWindow int `json:"context_window"`
+	MaxOutput     int `json:"max_output"`
 }
 
 type providerBasicResponse struct {
@@ -106,7 +103,6 @@ func (h *ModelHandler) List(c *gin.Context) {
 
 		enabledCount := calculateEnabledCount(mappings)
 		minContext, minOutput := calculateMinTokens(mappings)
-		caps := calculateCapabilitiesIntersection(mappings)
 
 		result[i] = modelResponse{
 			ID:               a.ID,
@@ -115,7 +111,6 @@ func (h *ModelHandler) List(c *gin.Context) {
 			MappingCount:     enabledCount,
 			MinContextWindow: minContext,
 			MinMaxOutput:     minOutput,
-			Capabilities:     caps,
 			CreatedAt:        a.CreatedAt.Format("2006-01-02 15:04:05"),
 			Mappings:         mappingResponses,
 		}
@@ -548,9 +543,8 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 	if m.ProviderModel != nil {
 		providerModelName = m.ProviderModel.ModelID
 		modelInfoResp = &modelInfoResponse{
-			ContextWindow:  m.ProviderModel.ContextWindow,
-			MaxOutput:      m.ProviderModel.MaxOutput,
-			Capabilities:   m.ProviderModel.Capabilities,
+			ContextWindow: m.ProviderModel.ContextWindow,
+			MaxOutput:     m.ProviderModel.MaxOutput,
 		}
 		if m.ProviderModel.Availability == model.AvailabilityUnavailable && !forcedDisabled {
 			forcedDisabled = true
@@ -634,72 +628,3 @@ func calculateMinTokens(mappings []model.ModelMapping) (int, int) {
 	return minContext, minOutput
 }
 
-func calculateCapabilitiesIntersection(mappings []model.ModelMapping) string {
-	var firstCaps []string
-	hasEnabled := false
-
-	for _, m := range mappings {
-		if !m.Enabled {
-			continue
-		}
-
-		if m.Provider == nil || !m.Provider.Enabled {
-			continue
-		}
-
-		if m.ProviderModel == nil {
-			continue
-		}
-
-		// 失效模型不参与能力交集
-		if m.ProviderModel.Availability == model.AvailabilityUnavailable {
-			continue
-		}
-
-		if m.ProviderModel.Capabilities == "" {
-			// capabilities 为空，直接返回空（交集为空）
-			return ""
-		}
-
-		hasEnabled = true
-		caps := splitCaps(m.ProviderModel.Capabilities)
-
-		if len(firstCaps) == 0 {
-			firstCaps = caps
-			continue
-		}
-
-		// 取交集
-		intersection := make(map[string]bool)
-		for _, c := range firstCaps {
-			intersection[c] = true
-		}
-		var newFirstCaps []string
-		for _, c := range caps {
-			if intersection[c] {
-				newFirstCaps = append(newFirstCaps, c)
-			}
-		}
-		firstCaps = newFirstCaps
-	}
-
-	if !hasEnabled || len(firstCaps) == 0 {
-		return ""
-	}
-
-	return strings.Join(firstCaps, ",")
-}
-
-func splitCaps(s string) []string {
-	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' })
-}
-
-func joinCaps(set map[string]bool) string {
-	var parts []string
-	for _, c := range []string{"tools", "stream", "image", "video", "photo"} {
-		if set[c] {
-			parts = append(parts, c)
-		}
-	}
-	return strings.Join(parts, ",")
-}
