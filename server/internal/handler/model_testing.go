@@ -87,9 +87,9 @@ func (h *ModelTestHandler) TestCustomModel(c *gin.Context) {
 	}
 
 	var wg sync.WaitGroup
-	var openAIResult, anthropicResult *protocolTestResult
+	var openAIResult, anthropicResult, responsesResult *protocolTestResult
 
-	if p.OpenAIBaseURL != "" {
+	if p.OpenAIChatCompletionsBaseURL != "" {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -98,12 +98,21 @@ func (h *ModelTestHandler) TestCustomModel(c *gin.Context) {
 		}()
 	}
 
-	if p.AnthropicBaseURL != "" {
+	if p.AnthropicMessagesBaseURL != "" {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			result := executeTest(&p, pm, "anthropic")
 			anthropicResult = &result
+		}()
+	}
+
+	if p.OpenAIResponsesBaseURL != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := executeTest(&p, pm, "responses")
+			responsesResult = &result
 		}()
 	}
 
@@ -115,6 +124,9 @@ func (h *ModelTestHandler) TestCustomModel(c *gin.Context) {
 	}
 	if anthropicResult != nil {
 		tests = append(tests, *anthropicResult)
+	}
+	if responsesResult != nil {
+		tests = append(tests, *responsesResult)
 	}
 
 	resp := customModelTestResponse{
@@ -158,9 +170,9 @@ func (h *ModelTestHandler) TestProviderModel(c *gin.Context) {
 	}
 
 	var wg sync.WaitGroup
-	var openAIResult, anthropicResult *protocolTestResult
+	var openAIResult, anthropicResult, responsesResult *protocolTestResult
 
-	if p.OpenAIBaseURL != "" {
+	if p.OpenAIChatCompletionsBaseURL != "" {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -169,12 +181,21 @@ func (h *ModelTestHandler) TestProviderModel(c *gin.Context) {
 		}()
 	}
 
-	if p.AnthropicBaseURL != "" {
+	if p.AnthropicMessagesBaseURL != "" {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			result := executeTest(&p, &pm, "anthropic")
 			anthropicResult = &result
+		}()
+	}
+
+	if p.OpenAIResponsesBaseURL != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := executeTest(&p, &pm, "responses")
+			responsesResult = &result
 		}()
 	}
 
@@ -186,6 +207,9 @@ func (h *ModelTestHandler) TestProviderModel(c *gin.Context) {
 	}
 	if anthropicResult != nil {
 		tests = append(tests, *anthropicResult)
+	}
+	if responsesResult != nil {
+		tests = append(tests, *responsesResult)
 	}
 
 	resp := providerModelTestResponse{
@@ -212,11 +236,12 @@ type mappingTestResult struct {
 }
 
 type providerBasicInfo struct {
-	ID               uint   `json:"id"`
-	Name             string `json:"name"`
-	OpenAIBaseURL    string `json:"openai_base_url"`
-	AnthropicBaseURL string `json:"anthropic_base_url"`
-	Enabled          bool   `json:"enabled"`
+	ID                           uint   `json:"id"`
+	Name                         string `json:"name"`
+	OpenAIChatCompletionsBaseURL string `json:"openai_chat_completions_base_url"`
+	AnthropicMessagesBaseURL     string `json:"anthropic_messages_base_url"`
+	OpenAIResponsesBaseURL       string `json:"openai_responses_base_url"`
+	Enabled                      bool   `json:"enabled"`
 }
 
 type modelBasicInfo struct {
@@ -276,13 +301,18 @@ func (h *ModelTestHandler) TestModel(c *gin.Context) {
 
 			protocolTests := []protocolTestResult{}
 
-			if j.mapping.Provider.OpenAIBaseURL != "" {
+			if j.mapping.Provider.OpenAIChatCompletionsBaseURL != "" {
 				result := executeTest(j.mapping.Provider, j.pm, "openai")
 				protocolTests = append(protocolTests, result)
 			}
 
-			if j.mapping.Provider.AnthropicBaseURL != "" {
+			if j.mapping.Provider.AnthropicMessagesBaseURL != "" {
 				result := executeTest(j.mapping.Provider, j.pm, "anthropic")
+				protocolTests = append(protocolTests, result)
+			}
+
+			if j.mapping.Provider.OpenAIResponsesBaseURL != "" {
+				result := executeTest(j.mapping.Provider, j.pm, "responses")
 				protocolTests = append(protocolTests, result)
 			}
 
@@ -290,11 +320,12 @@ func (h *ModelTestHandler) TestModel(c *gin.Context) {
 				MappingID: j.mapping.ID,
 				Weight:    j.mapping.Weight,
 				Provider: providerBasicInfo{
-					ID:               j.mapping.Provider.ID,
-					Name:             j.mapping.Provider.Name,
-					OpenAIBaseURL:    j.mapping.Provider.OpenAIBaseURL,
-					AnthropicBaseURL: j.mapping.Provider.AnthropicBaseURL,
-					Enabled:          j.mapping.Provider.Enabled,
+					ID:                           j.mapping.Provider.ID,
+					Name:                         j.mapping.Provider.Name,
+					OpenAIChatCompletionsBaseURL: j.mapping.Provider.OpenAIChatCompletionsBaseURL,
+					AnthropicMessagesBaseURL:     j.mapping.Provider.AnthropicMessagesBaseURL,
+					OpenAIResponsesBaseURL:       j.mapping.Provider.OpenAIResponsesBaseURL,
+					Enabled:                      j.mapping.Provider.Enabled,
 				},
 				ProviderModel: modelBasicInfo{
 					ModelID:     j.pm.ModelID,
@@ -320,6 +351,14 @@ func executeTest(p *model.Provider, pm *model.ProviderModel, protocol string) pr
 		"max_tokens": 100,
 		"stream":     false,
 	}
+	if protocol == "responses" {
+		body = map[string]interface{}{
+			"model":             pm.ModelID,
+			"input":             "简短介绍一下自己。",
+			"max_output_tokens": 100,
+			"stream":            false,
+		}
+	}
 	bodyBytes, _ := json.Marshal(body)
 
 	w := httptest.NewRecorder()
@@ -328,8 +367,9 @@ func executeTest(p *model.Provider, pm *model.ProviderModel, protocol string) pr
 	testCtx.Request.Header.Set("Content-Type", "application/json")
 
 	providerImpl := provider.NewAutomatedProvider(
-		p.OpenAIBaseURL,
-		p.AnthropicBaseURL,
+		p.OpenAIChatCompletionsBaseURL,
+		p.AnthropicMessagesBaseURL,
+		p.OpenAIResponsesBaseURL,
 		p.APIKey,
 	)
 	usage := &provider.Usage{}
@@ -342,16 +382,22 @@ func executeTest(p *model.Provider, pm *model.ProviderModel, protocol string) pr
 	var err error
 	callMethod := "direct"
 
-	if protocol == "openai" {
-		if p.OpenAIBaseURL == "" {
+	switch protocol {
+	case "openai":
+		if p.OpenAIChatCompletionsBaseURL == "" {
 			callMethod = "convert"
 		}
-		err = providerImpl.ExecuteOpenAIRequest(testCtx, pm, usage)
-	} else {
-		if p.AnthropicBaseURL == "" {
+		err = providerImpl.ExecuteOpenAIChatCompletionsRequest(testCtx, pm, usage)
+	case "anthropic":
+		if p.AnthropicMessagesBaseURL == "" {
 			callMethod = "convert"
 		}
-		err = providerImpl.ExecuteAnthropicRequest(testCtx, pm, usage)
+		err = providerImpl.ExecuteAnthropicMessagesRequest(testCtx, pm, usage)
+	case "responses":
+		if p.OpenAIResponsesBaseURL == "" {
+			callMethod = "convert"
+		}
+		err = providerImpl.ExecuteOpenAIResponsesRequest(testCtx, pm, usage)
 	}
 
 	latencyMs := time.Since(start).Milliseconds()
@@ -398,7 +444,8 @@ func extractResponseContent(body []byte, protocol string) string {
 		return ""
 	}
 
-	if protocol == "openai" {
+	switch protocol {
+	case "openai":
 		var resp struct {
 			Choices []struct {
 				Message struct {
@@ -412,7 +459,7 @@ func extractResponseContent(body []byte, protocol string) string {
 		if len(resp.Choices) > 0 {
 			return strings.TrimSpace(resp.Choices[0].Message.Content)
 		}
-	} else {
+	case "anthropic":
 		var resp struct {
 			Content []struct {
 				Type string `json:"type"`
@@ -425,6 +472,29 @@ func extractResponseContent(body []byte, protocol string) string {
 		for _, c := range resp.Content {
 			if c.Type == "text" && c.Text != "" {
 				return strings.TrimSpace(c.Text)
+			}
+		}
+	case "responses":
+		var resp struct {
+			Output []struct {
+				Type    string `json:"type"`
+				Content []struct {
+					Type string `json:"type"`
+					Text string `json:"text"`
+				} `json:"content"`
+			} `json:"output"`
+		}
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return ""
+		}
+		for _, item := range resp.Output {
+			if item.Type != "message" {
+				continue
+			}
+			for _, c := range item.Content {
+				if c.Type == "output_text" && c.Text != "" {
+					return strings.TrimSpace(c.Text)
+				}
 			}
 		}
 	}

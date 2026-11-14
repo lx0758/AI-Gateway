@@ -14,25 +14,27 @@ import (
 type ProviderHandler struct{}
 
 type createProviderRequest struct {
-	Name             string `json:"name" binding:"required"`
-	OpenAIBaseURL    string `json:"openai_base_url"`
-	AnthropicBaseURL string `json:"anthropic_base_url"`
-	APIKey           string `json:"api_key" binding:"required"`
-	Homepage         string `json:"homepage"`
-	BillingType      string `json:"billing_type"`
-	Enabled          *bool  `json:"enabled"`
-	Priority         int    `json:"priority"`
+	Name                          string `json:"name" binding:"required"`
+	OpenAIChatCompletionsBaseURL  string `json:"openai_chat_completions_base_url"`
+	AnthropicMessagesBaseURL      string `json:"anthropic_messages_base_url"`
+	OpenAIResponsesBaseURL        string `json:"openai_responses_base_url"`
+	APIKey                        string `json:"api_key" binding:"required"`
+	Homepage                      string `json:"homepage"`
+	BillingType                   string `json:"billing_type"`
+	Enabled                       *bool  `json:"enabled"`
+	Priority                      int    `json:"priority"`
 }
 
 type updateProviderRequest struct {
-	Name             string  `json:"name"`
-	OpenAIBaseURL    *string `json:"openai_base_url"`
-	AnthropicBaseURL *string `json:"anthropic_base_url"`
-	APIKey           string  `json:"api_key"`
-	Homepage         *string `json:"homepage"`
-	BillingType      *string `json:"billing_type"`
-	Enabled          *bool   `json:"enabled"`
-	Priority         *int    `json:"priority"`
+	Name                          string  `json:"name"`
+	OpenAIChatCompletionsBaseURL  *string `json:"openai_chat_completions_base_url"`
+	AnthropicMessagesBaseURL      *string `json:"anthropic_messages_base_url"`
+	OpenAIResponsesBaseURL        *string `json:"openai_responses_base_url"`
+	APIKey                        string  `json:"api_key"`
+	Homepage                      *string `json:"homepage"`
+	BillingType                   *string `json:"billing_type"`
+	Enabled                       *bool   `json:"enabled"`
+	Priority                      *int    `json:"priority"`
 }
 
 // 付费类型值域：空串 = 未设置。binding tag 的 oneof 对指针空串与未传字段无法两全，
@@ -49,17 +51,18 @@ func validateBillingType(billingType string) bool {
 }
 
 type providerResponse struct {
-	ID               uint                    `json:"id"`
-	Name             string                  `json:"name"`
-	OpenAIBaseURL    string                  `json:"openai_base_url"`
-	AnthropicBaseURL string                  `json:"anthropic_base_url"`
-	APIKeyMasked     string                  `json:"api_key_masked"`
-	Homepage         string                  `json:"homepage"`
-	BillingType      string                  `json:"billing_type"`
-	Enabled          bool                    `json:"enabled"`
-	Priority         int                     `json:"priority"`
-	Models           []providerModelResponse `json:"models,omitempty"`
-	CreatedAt        string                  `json:"created_at"`
+	ID                           uint                    `json:"id"`
+	Name                         string                  `json:"name"`
+	OpenAIChatCompletionsBaseURL string                  `json:"openai_chat_completions_base_url"`
+	AnthropicMessagesBaseURL     string                  `json:"anthropic_messages_base_url"`
+	OpenAIResponsesBaseURL       string                  `json:"openai_responses_base_url"`
+	APIKeyMasked                 string                  `json:"api_key_masked"`
+	Homepage                     string                  `json:"homepage"`
+	BillingType                  string                  `json:"billing_type"`
+	Enabled                      bool                    `json:"enabled"`
+	Priority                     int                     `json:"priority"`
+	Models                       []providerModelResponse `json:"models,omitempty"`
+	CreatedAt                    string                  `json:"created_at"`
 }
 
 func NewProviderHandler() *ProviderHandler {
@@ -81,17 +84,18 @@ func (h *ProviderHandler) List(c *gin.Context) {
 		}
 
 		result[i] = providerResponse{
-			ID:               p.ID,
-			Name:             p.Name,
-			OpenAIBaseURL:    p.OpenAIBaseURL,
-			AnthropicBaseURL: p.AnthropicBaseURL,
-			APIKeyMasked:     maskAPIKey(p.APIKey),
-			Homepage:         p.Homepage,
-			BillingType:      p.BillingType,
-			Enabled:          p.Enabled,
-			Priority:         p.Priority,
-			Models:           models,
-			CreatedAt:        p.CreatedAt.Format("2006-01-02 15:04:05"),
+			ID:                           p.ID,
+			Name:                         p.Name,
+			OpenAIChatCompletionsBaseURL: p.OpenAIChatCompletionsBaseURL,
+			AnthropicMessagesBaseURL:     p.AnthropicMessagesBaseURL,
+			OpenAIResponsesBaseURL:       p.OpenAIResponsesBaseURL,
+			APIKeyMasked:                 maskAPIKey(p.APIKey),
+			Homepage:                     p.Homepage,
+			BillingType:                  p.BillingType,
+			Enabled:                      p.Enabled,
+			Priority:                     p.Priority,
+			Models:                       models,
+			CreatedAt:                    p.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
 	}
 
@@ -117,17 +121,18 @@ func (h *ProviderHandler) Get(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"provider": providerResponse{
-		ID:               provider.ID,
-		Name:             provider.Name,
-		OpenAIBaseURL:    provider.OpenAIBaseURL,
-		AnthropicBaseURL: provider.AnthropicBaseURL,
-		APIKeyMasked:     maskAPIKey(provider.APIKey),
-		Homepage:         provider.Homepage,
-		BillingType:      provider.BillingType,
-		Enabled:          provider.Enabled,
-		Priority:         provider.Priority,
-		Models:           models,
-		CreatedAt:        provider.CreatedAt.Format("2006-01-02 15:04:05"),
+		ID:                           provider.ID,
+		Name:                         provider.Name,
+		OpenAIChatCompletionsBaseURL: provider.OpenAIChatCompletionsBaseURL,
+		AnthropicMessagesBaseURL:     provider.AnthropicMessagesBaseURL,
+		OpenAIResponsesBaseURL:       provider.OpenAIResponsesBaseURL,
+		APIKeyMasked:                 maskAPIKey(provider.APIKey),
+		Homepage:                     provider.Homepage,
+		BillingType:                  provider.BillingType,
+		Enabled:                      provider.Enabled,
+		Priority:                     provider.Priority,
+		Models:                       models,
+		CreatedAt:                    provider.CreatedAt.Format("2006-01-02 15:04:05"),
 	}})
 }
 
@@ -149,17 +154,18 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 	}
 
 	provider := model.Provider{
-		Name:             req.Name,
-		OpenAIBaseURL:    strings.TrimSuffix(req.OpenAIBaseURL, "/"),
-		AnthropicBaseURL: strings.TrimSuffix(req.AnthropicBaseURL, "/"),
-		APIKey:           req.APIKey,
-		Homepage:         req.Homepage,
-		BillingType:      req.BillingType,
-		Enabled:          enabled,
-		Priority:         req.Priority,
+		Name:                         req.Name,
+		OpenAIChatCompletionsBaseURL: strings.TrimSuffix(req.OpenAIChatCompletionsBaseURL, "/"),
+		AnthropicMessagesBaseURL:     strings.TrimSuffix(req.AnthropicMessagesBaseURL, "/"),
+		OpenAIResponsesBaseURL:       strings.TrimSuffix(req.OpenAIResponsesBaseURL, "/"),
+		APIKey:                       req.APIKey,
+		Homepage:                     req.Homepage,
+		BillingType:                  req.BillingType,
+		Enabled:                      enabled,
+		Priority:                     req.Priority,
 	}
 
-	if provider.OpenAIBaseURL == "" && provider.AnthropicBaseURL == "" {
+	if provider.OpenAIChatCompletionsBaseURL == "" && provider.AnthropicMessagesBaseURL == "" && provider.OpenAIResponsesBaseURL == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one base URL is required"})
 		return
 	}
@@ -174,16 +180,17 @@ func (h *ProviderHandler) Create(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"provider": providerResponse{
-		ID:               provider.ID,
-		Name:             provider.Name,
-		OpenAIBaseURL:    provider.OpenAIBaseURL,
-		AnthropicBaseURL: provider.AnthropicBaseURL,
-		APIKeyMasked:     maskAPIKey(provider.APIKey),
-		Homepage:         provider.Homepage,
-		BillingType:      provider.BillingType,
-		Enabled:          provider.Enabled,
-		Priority:         provider.Priority,
-		CreatedAt:        provider.CreatedAt.Format("2006-01-02 15:04:05"),
+		ID:                           provider.ID,
+		Name:                         provider.Name,
+		OpenAIChatCompletionsBaseURL: provider.OpenAIChatCompletionsBaseURL,
+		AnthropicMessagesBaseURL:     provider.AnthropicMessagesBaseURL,
+		OpenAIResponsesBaseURL:       provider.OpenAIResponsesBaseURL,
+		APIKeyMasked:                 maskAPIKey(provider.APIKey),
+		Homepage:                     provider.Homepage,
+		BillingType:                  provider.BillingType,
+		Enabled:                      provider.Enabled,
+		Priority:                     provider.Priority,
+		CreatedAt:                    provider.CreatedAt.Format("2006-01-02 15:04:05"),
 	}})
 }
 
@@ -217,11 +224,14 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 	}
 
 	// 允许更新 BaseURL（包括清空）
-	if req.OpenAIBaseURL != nil {
-		updates["openai_base_url"] = strings.TrimSuffix(*req.OpenAIBaseURL, "/")
+	if req.OpenAIChatCompletionsBaseURL != nil {
+		updates["openai_chat_completions_base_url"] = strings.TrimSuffix(*req.OpenAIChatCompletionsBaseURL, "/")
 	}
-	if req.AnthropicBaseURL != nil {
-		updates["anthropic_base_url"] = strings.TrimSuffix(*req.AnthropicBaseURL, "/")
+	if req.AnthropicMessagesBaseURL != nil {
+		updates["anthropic_messages_base_url"] = strings.TrimSuffix(*req.AnthropicMessagesBaseURL, "/")
+	}
+	if req.OpenAIResponsesBaseURL != nil {
+		updates["openai_responses_base_url"] = strings.TrimSuffix(*req.OpenAIResponsesBaseURL, "/")
 	}
 
 	if req.APIKey != "" {
@@ -241,20 +251,24 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 		updates["priority"] = *req.Priority
 	}
 
-	if req.OpenAIBaseURL != nil || req.AnthropicBaseURL != nil || req.APIKey != "" || req.Enabled != nil {
+	if req.OpenAIChatCompletionsBaseURL != nil || req.AnthropicMessagesBaseURL != nil || req.OpenAIResponsesBaseURL != nil || req.APIKey != "" || req.Enabled != nil {
 		router.ClearAllCooldownsForProvider(provider.ID)
 	}
 
 	// 验证更新后至少有一个 BaseURL
-	newOpenAIBaseURL := provider.OpenAIBaseURL
-	newAnthropicBaseURL := provider.AnthropicBaseURL
-	if openaiURL, ok := updates["openai_base_url"].(string); ok {
-		newOpenAIBaseURL = openaiURL
+	newOpenAIChatCompletionsBaseURL := provider.OpenAIChatCompletionsBaseURL
+	newAnthropicMessagesBaseURL := provider.AnthropicMessagesBaseURL
+	newOpenAIResponsesBaseURL := provider.OpenAIResponsesBaseURL
+	if openaiURL, ok := updates["openai_chat_completions_base_url"].(string); ok {
+		newOpenAIChatCompletionsBaseURL = openaiURL
 	}
-	if anthropicURL, ok := updates["anthropic_base_url"].(string); ok {
-		newAnthropicBaseURL = anthropicURL
+	if anthropicURL, ok := updates["anthropic_messages_base_url"].(string); ok {
+		newAnthropicMessagesBaseURL = anthropicURL
 	}
-	if newOpenAIBaseURL == "" && newAnthropicBaseURL == "" {
+	if responsesURL, ok := updates["openai_responses_base_url"].(string); ok {
+		newOpenAIResponsesBaseURL = responsesURL
+	}
+	if newOpenAIChatCompletionsBaseURL == "" && newAnthropicMessagesBaseURL == "" && newOpenAIResponsesBaseURL == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one base URL is required"})
 		return
 	}
@@ -272,17 +286,18 @@ func (h *ProviderHandler) Update(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"provider": providerResponse{
-		ID:               provider.ID,
-		Name:             provider.Name,
-		OpenAIBaseURL:    provider.OpenAIBaseURL,
-		AnthropicBaseURL: provider.AnthropicBaseURL,
-		APIKeyMasked:     maskAPIKey(provider.APIKey),
-		Homepage:         provider.Homepage,
-		BillingType:      provider.BillingType,
-		Enabled:          provider.Enabled,
-		Priority:         provider.Priority,
-		Models:           models,
-		CreatedAt:        provider.CreatedAt.Format("2006-01-02 15:04:05"),
+		ID:                           provider.ID,
+		Name:                         provider.Name,
+		OpenAIChatCompletionsBaseURL: provider.OpenAIChatCompletionsBaseURL,
+		AnthropicMessagesBaseURL:     provider.AnthropicMessagesBaseURL,
+		OpenAIResponsesBaseURL:       provider.OpenAIResponsesBaseURL,
+		APIKeyMasked:                 maskAPIKey(provider.APIKey),
+		Homepage:                     provider.Homepage,
+		BillingType:                  provider.BillingType,
+		Enabled:                      provider.Enabled,
+		Priority:                     provider.Priority,
+		Models:                       models,
+		CreatedAt:                    provider.CreatedAt.Format("2006-01-02 15:04:05"),
 	}})
 }
 

@@ -61,7 +61,7 @@ func (h *AnthropicProxyHandler) Messages(c *gin.Context) {
 
 	start := time.Now()
 	usage := provider.Usage{}
-	err = result.ProviderInstance.ExecuteAnthropicRequest(c, result.ProviderModel, &usage)
+	err = result.ProviderInstance.ExecuteAnthropicMessagesRequest(c, result.ProviderModel, &usage)
 	latencyMs := time.Since(start).Milliseconds()
 
 	status := "success"

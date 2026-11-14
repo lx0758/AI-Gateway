@@ -41,8 +41,9 @@
         </el-table-column>
         <el-table-column :label="t('models.providerType')" width="200">
           <template #default="{ row }">
-            <el-tag v-if="row.provider?.openai_base_url" type="success" size="small" style="margin-right: 4px">OpenAI</el-tag>
-            <el-tag v-if="row.provider?.anthropic_base_url" type="primary" size="small">Anthropic</el-tag>
+            <el-tag v-if="row.provider?.openai_chat_completions_base_url" type="success" size="small" style="margin-right: 4px">OpenAI</el-tag>
+            <el-tag v-if="row.provider?.anthropic_messages_base_url" type="primary" size="small" style="margin-right: 4px">Anthropic</el-tag>
+            <el-tag v-if="row.provider?.openai_responses_base_url" type="warning" size="small">Responses</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="provider_model_name" :label="t('modelMapping.actualModel')">
@@ -169,8 +170,9 @@ interface Mapping {
   provider?: {
     id: number
     name: string
-    openai_base_url: string
-    anthropic_base_url: string
+    openai_chat_completions_base_url: string
+    anthropic_messages_base_url: string
+    openai_responses_base_url: string
   }
   model_info?: ModelInfo
 }

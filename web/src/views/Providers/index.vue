@@ -30,9 +30,10 @@
         </el-table-column>
         <el-table-column :label="t('provider.apiStyles')">
           <template #default="{ row }">
-            <el-tag v-if="row.openai_base_url" type="success" style="margin-right: 4px">OpenAI</el-tag>
-            <el-tag v-if="row.anthropic_base_url" type="primary">Anthropic</el-tag>
-            <span v-if="!row.openai_base_url && !row.anthropic_base_url">-</span>
+            <el-tag v-if="row.openai_chat_completions_base_url" type="success" style="margin-right: 4px">OpenAI</el-tag>
+            <el-tag v-if="row.anthropic_messages_base_url" type="primary" style="margin-right: 4px">Anthropic</el-tag>
+            <el-tag v-if="row.openai_responses_base_url" type="warning">Responses</el-tag>
+            <span v-if="!row.openai_chat_completions_base_url && !row.anthropic_messages_base_url && !row.openai_responses_base_url">-</span>
           </template>
         </el-table-column>
         <el-table-column :label="t('provider.models')" width="150" prop="models" sortable :sort-method="(a: any, b: any) => sortByArrayLength(a, b, 'models')">
@@ -61,10 +62,13 @@
           <el-input v-model="form.name" />
         </el-form-item>
         <el-form-item :label="'OpenAI BaseURL'">
-          <el-input v-model="form.openai_base_url" placeholder="https://api.openai.com/v1" />
+          <el-input v-model="form.openai_chat_completions_base_url" placeholder="https://api.openai.com/v1" />
         </el-form-item>
         <el-form-item :label="'Anthropic BaseURL'">
-          <el-input v-model="form.anthropic_base_url" placeholder="https://api.anthropic.com/v1" />
+          <el-input v-model="form.anthropic_messages_base_url" placeholder="https://api.anthropic.com/v1" />
+        </el-form-item>
+        <el-form-item :label="'Responses BaseURL'">
+          <el-input v-model="form.openai_responses_base_url" placeholder="https://api.openai.com/v1" />
         </el-form-item>
         <el-form-item :label="t('provider.key')" prop="api_key">
           <el-input v-model="form.api_key" type="password" show-password :placeholder="editingId ? t('provider.keyPlaceholder') : ''" />
@@ -117,8 +121,9 @@ const defaultSort = getSortConfig('providers', 'enabled')
 
 const form = reactive({
   name: '',
-  openai_base_url: '',
-  anthropic_base_url: '',
+  openai_chat_completions_base_url: '',
+  anthropic_messages_base_url: '',
+  openai_responses_base_url: '',
   api_key: '',
   homepage: '',
   billing_type: '',
@@ -144,7 +149,7 @@ const rules = computed(() => ({
 }))
 
 function validateBaseURL() {
-  if (!form.openai_base_url && !form.anthropic_base_url) {
+  if (!form.openai_chat_completions_base_url && !form.anthropic_messages_base_url && !form.openai_responses_base_url) {
     ElMessage.error('At least one BaseURL is required')
     return false
   }
@@ -173,7 +178,7 @@ function handleSelectionChange(selection: any[]) {
 
 async function showDialog(id?: number) {
   editingId.value = id || null
-  Object.assign(form, { name: '', openai_base_url: '', anthropic_base_url: '', api_key: '', homepage: '', billing_type: '', enabled: true })
+  Object.assign(form, { name: '', openai_chat_completions_base_url: '', anthropic_messages_base_url: '', openai_responses_base_url: '', api_key: '', homepage: '', billing_type: '', enabled: true })
   dialogVisible.value = true
   
   if (id) {
@@ -184,8 +189,9 @@ async function showDialog(id?: number) {
       if (provider) {
         Object.assign(form, {
           name: provider.name || '',
-          openai_base_url: provider.openai_base_url || '',
-          anthropic_base_url: provider.anthropic_base_url || '',
+          openai_chat_completions_base_url: provider.openai_chat_completions_base_url || '',
+          anthropic_messages_base_url: provider.anthropic_messages_base_url || '',
+          openai_responses_base_url: provider.openai_responses_base_url || '',
           api_key: '',
           homepage: provider.homepage || '',
           billing_type: provider.billing_type || '',

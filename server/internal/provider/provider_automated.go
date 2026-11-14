@@ -8,53 +8,90 @@ import (
 )
 
 type AutomatedProvider struct {
+	cfg               *Config
 	openAIProvider    Provider
 	anthropicProvider Provider
+	responsesProvider Provider
 }
 
-func NewAutomatedProvider(openAIBaseURL string, anthropicBaseUrl string, apiKey string) *AutomatedProvider {
-	p := AutomatedProvider{}
-	if openAIBaseURL != "" {
-		p.openAIProvider = NewOpenAIProvider(&Config{
-			APIKey:  apiKey,
-			BaseURL: openAIBaseURL,
-		})
+func NewAutomatedProvider(openAIChatCompletionsBaseURL string, anthropicMessagesBaseURL string, openAIResponsesBaseURL string, apiKey string) *AutomatedProvider {
+	cfg := &Config{
+		OpenAIChatCompletionsBaseURL: openAIChatCompletionsBaseURL,
+		AnthropicMessagesBaseURL:     anthropicMessagesBaseURL,
+		OpenAIResponsesBaseURL:       openAIResponsesBaseURL,
+		APIKey:                       apiKey,
 	}
-	if anthropicBaseUrl != "" {
-		p.anthropicProvider = NewAnthropicProvider(&Config{
-			APIKey:  apiKey,
-			BaseURL: anthropicBaseUrl,
-		})
+	p := AutomatedProvider{cfg: cfg}
+	if cfg.OpenAIChatCompletionsBaseURL != "" {
+		p.openAIProvider = NewOpenAIProvider(cfg)
+	}
+	if cfg.AnthropicMessagesBaseURL != "" {
+		p.anthropicProvider = NewAnthropicProvider(cfg)
+	}
+	if cfg.OpenAIResponsesBaseURL != "" {
+		p.responsesProvider = NewResponsesProvider(cfg)
 	}
 	return &p
 }
 
 func (p *AutomatedProvider) SyncModels(providerID uint) ([]model.ProviderModel, error) {
+	if p.openAIProvider != nil {
+		if models, err := p.openAIProvider.SyncModels(providerID); err == nil && models != nil {
+			return models, err
+		}
+	}
 	if p.anthropicProvider != nil {
 		if models, err := p.anthropicProvider.SyncModels(providerID); err == nil && models != nil {
 			return models, err
 		}
 	}
-	if p.openAIProvider != nil {
-		if models, err := p.openAIProvider.SyncModels(providerID); err == nil && models != nil {
+	if p.responsesProvider != nil {
+		if models, err := p.responsesProvider.SyncModels(providerID); err == nil && models != nil {
 			return models, err
 		}
 	}
 	return nil, fmt.Errorf("no valid models found")
 }
 
-func (p *AutomatedProvider) ExecuteOpenAIRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error {
-	finialProvider := p.openAIProvider
-	if finialProvider == nil {
-		finialProvider = p.anthropicProvider
+func (p *AutomatedProvider) ExecuteOpenAIChatCompletionsRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error {
+	// 原生优先，必须转换时按 Chat > Anthropic > Responses 顺位选择转换目标
+	finalProvider := p.openAIProvider
+	if finalProvider == nil {
+		finalProvider = p.anthropicProvider
 	}
-	return finialProvider.ExecuteOpenAIRequest(ctx, pm, usage)
+	if finalProvider == nil {
+		finalProvider = p.responsesProvider
+	}
+	if finalProvider == nil {
+		return fmt.Errorf("provider has no available endpoint")
+	}
+	return finalProvider.ExecuteOpenAIChatCompletionsRequest(ctx, pm, usage)
 }
 
-func (p *AutomatedProvider) ExecuteAnthropicRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error {
-	finialProvider := p.anthropicProvider
-	if finialProvider == nil {
-		finialProvider = p.openAIProvider
+func (p *AutomatedProvider) ExecuteAnthropicMessagesRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error {
+	finalProvider := p.anthropicProvider
+	if finalProvider == nil {
+		finalProvider = p.openAIProvider
 	}
-	return finialProvider.ExecuteAnthropicRequest(ctx, pm, usage)
+	if finalProvider == nil {
+		finalProvider = p.responsesProvider
+	}
+	if finalProvider == nil {
+		return fmt.Errorf("provider has no available endpoint")
+	}
+	return finalProvider.ExecuteAnthropicMessagesRequest(ctx, pm, usage)
+}
+
+func (p *AutomatedProvider) ExecuteOpenAIResponsesRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error {
+	finalProvider := p.responsesProvider
+	if finalProvider == nil {
+		finalProvider = p.openAIProvider
+	}
+	if finalProvider == nil {
+		finalProvider = p.anthropicProvider
+	}
+	if finalProvider == nil {
+		return fmt.Errorf("provider has no available endpoint")
+	}
+	return finalProvider.ExecuteOpenAIResponsesRequest(ctx, pm, usage)
 }

@@ -7,8 +7,10 @@ import (
 )
 
 type Config struct {
-	BaseURL string
-	APIKey  string
+	OpenAIChatCompletionsBaseURL string
+	AnthropicMessagesBaseURL     string
+	OpenAIResponsesBaseURL       string
+	APIKey                       string
 }
 
 type Usage struct {
@@ -23,6 +25,7 @@ func (u Usage) TotalTokens() int {
 
 type Provider interface {
 	SyncModels(providerID uint) ([]model.ProviderModel, error)
-	ExecuteOpenAIRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error
-	ExecuteAnthropicRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error
+	ExecuteOpenAIChatCompletionsRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error
+	ExecuteAnthropicMessagesRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error
+	ExecuteOpenAIResponsesRequest(ctx *gin.Context, pm *model.ProviderModel, usage *Usage) error
 }

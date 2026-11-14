@@ -1,7 +1,7 @@
 package provider
 
 import (
-"bufio"
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -16,36 +16,35 @@ import (
 	"ai-gateway/internal/model"
 )
 
-type openAIUsage struct {
-	PromptTokens        int `json:"prompt_tokens"`
-	CompletionTokens    int `json:"completion_tokens"`
-	TotalTokens         int `json:"total_tokens"`
-	PromptTokensDetails struct {
-		CachedTokens int `json:"cached_tokens"`
-	} `json:"prompt_tokens_details"`
-	CompletionTokensDetails struct {
-		ReasoningTokens int `json:"reasoning_tokens"`
-	} `json:"completion_tokens_details"`
+type anthropicUsage struct {
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 }
 
-func (u openAIUsage) toUsage(usage *Usage) {
-	usage.CachedTokens = u.PromptTokensDetails.CachedTokens
-	usage.InputTokens = u.PromptTokens - u.PromptTokensDetails.CachedTokens
-	usage.OutputTokens = u.CompletionTokens
+func (u anthropicUsage) total() int {
+	return u.InputTokens + u.OutputTokens + u.CacheCreationInputTokens + u.CacheReadInputTokens
 }
 
-type OpenAIProvider struct {
+func (u anthropicUsage) toUsage(usage *Usage) {
+	usage.CachedTokens = u.CacheReadInputTokens
+	usage.InputTokens = u.InputTokens
+	usage.OutputTokens = u.OutputTokens
+}
+
+type AnthropicProvider struct {
 	cfg *Config
 }
 
-func NewOpenAIProvider(cfg *Config) *OpenAIProvider {
-	return &OpenAIProvider{cfg: cfg}
+func NewAnthropicProvider(cfg *Config) *AnthropicProvider {
+	return &AnthropicProvider{cfg: cfg}
 }
 
-func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, error) {
-	baseURL := m.cfg.BaseURL
+func (m *AnthropicProvider) SyncModels(providerID uint) ([]model.ProviderModel, error) {
+	baseURL := m.cfg.AnthropicMessagesBaseURL
 	if baseURL == "" {
-		return nil, fmt.Errorf("OpenAI base URL is required")
+		return nil, fmt.Errorf("Anthropic base URL is required")
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -53,8 +52,9 @@ func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, err
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-api-key", m.cfg.APIKey)
+	httpReq.Header.Set("anthropic-version", "2023-06-01")
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
@@ -69,21 +69,22 @@ func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, err
 
 	var result struct {
 		Data []struct {
-			ID            string    `json:"id"`
-			Name          string    `json:"name"`
-			DisplayName   string    `json:"display_name"`
-			Created       time.Time `json:"created"`
-			CreatedAt     time.Time `json:"created_at"`
-			Description   string    `json:"description"`
-			ContextLength int       `json:"context_length"`
-			Object        string    `json:"object"`
-			OwnedBy       string    `json:"owned_by"`
-			Pricing       struct {
-				Completion float64 `json:"completion"`
-				Prompt     float64 `json:"prompt"`
-				WebSearch  float64 `json:"web_search"`
-			} `json:"pricing"`
+			ID            string `json:"id"`
+			Type          string `json:"type"`
+			DisplayName   string `json:"display_name"`
+			CreatedAt     string `json:"created_at"`
+			MaxInputToken int    `json:"max_input_tokens"`
+			MaxTokens     int    `json:"max_tokens"`
+			Capabilities  struct {
+				ImageInput struct {
+					Supported bool `json:"supported"`
+				} `json:"image_input"`
+				Thinking struct {
+					Supported bool `json:"supported"`
+				} `json:"thinking"`
+			} `json:"capabilities"`
 		} `json:"data"`
+		HasMore bool `json:"has_more"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -95,32 +96,37 @@ func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, err
 		if m.ID == "" {
 			continue
 		}
-		// 只填充厂商实际返回的字段，未返回的留空（display_name/max_output/capabilities），
-		// 由同步合并逻辑"空则保留本地值"
+
+		// 能力只取厂商接口真实返回的字段，不硬编码 stream/tools；未返回的字段留空
+		var caps []string
+		if m.Capabilities.ImageInput.Supported {
+			caps = append(caps, "image")
+		}
+		if m.Capabilities.Thinking.Supported {
+			caps = append(caps, "thinking")
+		}
+
 		models = append(models, model.ProviderModel{
 			ProviderID:    providerID,
 			ModelID:       m.ID,
-			DisplayName:   AnyString(m.Name, m.DisplayName),
-			OwnedBy:       m.OwnedBy,
-			ContextWindow: m.ContextLength,
-			InputPrice:    m.Pricing.Prompt,
-			OutputPrice:   m.Pricing.Completion,
+			DisplayName:   m.DisplayName,
+			ContextWindow: m.MaxInputToken,
+			MaxOutput:     m.MaxTokens,
+			Capabilities:  strings.Join(caps, ","),
 		})
 	}
 
 	return models, nil
 }
 
-func AnyString(texts ...string) string {
-	for _, t := range texts {
-		if t != "" {
-			return t
-		}
-	}
-	return ""
+
+func (m *AnthropicProvider) isStreaming(resp *http.Response) bool {
+	contentType := resp.Header.Get("Content-Type")
+	return len(resp.Header["Transfer-Encoding"]) > 0 ||
+		(len(contentType) > 0 && len(contentType) >= 17 && contentType[:17] == "text/event-stream")
 }
 
-func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
+func (m *AnthropicProvider) ExecuteAnthropicMessagesRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -139,15 +145,15 @@ func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provider
 		return err
 	}
 
-	recordBody("O2O", "raw", body)
-	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/chat/completions", bytes.NewReader(body))
+	recordBody("AM2AM", "raw", body)
+	req, err := http.NewRequest("POST", m.cfg.AnthropicMessagesBaseURL+"/messages", bytes.NewReader(body))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
-	req = req.WithContext(c.Request.Context())
-	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
+	req.Header.Set("x-api-key", m.cfg.APIKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -163,7 +169,7 @@ func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provider
 		c.Status(resp.StatusCode)
 		c.Header("Content-Type", resp.Header.Get("Content-Type"))
 		c.Writer.Write(respBody)
-		recordError("O2O", resp.StatusCode, respBody)
+		recordError("AM2AM", resp.StatusCode, respBody)
 		return &ProviderError{StatusCode: resp.StatusCode, Message: string(respBody)}
 	}
 
@@ -172,17 +178,17 @@ func (m *OpenAIProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provider
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		err = m.copyOpenAIStreaming(c.Request.Context(), c.Writer, resp.Body, usage)
+		err = m.copyAnthropicStreaming(c.Request.Context(), c.Writer, resp.Body, usage)
 	} else {
 		c.Status(http.StatusOK)
 		c.Header("Content-Type", "application/json")
-		err = m.copyOpenAIResponse(c.Writer, resp.Body, usage)
+		err = m.copyAnthropicResponse(c.Writer, resp.Body, usage)
 	}
 	return err
 }
 
-func (m *OpenAIProvider) copyOpenAIStreaming(ctx context.Context, dst io.Writer, src io.Reader, usage *Usage) error {
-	src, dst = recordStream("O2O", src, dst)
+func (m *AnthropicProvider) copyAnthropicStreaming(ctx context.Context, dst io.Writer, src io.Reader, usage *Usage) error {
+	src, dst = recordStream("OC2AM", src, dst)
 	reader := bufio.NewReader(src)
 	var rError error
 	errorCount := 0
@@ -216,7 +222,7 @@ streamLoop:
 				}
 				errorCount++
 				if errorCount >= 3 {
-					rError = fmt.Errorf("OpenAI copy stream error, %v", result.err)
+					rError = fmt.Errorf("Anthropic copy stream error, %v", result.err)
 					break streamLoop
 				}
 				continue
@@ -238,23 +244,24 @@ streamLoop:
 			}
 			data := strings.TrimPrefix(line, "data:")
 			data = strings.TrimSpace(data)
-			if data == "[DONE]" {
-				break streamLoop
+
+			var event struct {
+				Type  string         `json:"type"`
+				Usage anthropicUsage `json:"usage"`
 			}
 
-			var chunk struct {
-				OpenAIUsage openAIUsage `json:"usage"`
-			}
-
-			if err := json.Unmarshal([]byte(data), &chunk); err == nil {
-				chunk.OpenAIUsage.toUsage(usage)
+			if err := json.Unmarshal([]byte(data), &event); err == nil {
+				switch event.Type {
+				case "message_delta":
+					event.Usage.toUsage(usage)
+				}
 			}
 		}
 	}
 	return rError
 }
 
-func (m *OpenAIProvider) copyOpenAIResponse(dst io.Writer, src io.Reader, usage *Usage) error {
+func (m *AnthropicProvider) copyAnthropicResponse(dst io.Writer, src io.Reader, usage *Usage) error {
 	body, err := io.ReadAll(src)
 	if err != nil {
 		return err
@@ -266,23 +273,23 @@ func (m *OpenAIProvider) copyOpenAIResponse(dst io.Writer, src io.Reader, usage 
 	}
 
 	var resp struct {
-		OpenAIUsage openAIUsage `json:"usage"`
+		Usage anthropicUsage `json:"usage"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return err
 	}
-	resp.OpenAIUsage.toUsage(usage)
+	resp.Usage.toUsage(usage)
 	return nil
 }
 
-func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
+func (m *OpenAIProvider) ExecuteAnthropicMessagesRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
-	recordBody("A2O", "raw", body)
+	recordBody("AM2OC", "raw", body)
 	var anthropicReq struct {
 		Model         string          `json:"model"`
 		MaxTokens     int             `json:"max_tokens"`
@@ -345,8 +352,8 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 		return err
 	}
 
-	recordBody("A2O", "converted", openAIBody)
-	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/chat/completions", bytes.NewReader(openAIBody))
+	recordBody("AM2OC", "converted", openAIBody)
+	req, err := http.NewRequest("POST", m.cfg.OpenAIChatCompletionsBaseURL+"/chat/completions", bytes.NewReader(openAIBody))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
@@ -368,7 +375,7 @@ func (m *OpenAIProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Provi
 		c.Status(resp.StatusCode)
 		c.Header("Content-Type", resp.Header.Get("Content-Type"))
 		c.Writer.Write(respBody)
-		recordError("A2O", resp.StatusCode, respBody)
+		recordError("AM2OC", resp.StatusCode, respBody)
 		return &ProviderError{StatusCode: resp.StatusCode, Message: string(respBody)}
 	}
 
@@ -666,13 +673,6 @@ func (m *OpenAIProvider) convertOpenAIResponseToAnthropic(openAIResp []byte, usa
 	openAI.OpenAIUsage.toUsage(usage)
 	return result, nil
 }
-
-func (m *OpenAIProvider) isStreaming(resp *http.Response) bool {
-	contentType := resp.Header.Get("Content-Type")
-	return len(resp.Header["Transfer-Encoding"]) > 0 ||
-		(len(contentType) > 0 && len(contentType) >= 17 && contentType[:17] == "text/event-stream")
-}
-
 type toolCallState struct {
 	id        string
 	name      string
@@ -681,7 +681,7 @@ type toolCallState struct {
 }
 
 func (m *OpenAIProvider) streamOpenAIToAnthropic(ctx context.Context, src io.Reader, dst io.Writer, model string, usage *Usage) error {
-	src, dst = recordStream("A2O", src, dst)
+	src, dst = recordStream("AM2OC", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("msg_%s", m.generateID())
 	sentMessageStart := false
@@ -998,4 +998,564 @@ func (m *OpenAIProvider) generateID() string {
 		b[i] = charset[i%len(charset)]
 	}
 	return string(b)
+}
+
+// ============================================================
+// 格 A→R：Anthropic 客户端 → Responses 上游（休眠格）
+// ============================================================
+
+func (m *ResponsesProvider) ExecuteAnthropicMessagesRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return err
+	}
+
+	responsesReq, _, err := convertAnthropicRequestToResponses(body, pm.ModelID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return err
+	}
+	responsesBody, err := json.Marshal(responsesReq)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return err
+	}
+
+	recordBody("AM2OR", "converted", responsesBody)
+	req, err := http.NewRequest("POST", m.cfg.OpenAIResponsesBaseURL+"/responses", bytes.NewReader(responsesBody))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return err
+	}
+	req = req.WithContext(c.Request.Context())
+	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		c.Status(resp.StatusCode)
+		c.Header("Content-Type", resp.Header.Get("Content-Type"))
+		c.Writer.Write(respBody)
+		recordError("AM2OR", resp.StatusCode, respBody)
+		return &ProviderError{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+
+	if m.isStreaming(resp) {
+		c.Status(http.StatusOK)
+		c.Header("Content-Type", "text/event-stream")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Connection", "keep-alive")
+		err = streamResponsesToAnthropic(c.Request.Context(), resp.Body, c.Writer, pm.ModelID, usage)
+	} else {
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return err
+		}
+		out, err := convertResponsesToAnthropicResponse(respBody, pm.ModelID, usage)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return err
+		}
+		c.Status(http.StatusOK)
+		c.Header("Content-Type", "application/json")
+		c.Writer.Write(out)
+		err = nil
+	}
+	return err
+}
+
+func convertAnthropicRequestToResponses(body []byte, upstreamModel string) (map[string]interface{}, bool, error) {
+	var req map[string]interface{}
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, false, err
+	}
+
+	stream := false
+	if v, ok := req["stream"].(bool); ok {
+		stream = v
+	}
+
+	var instructions []string
+	switch system := req["system"].(type) {
+	case string:
+		if system != "" {
+			instructions = append(instructions, system)
+		}
+	case []interface{}:
+		for _, raw := range system {
+			if block := respMap(raw); block != nil && respString(block["type"]) == "text" {
+				if text := respString(block["text"]); text != "" {
+					instructions = append(instructions, text)
+				}
+			}
+		}
+	}
+
+	input := make([]map[string]interface{}, 0)
+	for _, raw := range respSlice(req["messages"]) {
+		msg := respMap(raw)
+		if msg == nil {
+			continue
+		}
+		role := respString(msg["role"])
+		switch content := msg["content"].(type) {
+		case string:
+			if content == "" {
+				continue
+			}
+			partType := "input_text"
+			if role == "assistant" {
+				partType = "output_text"
+			}
+			input = append(input, map[string]interface{}{
+				"type":    "message",
+				"role":    role,
+				"content": []interface{}{map[string]interface{}{"type": partType, "text": content}},
+			})
+		case []interface{}:
+			if role == "assistant" {
+				for _, blockRaw := range content {
+					block := respMap(blockRaw)
+					if block == nil {
+						continue
+					}
+					switch respString(block["type"]) {
+					case "thinking":
+						thinking := respString(block["thinking"])
+						if thinking != "" {
+							// 信封规则③：发往 R 上游的请求永不携带信封
+							input = append(input, map[string]interface{}{
+								"type":    "reasoning",
+								"id":      "rs_" + generateRandomID(),
+								"summary": []interface{}{map[string]interface{}{"type": "summary_text", "text": thinking}},
+							})
+						}
+					case "text":
+						if text := respString(block["text"]); text != "" {
+							input = append(input, map[string]interface{}{
+								"type":    "message",
+								"role":    "assistant",
+								"content": []interface{}{map[string]interface{}{"type": "output_text", "text": text}},
+							})
+						}
+					case "tool_use":
+						args := ""
+						if inputVal, ok := block["input"]; ok {
+							if b, err := json.Marshal(inputVal); err == nil {
+								args = string(b)
+							}
+						}
+						input = append(input, map[string]interface{}{
+							"type":      "function_call",
+							"id":        "fc_" + generateRandomID(),
+							"call_id":   respString(block["id"]),
+							"name":      respString(block["name"]),
+							"arguments": args,
+						})
+					}
+				}
+				continue
+			}
+
+			parts := make([]interface{}, 0)
+			toolOutputs := make([]map[string]interface{}, 0)
+			for _, blockRaw := range content {
+				block := respMap(blockRaw)
+				if block == nil {
+					continue
+				}
+				switch respString(block["type"]) {
+				case "text":
+					if text := respString(block["text"]); text != "" {
+						parts = append(parts, map[string]interface{}{"type": "input_text", "text": text})
+					}
+				case "image":
+					source := respMap(block["source"])
+					if source == nil {
+						continue
+					}
+					url := ""
+					if mediaType := respString(source["media_type"]); mediaType != "" {
+						if data := respString(source["data"]); data != "" {
+							url = "data:" + mediaType + ";base64," + data
+						}
+					} else {
+						url = respString(source["url"])
+					}
+					if url != "" {
+						parts = append(parts, map[string]interface{}{"type": "input_image", "image_url": url})
+					}
+				case "tool_result":
+					toolOutputs = append(toolOutputs, map[string]interface{}{
+						"type":   "function_call_output",
+						"call_id": respString(block["tool_use_id"]),
+						"output": outputToText(block["content"]),
+					})
+				}
+			}
+			if len(parts) > 0 {
+				input = append(input, map[string]interface{}{"type": "message", "role": "user", "content": parts})
+			}
+			input = append(input, toolOutputs...)
+		}
+	}
+
+	responsesReq := map[string]interface{}{
+		"model": upstreamModel,
+		"input": input,
+		"store": false,
+	}
+	if len(instructions) > 0 {
+		responsesReq["instructions"] = strings.Join(instructions, "\n")
+	}
+	if v, ok := req["max_tokens"]; ok && v != nil {
+		responsesReq["max_output_tokens"] = v
+	}
+	if v, ok := req["temperature"]; ok {
+		responsesReq["temperature"] = v
+	}
+	if v, ok := req["top_p"]; ok {
+		responsesReq["top_p"] = v
+	}
+	if tools := convertAnthropicToolsToResponses(req["tools"]); len(tools) > 0 {
+		responsesReq["tools"] = tools
+	}
+	if v, ok := req["tool_choice"]; ok {
+		if tc := convertAnthropicToolChoiceToResponses(v); tc != nil {
+			responsesReq["tool_choice"] = tc
+		}
+	}
+	if stream {
+		responsesReq["stream"] = true
+	}
+	return responsesReq, stream, nil
+}
+
+func convertAnthropicToolsToResponses(tools interface{}) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0)
+	for _, raw := range respSlice(tools) {
+		tool := respMap(raw)
+		if tool == nil {
+			continue
+		}
+		flat := map[string]interface{}{"type": "function", "name": respString(tool["name"])}
+		if desc := respString(tool["description"]); desc != "" {
+			flat["description"] = desc
+		}
+		if schema, ok := tool["input_schema"]; ok {
+			flat["parameters"] = schema
+		}
+		out = append(out, flat)
+	}
+	return out
+}
+
+func convertAnthropicToolChoiceToResponses(choice interface{}) interface{} {
+	switch v := choice.(type) {
+	case string:
+		return v
+	case map[string]interface{}:
+		switch respString(v["type"]) {
+		case "any":
+			return "required"
+		case "none":
+			return "none"
+		case "auto":
+			return "auto"
+		case "tool":
+			return map[string]interface{}{"type": "function", "name": respString(v["name"])}
+		}
+	}
+	return nil
+}
+
+func convertResponsesToAnthropicResponse(body []byte, model string, usage *Usage) ([]byte, error) {
+	var resp struct {
+		Output            []map[string]interface{} `json:"output"`
+		Status            string                   `json:"status"`
+		IncompleteDetails map[string]interface{}   `json:"incomplete_details"`
+		Usage             responsesUsage           `json:"usage"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("Responses response error")
+	}
+
+	content := make([]map[string]interface{}, 0)
+	texts := make([]string, 0)
+	hasToolUse := false
+	for _, item := range resp.Output {
+		switch respString(item["type"]) {
+		case "message":
+			for _, raw := range respSlice(item["content"]) {
+				if part := respMap(raw); part != nil && respString(part["type"]) == "output_text" {
+					if text := respString(part["text"]); text != "" {
+						texts = append(texts, text)
+					}
+				}
+			}
+		case "function_call":
+			hasToolUse = true
+			input := map[string]interface{}{}
+			if args := respString(item["arguments"]); args != "" {
+				if err := json.Unmarshal([]byte(args), &input); err != nil {
+					input = map[string]interface{}{}
+				}
+			}
+			content = append(content, map[string]interface{}{
+				"type":  "tool_use",
+				"id":    respString(item["call_id"]),
+				"name":  respString(item["name"]),
+				"input": input,
+			})
+		}
+	}
+	if len(texts) > 0 {
+		content = append([]map[string]interface{}{{"type": "text", "text": strings.Join(texts, "")}}, content...)
+	}
+
+	stopReason := "end_turn"
+	if hasToolUse {
+		stopReason = "tool_use"
+	}
+	if resp.Status == "incomplete" {
+		switch respString(resp.IncompleteDetails["reason"]) {
+		case "max_output_tokens":
+			stopReason = "max_tokens"
+		case "content_filter":
+			stopReason = "refusal"
+		}
+	}
+
+	anthropicResp := map[string]interface{}{
+		"id":            "msg_" + generateRandomID(),
+		"type":          "message",
+		"role":          "assistant",
+		"model":         model,
+		"content":       content,
+		"stop_reason":   stopReason,
+		"stop_sequence": nil,
+		"usage": map[string]interface{}{
+			"input_tokens":  resp.Usage.InputTokens,
+			"output_tokens": resp.Usage.OutputTokens,
+		},
+	}
+	out, err := json.Marshal(anthropicResp)
+	if err != nil {
+		return nil, err
+	}
+	au := anthropicUsage{InputTokens: resp.Usage.InputTokens, OutputTokens: resp.Usage.OutputTokens}
+	au.toUsage(usage)
+	return out, nil
+}
+
+func emitAnthropicSSE(w io.Writer, eventType string, data interface{}) {
+	payload, _ := json.Marshal(data)
+	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, payload)
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func streamResponsesToAnthropic(ctx context.Context, src io.Reader, dst io.Writer, model string, usage *Usage) error {
+	messageID := "msg_" + generateRandomID()
+	started := false
+	completed := false
+	blockIndex := 0
+	blockByOutput := make(map[int]int)
+	kindByOutput := make(map[int]string)
+	hasToolUse := false
+	stopReason := "end_turn"
+	outputTokens := 0
+	inputTokens := 0
+	openBlocks := make(map[int]string)
+
+	ensureStarted := func() {
+		if started {
+			return
+		}
+		started = true
+		emitAnthropicSSE(dst, "message_start", map[string]interface{}{
+			"type": "message_start",
+			"message": map[string]interface{}{
+				"id":            messageID,
+				"type":          "message",
+				"role":          "assistant",
+				"content":       []interface{}{},
+				"model":         model,
+				"stop_reason":   nil,
+				"stop_sequence": nil,
+				"usage": map[string]interface{}{
+					"input_tokens":  0,
+					"output_tokens": 0,
+				},
+			},
+		})
+	}
+	closeBlock := func(outputIndex int) {
+		if index, ok := blockByOutput[outputIndex]; ok {
+			if _, open := openBlocks[index]; open {
+				emitAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
+					"type":  "content_block_stop",
+					"index": index,
+				})
+				delete(openBlocks, index)
+			}
+		}
+	}
+
+	err := consumeSSE(ctx, src, func(line string) (bool, error) {
+		data, ok := sseData(line)
+		if !ok || data == "" {
+			return false, nil
+		}
+		var event map[string]interface{}
+		if err := json.Unmarshal([]byte(data), &event); err != nil {
+			return false, nil
+		}
+		eventType := respString(event["type"])
+		ensureStarted()
+
+		switch eventType {
+		case "response.output_item.added":
+			item := respMap(event["item"])
+			if item == nil {
+				return false, nil
+			}
+			outputIndex := respInt(event["output_index"])
+			switch respString(item["type"]) {
+			case "message":
+				index := blockIndex
+				blockIndex++
+				blockByOutput[outputIndex] = index
+				kindByOutput[outputIndex] = "text"
+				openBlocks[index] = "text"
+				emitAnthropicSSE(dst, "content_block_start", map[string]interface{}{
+					"type":  "content_block_start",
+					"index": index,
+					"content_block": map[string]interface{}{
+						"type": "text",
+						"text": "",
+					},
+				})
+			case "function_call":
+				hasToolUse = true
+				index := blockIndex
+				blockIndex++
+				blockByOutput[outputIndex] = index
+				kindByOutput[outputIndex] = "tool_use"
+				openBlocks[index] = "tool_use"
+				emitAnthropicSSE(dst, "content_block_start", map[string]interface{}{
+					"type":  "content_block_start",
+					"index": index,
+					"content_block": map[string]interface{}{
+						"type":  "tool_use",
+						"id":    respString(item["call_id"]),
+						"name":  respString(item["name"]),
+						"input": json.RawMessage("{}"),
+					},
+				})
+			}
+		case "response.output_text.delta":
+			outputIndex := respInt(event["output_index"])
+			index, ok := blockByOutput[outputIndex]
+			if !ok {
+				return false, nil
+			}
+			emitAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
+				"type":  "content_block_delta",
+				"index": index,
+				"delta": map[string]interface{}{
+					"type": "text_delta",
+					"text": respString(event["delta"]),
+				},
+			})
+		case "response.function_call_arguments.delta":
+			outputIndex := respInt(event["output_index"])
+			index, ok := blockByOutput[outputIndex]
+			if !ok {
+				return false, nil
+			}
+			emitAnthropicSSE(dst, "content_block_delta", map[string]interface{}{
+				"type":  "content_block_delta",
+				"index": index,
+				"delta": map[string]interface{}{
+					"type":         "input_json_delta",
+					"partial_json": respString(event["delta"]),
+				},
+			})
+		case "response.output_item.done":
+			closeBlock(respInt(event["output_index"]))
+		case "response.completed":
+			completed = true
+			response := respMap(event["response"])
+			if response != nil {
+				if u := respMap(response["usage"]); u != nil {
+					inputTokens = respInt(u["input_tokens"])
+					outputTokens = respInt(u["output_tokens"])
+				}
+				if respString(response["status"]) == "incomplete" {
+					if d := respMap(response["incomplete_details"]); d != nil {
+						switch respString(d["reason"]) {
+						case "max_output_tokens":
+							stopReason = "max_tokens"
+						case "content_filter":
+							stopReason = "refusal"
+						}
+					}
+				}
+			}
+			if hasToolUse && stopReason == "end_turn" {
+				stopReason = "tool_use"
+			}
+			for index := range openBlocks {
+				emitAnthropicSSE(dst, "content_block_stop", map[string]interface{}{
+					"type":  "content_block_stop",
+					"index": index,
+				})
+			}
+			emitAnthropicSSE(dst, "message_delta", map[string]interface{}{
+				"type": "message_delta",
+				"delta": map[string]interface{}{
+					"stop_reason": stopReason,
+				},
+				"usage": map[string]interface{}{
+					"input_tokens":  inputTokens,
+					"output_tokens": outputTokens,
+				},
+			})
+			emitAnthropicSSE(dst, "message_stop", map[string]interface{}{"type": "message_stop"})
+			au := anthropicUsage{InputTokens: inputTokens, OutputTokens: outputTokens}
+			au.toUsage(usage)
+			return true, nil
+		case "response.failed", "error":
+			completed = true
+			emitAnthropicSSE(dst, "error", map[string]interface{}{
+				"type": "error",
+				"error": map[string]interface{}{
+					"type":    "api_error",
+					"message": "responses upstream error",
+				},
+			})
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil && !completed {
+		ensureStarted()
+		emitAnthropicSSE(dst, "error", map[string]interface{}{
+			"type":  "error",
+			"error": map[string]interface{}{"type": "api_error", "message": err.Error()},
+		})
+	}
+	return nil
 }

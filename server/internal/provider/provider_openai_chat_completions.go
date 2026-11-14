@@ -1,7 +1,7 @@
 package provider
 
 import (
-	"bufio"
+"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -16,35 +16,36 @@ import (
 	"ai-gateway/internal/model"
 )
 
-type anthropicUsage struct {
-	InputTokens              int `json:"input_tokens"`
-	OutputTokens             int `json:"output_tokens"`
-	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
-	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+type openAIUsage struct {
+	PromptTokens        int `json:"prompt_tokens"`
+	CompletionTokens    int `json:"completion_tokens"`
+	TotalTokens         int `json:"total_tokens"`
+	PromptTokensDetails struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+	CompletionTokensDetails struct {
+		ReasoningTokens int `json:"reasoning_tokens"`
+	} `json:"completion_tokens_details"`
 }
 
-func (u anthropicUsage) total() int {
-	return u.InputTokens + u.OutputTokens + u.CacheCreationInputTokens + u.CacheReadInputTokens
+func (u openAIUsage) toUsage(usage *Usage) {
+	usage.CachedTokens = u.PromptTokensDetails.CachedTokens
+	usage.InputTokens = u.PromptTokens - u.PromptTokensDetails.CachedTokens
+	usage.OutputTokens = u.CompletionTokens
 }
 
-func (u anthropicUsage) toUsage(usage *Usage) {
-	usage.CachedTokens = u.CacheReadInputTokens
-	usage.InputTokens = u.InputTokens
-	usage.OutputTokens = u.OutputTokens
-}
-
-type AnthropicProvider struct {
+type OpenAIProvider struct {
 	cfg *Config
 }
 
-func NewAnthropicProvider(cfg *Config) *AnthropicProvider {
-	return &AnthropicProvider{cfg: cfg}
+func NewOpenAIProvider(cfg *Config) *OpenAIProvider {
+	return &OpenAIProvider{cfg: cfg}
 }
 
-func (m *AnthropicProvider) SyncModels(providerID uint) ([]model.ProviderModel, error) {
-	baseURL := m.cfg.BaseURL
+func (m *OpenAIProvider) SyncModels(providerID uint) ([]model.ProviderModel, error) {
+	baseURL := m.cfg.OpenAIChatCompletionsBaseURL
 	if baseURL == "" {
-		return nil, fmt.Errorf("Anthropic base URL is required")
+		return nil, fmt.Errorf("OpenAI base URL is required")
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -52,9 +53,8 @@ func (m *AnthropicProvider) SyncModels(providerID uint) ([]model.ProviderModel, 
 	if err != nil {
 		return nil, err
 	}
+	httpReq.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("x-api-key", m.cfg.APIKey)
-	httpReq.Header.Set("anthropic-version", "2023-06-01")
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
@@ -69,22 +69,21 @@ func (m *AnthropicProvider) SyncModels(providerID uint) ([]model.ProviderModel, 
 
 	var result struct {
 		Data []struct {
-			ID            string `json:"id"`
-			Type          string `json:"type"`
-			DisplayName   string `json:"display_name"`
-			CreatedAt     string `json:"created_at"`
-			MaxInputToken int    `json:"max_input_tokens"`
-			MaxTokens     int    `json:"max_tokens"`
-			Capabilities  struct {
-				ImageInput struct {
-					Supported bool `json:"supported"`
-				} `json:"image_input"`
-				Thinking struct {
-					Supported bool `json:"supported"`
-				} `json:"thinking"`
-			} `json:"capabilities"`
+			ID            string    `json:"id"`
+			Name          string    `json:"name"`
+			DisplayName   string    `json:"display_name"`
+			Created       time.Time `json:"created"`
+			CreatedAt     time.Time `json:"created_at"`
+			Description   string    `json:"description"`
+			ContextLength int       `json:"context_length"`
+			Object        string    `json:"object"`
+			OwnedBy       string    `json:"owned_by"`
+			Pricing       struct {
+				Completion float64 `json:"completion"`
+				Prompt     float64 `json:"prompt"`
+				WebSearch  float64 `json:"web_search"`
+			} `json:"pricing"`
 		} `json:"data"`
-		HasMore bool `json:"has_more"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -96,37 +95,202 @@ func (m *AnthropicProvider) SyncModels(providerID uint) ([]model.ProviderModel, 
 		if m.ID == "" {
 			continue
 		}
-
-		// 能力只取厂商接口真实返回的字段，不硬编码 stream/tools；未返回的字段留空
-		var caps []string
-		if m.Capabilities.ImageInput.Supported {
-			caps = append(caps, "image")
-		}
-		if m.Capabilities.Thinking.Supported {
-			caps = append(caps, "thinking")
-		}
-
+		// 只填充厂商实际返回的字段，未返回的留空（display_name/max_output/capabilities），
+		// 由同步合并逻辑"空则保留本地值"
 		models = append(models, model.ProviderModel{
 			ProviderID:    providerID,
 			ModelID:       m.ID,
-			DisplayName:   m.DisplayName,
-			ContextWindow: m.MaxInputToken,
-			MaxOutput:     m.MaxTokens,
-			Capabilities:  strings.Join(caps, ","),
+			DisplayName:   AnyString(m.Name, m.DisplayName),
+			OwnedBy:       m.OwnedBy,
+			ContextWindow: m.ContextLength,
+			InputPrice:    m.Pricing.Prompt,
+			OutputPrice:   m.Pricing.Completion,
 		})
 	}
 
 	return models, nil
 }
 
-func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
+func AnyString(texts ...string) string {
+	for _, t := range texts {
+		if t != "" {
+			return t
+		}
+	}
+	return ""
+}
+
+func (m *OpenAIProvider) ExecuteOpenAIChatCompletionsRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
-	recordBody("O2A", "raw", body)
+	bodyJson := map[string]interface{}{}
+	if err := json.Unmarshal(body, &bodyJson); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return err
+	}
+	bodyJson["model"] = pm.ModelID
+	body, err = json.Marshal(bodyJson)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return err
+	}
+
+	recordBody("OC2OC", "raw", body)
+	req, err := http.NewRequest("POST", m.cfg.OpenAIChatCompletionsBaseURL+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return err
+	}
+
+	req = req.WithContext(c.Request.Context())
+	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		c.Status(resp.StatusCode)
+		c.Header("Content-Type", resp.Header.Get("Content-Type"))
+		c.Writer.Write(respBody)
+		recordError("OC2OC", resp.StatusCode, respBody)
+		return &ProviderError{StatusCode: resp.StatusCode, Message: string(respBody)}
+	}
+
+	if m.isStreaming(resp) {
+		c.Status(http.StatusOK)
+		c.Header("Content-Type", "text/event-stream")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Connection", "keep-alive")
+		err = m.copyOpenAIStreaming(c.Request.Context(), c.Writer, resp.Body, usage)
+	} else {
+		c.Status(http.StatusOK)
+		c.Header("Content-Type", "application/json")
+		err = m.copyOpenAIResponse(c.Writer, resp.Body, usage)
+	}
+	return err
+}
+
+func (m *OpenAIProvider) copyOpenAIStreaming(ctx context.Context, dst io.Writer, src io.Reader, usage *Usage) error {
+	src, dst = recordStream("OC2OC", src, dst)
+	reader := bufio.NewReader(src)
+	var rError error
+	errorCount := 0
+
+	type readResult struct {
+		line string
+		err  error
+	}
+
+streamLoop:
+	for {
+		readCh := make(chan readResult, 1)
+
+		go func() {
+			select {
+			case <-ctx.Done():
+				readCh <- readResult{err: ctx.Err()}
+			default:
+				line, err := reader.ReadString('\n')
+				readCh <- readResult{line: line, err: err}
+			}
+		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case result := <-readCh:
+			if result.err != nil {
+				if result.err == io.EOF {
+					break streamLoop
+				}
+				errorCount++
+				if errorCount >= 3 {
+					rError = fmt.Errorf("OpenAI copy stream error, %v", result.err)
+					break streamLoop
+				}
+				continue
+			}
+
+			if _, err := fmt.Fprint(dst, result.line); err != nil {
+				break streamLoop
+			}
+			if flusher, ok := dst.(http.Flusher); ok {
+				flusher.Flush()
+			}
+
+			line := strings.TrimSpace(result.line)
+			if line == "" {
+				continue
+			}
+			if !strings.HasPrefix(line, "data:") {
+				continue
+			}
+			data := strings.TrimPrefix(line, "data:")
+			data = strings.TrimSpace(data)
+			if data == "[DONE]" {
+				break streamLoop
+			}
+
+			var chunk struct {
+				OpenAIUsage openAIUsage `json:"usage"`
+			}
+
+			if err := json.Unmarshal([]byte(data), &chunk); err == nil {
+				chunk.OpenAIUsage.toUsage(usage)
+			}
+		}
+	}
+	return rError
+}
+
+func (m *OpenAIProvider) copyOpenAIResponse(dst io.Writer, src io.Reader, usage *Usage) error {
+	body, err := io.ReadAll(src)
+	if err != nil {
+		return err
+	}
+
+	dst.Write(body)
+	if flusher, ok := dst.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	var resp struct {
+		OpenAIUsage openAIUsage `json:"usage"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return err
+	}
+	resp.OpenAIUsage.toUsage(usage)
+	return nil
+}
+
+
+func (m *OpenAIProvider) isStreaming(resp *http.Response) bool {
+	contentType := resp.Header.Get("Content-Type")
+	return len(resp.Header["Transfer-Encoding"]) > 0 ||
+		(len(contentType) > 0 && len(contentType) >= 17 && contentType[:17] == "text/event-stream")
+}
+
+
+func (m *AnthropicProvider) ExecuteOpenAIChatCompletionsRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return err
+	}
+
+	recordBody("OC2AM", "raw", body)
 	var openAIReq struct {
 		Model     string                   `json:"model"`
 		MaxTokens int                      `json:"max_tokens"`
@@ -148,8 +312,8 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 		return err
 	}
 
-	recordBody("O2A", "converted", anthropicBody)
-	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/messages", bytes.NewReader(anthropicBody))
+	recordBody("OC2AM", "converted", anthropicBody)
+	req, err := http.NewRequest("POST", m.cfg.AnthropicMessagesBaseURL+"/messages", bytes.NewReader(anthropicBody))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
@@ -173,7 +337,7 @@ func (m *AnthropicProvider) ExecuteOpenAIRequest(c *gin.Context, pm *model.Provi
 		c.Status(resp.StatusCode)
 		c.Header("Content-Type", resp.Header.Get("Content-Type"))
 		c.Writer.Write(respBody)
-		recordError("O2A", resp.StatusCode, respBody)
+		recordError("OC2AM", resp.StatusCode, respBody)
 		return &ProviderError{StatusCode: resp.StatusCode, Message: string(respBody)}
 	}
 
@@ -535,7 +699,7 @@ func (m *AnthropicProvider) convertAnthropicResponseToOpenAI(anthropicResp []byt
 }
 
 func (m *AnthropicProvider) streamAnthropicToOpenAI(ctx context.Context, src io.Reader, dst io.Writer, model string, usage *Usage) error {
-	src, dst = recordStream("O2A", src, dst)
+	src, dst = recordStream("OC2AM", src, dst)
 	reader := bufio.NewReader(src)
 	messageID := fmt.Sprintf("chatcmpl-%s", m.generateID())
 	tokens := 0
@@ -790,40 +954,36 @@ func (m *AnthropicProvider) generateID() string {
 	return string(b)
 }
 
-func (m *AnthropicProvider) isStreaming(resp *http.Response) bool {
-	contentType := resp.Header.Get("Content-Type")
-	return len(resp.Header["Transfer-Encoding"]) > 0 ||
-		(len(contentType) > 0 && len(contentType) >= 17 && contentType[:17] == "text/event-stream")
-}
+// ============================================================
+// 格 C→R：Chat 客户端 → Responses 上游（休眠格）
+// ============================================================
 
-func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
+func (m *ResponsesProvider) ExecuteOpenAIChatCompletionsRequest(c *gin.Context, pm *model.ProviderModel, usage *Usage) error {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
-	bodyJson := map[string]interface{}{}
-	if err := json.Unmarshal(body, &bodyJson); err != nil {
+	responsesReq, _, includeUsage, err := convertChatRequestToResponses(body, pm.ModelID)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
-	bodyJson["model"] = pm.ModelID
-	body, err = json.Marshal(bodyJson)
+	responsesBody, err := json.Marshal(responsesReq)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
 
-	recordBody("A2A", "raw", body)
-	req, err := http.NewRequest("POST", m.cfg.BaseURL+"/messages", bytes.NewReader(body))
+	recordBody("OC2OR", "converted", responsesBody)
+	req, err := http.NewRequest("POST", m.cfg.OpenAIResponsesBaseURL+"/responses", bytes.NewReader(responsesBody))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return err
 	}
-
-	req.Header.Set("x-api-key", m.cfg.APIKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
+	req = req.WithContext(c.Request.Context())
+	req.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -839,7 +999,7 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 		c.Status(resp.StatusCode)
 		c.Header("Content-Type", resp.Header.Get("Content-Type"))
 		c.Writer.Write(respBody)
-		recordError("A2A", resp.StatusCode, respBody)
+		recordError("OC2OR", resp.StatusCode, respBody)
 		return &ProviderError{StatusCode: resp.StatusCode, Message: string(respBody)}
 	}
 
@@ -848,106 +1008,445 @@ func (m *AnthropicProvider) ExecuteAnthropicRequest(c *gin.Context, pm *model.Pr
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-		err = m.copyAnthropicStreaming(c.Request.Context(), c.Writer, resp.Body, usage)
+		err = streamResponsesToChat(c.Request.Context(), resp.Body, c.Writer, pm.ModelID, includeUsage, usage)
 	} else {
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return err
+		}
+		out, err := convertResponsesToChatResponse(respBody, pm.ModelID, usage)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return err
+		}
 		c.Status(http.StatusOK)
 		c.Header("Content-Type", "application/json")
-		err = m.copyAnthropicResponse(c.Writer, resp.Body, usage)
+		c.Writer.Write(out)
+		err = nil
 	}
 	return err
 }
 
-func (m *AnthropicProvider) copyAnthropicStreaming(ctx context.Context, dst io.Writer, src io.Reader, usage *Usage) error {
-	src, dst = recordStream("O2A", src, dst)
-	reader := bufio.NewReader(src)
-	var rError error
-	errorCount := 0
-
-	type readResult struct {
-		line string
-		err  error
+func convertChatRequestToResponses(body []byte, upstreamModel string) (map[string]interface{}, bool, bool, error) {
+	var req map[string]interface{}
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, false, false, err
 	}
 
-streamLoop:
-	for {
-		readCh := make(chan readResult, 1)
+	stream := false
+	if v, ok := req["stream"].(bool); ok {
+		stream = v
+	}
+	includeUsage := false
+	if so := respMap(req["stream_options"]); so != nil {
+		includeUsage, _ = so["include_usage"].(bool)
+	}
 
-		go func() {
-			select {
-			case <-ctx.Done():
-				readCh <- readResult{err: ctx.Err()}
-			default:
-				line, err := reader.ReadString('\n')
-				readCh <- readResult{line: line, err: err}
+	instructions := make([]string, 0)
+	input := make([]map[string]interface{}, 0)
+
+	for _, raw := range respSlice(req["messages"]) {
+		msg := respMap(raw)
+		if msg == nil {
+			continue
+		}
+		role := respString(msg["role"])
+		switch role {
+		case "system", "developer":
+			if text := outputToText(msg["content"]); text != "" {
+				instructions = append(instructions, text)
 			}
-		}()
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case result := <-readCh:
-			if result.err != nil {
-				if result.err == io.EOF {
-					break streamLoop
+		case "tool":
+			input = append(input, map[string]interface{}{
+				"type":   "function_call_output",
+				"call_id": respString(msg["tool_call_id"]),
+				"output": outputToText(msg["content"]),
+			})
+		case "assistant":
+			if reasoning := respString(msg["reasoning_content"]); reasoning == "" {
+				if r := respString(msg["reasoning"]); r != "" {
+					reasoning = r
 				}
-				errorCount++
-				if errorCount >= 3 {
-					rError = fmt.Errorf("Anthropic copy stream error, %v", result.err)
-					break streamLoop
+			} else {
+				input = append(input, map[string]interface{}{
+					"type":    "reasoning",
+					"id":      "rs_" + generateRandomID(),
+					"summary": []interface{}{map[string]interface{}{"type": "summary_text", "text": reasoning}},
+				})
+			}
+			if text := outputToText(msg["content"]); text != "" {
+				input = append(input, map[string]interface{}{
+					"type":    "message",
+					"role":    "assistant",
+					"content": []interface{}{map[string]interface{}{"type": "output_text", "text": text}},
+				})
+			}
+			for _, tcRaw := range respSlice(msg["tool_calls"]) {
+				tc := respMap(tcRaw)
+				if tc == nil {
+					continue
 				}
+				fn := respMap(tc["function"])
+				input = append(input, map[string]interface{}{
+					"type":      "function_call",
+					"id":        "fc_" + generateRandomID(),
+					"call_id":   respString(tc["id"]),
+					"name":      respString(fn["name"]),
+					"arguments": respString(fn["arguments"]),
+				})
+			}
+		default:
+			parts := convertChatContentToResponses(msg["content"])
+			if len(parts) > 0 {
+				input = append(input, map[string]interface{}{
+					"type":    "message",
+					"role":    "user",
+					"content": parts,
+				})
+			}
+		}
+	}
+
+	responsesReq := map[string]interface{}{
+		"model": upstreamModel,
+		"input": input,
+		"store": false,
+	}
+	if len(instructions) > 0 {
+		responsesReq["instructions"] = strings.Join(instructions, "\n")
+	}
+	if v, ok := req["max_tokens"]; ok && v != nil {
+		responsesReq["max_output_tokens"] = v
+	}
+	if v, ok := req["temperature"]; ok {
+		responsesReq["temperature"] = v
+	}
+	if v, ok := req["top_p"]; ok {
+		responsesReq["top_p"] = v
+	}
+	if tools := convertChatToolsToResponses(req["tools"]); len(tools) > 0 {
+		responsesReq["tools"] = tools
+	}
+	if v, ok := req["tool_choice"]; ok {
+		if tc := convertChatToolChoiceToResponses(v); tc != nil {
+			responsesReq["tool_choice"] = tc
+		}
+	}
+	if stream {
+		responsesReq["stream"] = true
+	}
+	return responsesReq, stream, includeUsage, nil
+}
+
+func convertChatContentToResponses(content interface{}) []interface{} {
+	parts := make([]interface{}, 0)
+	switch v := content.(type) {
+	case string:
+		if v != "" {
+			parts = append(parts, map[string]interface{}{"type": "input_text", "text": v})
+		}
+	case []interface{}:
+		for _, raw := range v {
+			part := respMap(raw)
+			if part == nil {
 				continue
 			}
-
-			if _, err := fmt.Fprint(dst, result.line); err != nil {
-				break streamLoop
-			}
-			if flusher, ok := dst.(http.Flusher); ok {
-				flusher.Flush()
-			}
-
-			line := strings.TrimSpace(result.line)
-			if line == "" {
-				continue
-			}
-			if !strings.HasPrefix(line, "data:") {
-				continue
-			}
-			data := strings.TrimPrefix(line, "data:")
-			data = strings.TrimSpace(data)
-
-			var event struct {
-				Type  string         `json:"type"`
-				Usage anthropicUsage `json:"usage"`
-			}
-
-			if err := json.Unmarshal([]byte(data), &event); err == nil {
-				switch event.Type {
-				case "message_delta":
-					event.Usage.toUsage(usage)
+			switch respString(part["type"]) {
+			case "text":
+				if text := respString(part["text"]); text != "" {
+					parts = append(parts, map[string]interface{}{"type": "input_text", "text": text})
+				}
+			case "image_url":
+				url := ""
+				if m := respMap(part["image_url"]); m != nil {
+					url = respString(m["url"])
+				}
+				if url != "" {
+					parts = append(parts, map[string]interface{}{"type": "input_image", "image_url": url})
 				}
 			}
 		}
 	}
-	return rError
+	return parts
 }
 
-func (m *AnthropicProvider) copyAnthropicResponse(dst io.Writer, src io.Reader, usage *Usage) error {
-	body, err := io.ReadAll(src)
-	if err != nil {
-		return err
+func convertChatToolsToResponses(tools interface{}) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0)
+	for _, raw := range respSlice(tools) {
+		tool := respMap(raw)
+		if tool == nil || respString(tool["type"]) != "function" {
+			continue
+		}
+		fn := respMap(tool["function"])
+		if fn == nil {
+			continue
+		}
+		flat := map[string]interface{}{"type": "function", "name": respString(fn["name"])}
+		if desc := respString(fn["description"]); desc != "" {
+			flat["description"] = desc
+		}
+		if params, ok := fn["parameters"]; ok {
+			flat["parameters"] = params
+		}
+		out = append(out, flat)
 	}
+	return out
+}
 
-	dst.Write(body)
-	if flusher, ok := dst.(http.Flusher); ok {
-		flusher.Flush()
+func convertChatToolChoiceToResponses(choice interface{}) interface{} {
+	switch v := choice.(type) {
+	case string:
+		return v
+	case map[string]interface{}:
+		if respString(v["type"]) == "function" {
+			name := respString(v["name"])
+			if fn := respMap(v["function"]); fn != nil {
+				name = respString(fn["name"])
+			}
+			return map[string]interface{}{"type": "function", "name": name}
+		}
 	}
+	return nil
+}
 
+func convertResponsesToChatResponse(body []byte, model string, usage *Usage) ([]byte, error) {
 	var resp struct {
-		Usage anthropicUsage `json:"usage"`
+		Output            []map[string]interface{} `json:"output"`
+		Status            string                   `json:"status"`
+		IncompleteDetails map[string]interface{}   `json:"incomplete_details"`
+		Usage             responsesUsage           `json:"usage"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return err
+		return nil, fmt.Errorf("Responses response error")
+	}
+
+	message := map[string]interface{}{"role": "assistant", "content": ""}
+	texts := make([]string, 0)
+	reasonings := make([]string, 0)
+	toolCalls := make([]map[string]interface{}, 0)
+	for _, item := range resp.Output {
+		switch respString(item["type"]) {
+		case "message":
+			for _, raw := range respSlice(item["content"]) {
+				if part := respMap(raw); part != nil {
+					if respString(part["type"]) == "output_text" {
+						if text := respString(part["text"]); text != "" {
+							texts = append(texts, text)
+						}
+					}
+				}
+			}
+		case "reasoning":
+			for _, raw := range respSlice(item["summary"]) {
+				if part := respMap(raw); part != nil {
+					if text := respString(part["text"]); text != "" {
+						reasonings = append(reasonings, text)
+					}
+				}
+			}
+		case "function_call":
+			toolCalls = append(toolCalls, map[string]interface{}{
+				"id":   respString(item["call_id"]),
+				"type": "function",
+				"function": map[string]interface{}{
+					"name":      respString(item["name"]),
+					"arguments": respString(item["arguments"]),
+				},
+			})
+		}
+	}
+	if len(texts) > 0 {
+		message["content"] = strings.Join(texts, "")
+	}
+	if len(reasonings) > 0 {
+		message["reasoning_content"] = strings.Join(reasonings, "")
+	}
+	if len(toolCalls) > 0 {
+		message["tool_calls"] = toolCalls
+	}
+
+	finishReason := "stop"
+	if len(toolCalls) > 0 {
+		finishReason = "tool_calls"
+	}
+	if resp.Status == "incomplete" {
+		switch respString(resp.IncompleteDetails["reason"]) {
+		case "max_output_tokens":
+			finishReason = "length"
+		case "content_filter":
+			finishReason = "content_filter"
+		}
+	}
+
+	chatResp := map[string]interface{}{
+		"id":      "chatcmpl-" + generateRandomID(),
+		"object":  "chat.completion",
+		"created": time.Now().Unix(),
+		"model":   model,
+		"choices": []map[string]interface{}{
+			{"index": 0, "message": message, "finish_reason": finishReason},
+		},
+		"usage": map[string]interface{}{
+			"prompt_tokens":     resp.Usage.InputTokens,
+			"completion_tokens": resp.Usage.OutputTokens,
+			"total_tokens":      resp.Usage.TotalTokens,
+		},
+	}
+	out, err := json.Marshal(chatResp)
+	if err != nil {
+		return nil, err
 	}
 	resp.Usage.toUsage(usage)
+	return out, nil
+}
+
+func emitChatSSE(w io.Writer, data interface{}) {
+	payload, _ := json.Marshal(data)
+	fmt.Fprintf(w, "data: %s\n\n", payload)
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func streamResponsesToChat(ctx context.Context, src io.Reader, dst io.Writer, model string, includeUsage bool, usage *Usage) error {
+	responseID := "chatcmpl-" + generateRandomID()
+	created := time.Now().Unix()
+	toolIndexByOutput := make(map[int]int)
+	nextToolIndex := 0
+	hasTool := false
+	completed := false
+	var lastUsage responsesUsage
+	finishReason := "stop"
+
+	emitChunk := func(delta map[string]interface{}, finish interface{}) {
+		chunk := map[string]interface{}{
+			"id":      responseID,
+			"object":  "chat.completion.chunk",
+			"created": created,
+			"model":   model,
+			"choices": []map[string]interface{}{
+				{"index": 0, "delta": delta, "finish_reason": finish},
+			},
+		}
+		emitChatSSE(dst, chunk)
+	}
+	emitChunk(map[string]interface{}{"role": "assistant"}, nil)
+
+	err := consumeSSE(ctx, src, func(line string) (bool, error) {
+		data, ok := sseData(line)
+		if !ok || data == "" {
+			return false, nil
+		}
+		var event map[string]interface{}
+		if err := json.Unmarshal([]byte(data), &event); err != nil {
+			return false, nil
+		}
+		eventType := respString(event["type"])
+		switch eventType {
+		case "response.output_text.delta":
+			emitChunk(map[string]interface{}{"content": respString(event["delta"])}, nil)
+		case "response.reasoning_summary_text.delta":
+			emitChunk(map[string]interface{}{"reasoning_content": respString(event["delta"])}, nil)
+		case "response.output_item.added":
+			item := respMap(event["item"])
+			if item != nil && respString(item["type"]) == "function_call" {
+				outputIndex := respInt(event["output_index"])
+				index := nextToolIndex
+				nextToolIndex++
+				toolIndexByOutput[outputIndex] = index
+				hasTool = true
+				emitChunk(map[string]interface{}{
+					"tool_calls": []map[string]interface{}{
+						{
+							"index": index,
+							"id":    respString(item["call_id"]),
+							"type":  "function",
+							"function": map[string]interface{}{
+								"name":      respString(item["name"]),
+								"arguments": "",
+							},
+						},
+					},
+				}, nil)
+			}
+		case "response.function_call_arguments.delta":
+			outputIndex := respInt(event["output_index"])
+			index, ok := toolIndexByOutput[outputIndex]
+			if !ok {
+				index = nextToolIndex
+				nextToolIndex++
+				toolIndexByOutput[outputIndex] = index
+			}
+			emitChunk(map[string]interface{}{
+				"tool_calls": []map[string]interface{}{
+					{"index": index, "function": map[string]interface{}{"arguments": respString(event["delta"])}},
+				},
+			}, nil)
+		case "response.completed":
+			completed = true
+			response := respMap(event["response"])
+			if response != nil {
+				u := respMap(response["usage"])
+				lastUsage = responsesUsage{
+					InputTokens:  respInt(u["input_tokens"]),
+					OutputTokens: respInt(u["output_tokens"]),
+					TotalTokens:  respInt(u["total_tokens"]),
+				}
+				if d := respMap(u["input_tokens_details"]); d != nil {
+					lastUsage.InputTokensDetails.CachedTokens = respInt(d["cached_tokens"])
+				}
+				if respString(response["status"]) == "incomplete" {
+					if d := respMap(response["incomplete_details"]); d != nil {
+						switch respString(d["reason"]) {
+						case "max_output_tokens":
+							finishReason = "length"
+						case "content_filter":
+							finishReason = "content_filter"
+						}
+					}
+				}
+			}
+			if hasTool && finishReason == "stop" {
+				finishReason = "tool_calls"
+			}
+			chunk := map[string]interface{}{
+				"id":      responseID,
+				"object":  "chat.completion.chunk",
+				"created": created,
+				"model":   model,
+				"choices": []map[string]interface{}{
+					{"index": 0, "delta": map[string]interface{}{}, "finish_reason": finishReason},
+				},
+			}
+			if includeUsage {
+				chunk["usage"] = map[string]interface{}{
+					"prompt_tokens":     lastUsage.InputTokens,
+					"completion_tokens": lastUsage.OutputTokens,
+					"total_tokens":      lastUsage.TotalTokens,
+				}
+			}
+			emitChatSSE(dst, chunk)
+			fmt.Fprint(dst, "data: [DONE]\n\n")
+			if flusher, ok := dst.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			lastUsage.toUsage(usage)
+			return true, nil
+		case "response.failed", "error":
+			completed = true
+			emitChunk(map[string]interface{}{}, finishReason)
+			fmt.Fprint(dst, "data: [DONE]\n\n")
+			if flusher, ok := dst.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil && !completed {
+		emitChunk(map[string]interface{}{}, "stop")
+		fmt.Fprint(dst, "data: [DONE]\n\n")
+	}
 	return nil
 }

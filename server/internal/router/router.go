@@ -53,8 +53,9 @@ func (r *ModelRouter) Route(name string) (*RouteResult, error) {
 		pm := mapping.ProviderModel
 
 		providerImpl := provider.NewAutomatedProvider(
-			providerInfo.OpenAIBaseURL,
-			providerInfo.AnthropicBaseURL,
+			providerInfo.OpenAIChatCompletionsBaseURL,
+			providerInfo.AnthropicMessagesBaseURL,
+			providerInfo.OpenAIResponsesBaseURL,
 			providerInfo.APIKey,
 		)
 		result := RouteResult{

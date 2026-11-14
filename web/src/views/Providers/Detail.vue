@@ -9,8 +9,9 @@
     <el-card class="info-card">
       <el-descriptions :column="2" border>
         <el-descriptions-item :label="t('provider.apiStyles')">
-          <el-tag v-if="provider?.openai_base_url" type="success" style="margin-right: 4px">OpenAI</el-tag>
-          <el-tag v-if="provider?.anthropic_base_url" type="primary">Anthropic</el-tag>
+          <el-tag v-if="provider?.openai_chat_completions_base_url" type="success" style="margin-right: 4px">OpenAI</el-tag>
+          <el-tag v-if="provider?.anthropic_messages_base_url" type="primary" style="margin-right: 4px">Anthropic</el-tag>
+          <el-tag v-if="provider?.openai_responses_base_url" type="warning">Responses</el-tag>
         </el-descriptions-item>
         <el-descriptions-item :label="t('provider.billingType')">
           <el-tag v-if="provider?.billing_type">

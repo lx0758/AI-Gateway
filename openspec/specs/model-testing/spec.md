@@ -17,21 +17,27 @@ POST /api/v1/providers/:id/test-custom
 
 #### Scenario: 使用 OpenAI 协议测试 Provider 模型
 
-- **WHEN** Provider 配置了 OpenAIBaseURL
-- **THEN** 系统使用 OpenAI 协议执行测试
+- **WHEN** Provider 配置了 OpenAIChatCompletionsBaseURL
+- **THEN** 系统使用 OpenAI Chat Completions 协议执行测试
 - **AND** 返回测试结果，包含延迟、Token 数、响应内容
 
 #### Scenario: 使用 Anthropic 协议测试 Provider 模型
 
-- **WHEN** Provider 配置了 AnthropicBaseURL
-- **THEN** 系统使用 Anthropic 协议执行测试
+- **WHEN** Provider 配置了 AnthropicMessagesBaseURL
+- **THEN** 系统使用 Anthropic Messages 协议执行测试
 - **AND** 返回测试结果，包含延迟、Token 数、响应内容
 
-#### Scenario: 同时测试两种协议的 Provider 模型
+#### Scenario: 使用 Responses 协议测试 Provider 模型
 
-- **WHEN** Provider 同时配置了 OpenAIBaseURL 和 AnthropicBaseURL
-- **THEN** 系统执行两次测试，每个协议一次
-- **AND** 返回两个测试结果
+- **WHEN** Provider 配置了 OpenAIResponsesBaseURL
+- **THEN** 系统使用 Responses 协议执行测试
+- **AND** 返回测试结果，包含延迟、Token 数、响应内容
+
+#### Scenario: 同时测试多种协议的 Provider 模型
+
+- **WHEN** Provider 同时配置了 OpenAIChatCompletionsBaseURL、AnthropicMessagesBaseURL、OpenAIResponsesBaseURL 中的多个
+- **THEN** 系统为每个已配置的协议各执行一次测试
+- **AND** 返回对应的多个测试结果
 
 #### Scenario: 测试失败返回错误
 

@@ -85,6 +85,18 @@ func main() {
 	openai.Use(middleware.RequireAPIKey())
 	{
 		openai.POST("/chat/completions", openAIProxyHandler.ChatCompletions)
+		openai.POST("/responses", openAIProxyHandler.Responses)
+		// 需要状态的管理端点：注册但由网关直接应答 400 stateless_gateway
+		openai.GET("/responses/:id", openAIProxyHandler.ResponsesManagement)
+		openai.DELETE("/responses/:id", openAIProxyHandler.ResponsesManagement)
+		openai.POST("/responses/:id/cancel", openAIProxyHandler.ResponsesManagement)
+		openai.GET("/responses/:id/input_items", openAIProxyHandler.ResponsesManagement)
+		openai.POST("/conversations", openAIProxyHandler.ResponsesManagement)
+		openai.GET("/conversations/:id", openAIProxyHandler.ResponsesManagement)
+		openai.DELETE("/conversations/:id", openAIProxyHandler.ResponsesManagement)
+		openai.POST("/conversations/:id/items", openAIProxyHandler.ResponsesManagement)
+		openai.GET("/conversations/:id/items", openAIProxyHandler.ResponsesManagement)
+		openai.DELETE("/conversations/:id/items/:item_id", openAIProxyHandler.ResponsesManagement)
 		openai.GET("/models", openAIProxyHandler.ListModels)
 		openai.GET("/models/:id", openAIProxyHandler.GetModel)
 	}

@@ -12,9 +12,13 @@ type RouteResult struct {
 }
 
 func (r *RouteResult) SupportOpenAI() bool {
-	return r.Provider.OpenAIBaseURL != ""
+	return r.Provider.OpenAIChatCompletionsBaseURL != ""
 }
 
 func (r *RouteResult) SupportAnthropic() bool {
-	return r.Provider.AnthropicBaseURL != ""
+	return r.Provider.AnthropicMessagesBaseURL != ""
+}
+
+func (r *RouteResult) SupportResponses() bool {
+	return r.Provider.OpenAIResponsesBaseURL != ""
 }

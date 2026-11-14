@@ -61,7 +61,7 @@ func (h *OpenAIProxyHandler) ChatCompletions(c *gin.Context) {
 
 	start := time.Now()
 	usage := provider.Usage{}
-	err = result.ProviderInstance.ExecuteOpenAIRequest(c, result.ProviderModel, &usage)
+	err = result.ProviderInstance.ExecuteOpenAIChatCompletionsRequest(c, result.ProviderModel, &usage)
 	latencyMs := time.Since(start).Milliseconds()
 
 	status := "success"

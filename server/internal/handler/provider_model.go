@@ -213,8 +213,9 @@ func (h *ProviderModelHandler) Sync(c *gin.Context) {
 	}
 
 	providerImpl := providerPkg.NewAutomatedProvider(
-		provider.OpenAIBaseURL,
-		provider.AnthropicBaseURL,
+		provider.OpenAIChatCompletionsBaseURL,
+		provider.AnthropicMessagesBaseURL,
+		provider.OpenAIResponsesBaseURL,
 		provider.APIKey,
 	)
 	models, err := providerImpl.SyncModels(provider.ID)

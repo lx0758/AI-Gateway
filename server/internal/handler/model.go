@@ -71,10 +71,11 @@ type modelInfoResponse struct {
 }
 
 type providerBasicResponse struct {
-	ID               uint   `json:"id"`
-	Name             string `json:"name"`
-	OpenAIBaseURL    string `json:"openai_base_url"`
-	AnthropicBaseURL string `json:"anthropic_base_url"`
+	ID                           uint   `json:"id"`
+	Name                         string `json:"name"`
+	OpenAIChatCompletionsBaseURL string `json:"openai_chat_completions_base_url"`
+	AnthropicMessagesBaseURL     string `json:"anthropic_messages_base_url"`
+	OpenAIResponsesBaseURL       string `json:"openai_responses_base_url"`
 }
 
 func NewModelHandler() *ModelHandler {
@@ -527,10 +528,11 @@ func toMappingResponse(m model.ModelMapping) mappingResponse {
 
 	if m.Provider != nil {
 		providerResp = &providerBasicResponse{
-			ID:               m.Provider.ID,
-			Name:             m.Provider.Name,
-			OpenAIBaseURL:    m.Provider.OpenAIBaseURL,
-			AnthropicBaseURL: m.Provider.AnthropicBaseURL,
+			ID:                           m.Provider.ID,
+			Name:                         m.Provider.Name,
+			OpenAIChatCompletionsBaseURL: m.Provider.OpenAIChatCompletionsBaseURL,
+			AnthropicMessagesBaseURL:     m.Provider.AnthropicMessagesBaseURL,
+			OpenAIResponsesBaseURL:       m.Provider.OpenAIResponsesBaseURL,
 		}
 		if !m.Provider.Enabled {
 			forcedDisabled = true

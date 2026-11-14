@@ -9,13 +9,15 @@
 
 ## 特性
 
-- **多协议网关**: 当前支持 OpenAI/Anthropic API 代理，已经支持 MCP 协议
+- **多协议网关**: 当前支持 OpenAI Chat Completions、Anthropic Messages、OpenAI Responses 三种对话协议代理，以及 MCP 协议
 - **OpenAI 兼容 API**: 暴露标准的 `/openai/v1/chat/completions` 和 `/openai/v1/models` 接口
 - **Anthropic 兼容 API**: 暴露标准的 `/anthropic/v1/messages` 和 `/anthropic/v1/models` 接口
+- **OpenAI Responses 兼容 API**: 暴露 `/openai/v1/responses`，支持 Codex CLI 等仅说 Responses 协议的客户端；流式/非流式、原生透传或跨协议转换均可
 - **MCP 兼容 API**: 暴露标准的 `/mcp/v1` 接口
-- **多厂商支持**: 支持多种 AI 服务厂商（OpenAI、Anthropic双协议兼容），可轻松扩展
-- **双协议支持**：每个厂商可同时配置 OpenAI 和 Anthropic BaseURL
-- **格式自动转换**: OpenAI ↔ Anthropic 请求/响应格式自动转换
+- **多厂商支持**: 支持多种 AI 服务厂商（OpenAI、Anthropic、Responses 三协议兼容），可轻松扩展
+- **三协议支持**：每个厂商可同时配置 OpenAI Chat Completions、Anthropic Messages 和 OpenAI Responses 三个 BaseURL
+- **9 格协议矩阵**: 三种客户端协议 × 三种上游方言自动转换（含 Responses ↔ Chat、Responses ↔ Anthropic）
+- **强制无状态**: Responses 端点拒绝 `previous_response_id`/`conversation`/`background`，`store` 强制为 `false`，网关不持有任何对话状态
 - **模型映射**：用户使用统一的模型名称，无需关心后端实际模型
 - **故障转移**：Provider 连续返回 429 时自动切换，配置更新时自动恢复
 - **用量统计**: 请求日志和用量仪表盘，实时监控服务调用
@@ -38,13 +40,15 @@
 
 ```mermaid
 flowchart TD
-    subgraph 入口["入口 (双协议支持)"]
-        A1["OpenAI 入口<br/>POST /openai/v1/chat/completions<br/>Authorization: Bearer sk-xxx"]
-        A2["Anthropic 入口<br/>POST /anthropic/v1/messages<br/>x-api-key: sk-xxx"]
+    subgraph 入口["入口 (三协议支持)"]
+        A1["OpenAI Chat 入口<br/>POST /openai/v1/chat/completions<br/>Authorization: Bearer sk-xxx"]
+        A2["Anthropic Messages 入口<br/>POST /anthropic/v1/messages<br/>x-api-key: sk-xxx"]
+        A3["OpenAI Responses 入口<br/>POST /openai/v1/responses<br/>Authorization: Bearer sk-xxx<br/>无状态拦截 + store=false"]
     end
 
     A1 --> B
     A2 --> B
+    A3 --> B
 
     B["API Key 认证<br/>验证 Key 有效性和模型权限"]
     --> C["模型路由<br/>Alias → AliasMapping → Provider → ProviderModel<br/>按 weight 排序"]
@@ -63,9 +67,9 @@ flowchart TD
 
     subgraph 转换流程["转换流程 (协议转换)"]
         S2["模型替换<br/>alias → actual_model_id"]
-        --> TR1["请求转换<br/>OpenAI ↔ Anthropic"]
+        --> TR1["请求转换<br/>按 9 格矩阵选择目标方言"]
         --> R2["请求后端 API"]
-        --> TR2["响应转换<br/>Anthropic ↔ OpenAI"]
+        --> TR2["响应转换<br/>转回客户端协议"]
         --> RES2["返回响应<br/>流式/非流式"]
         --> TK2["Token 统计"]
     end
@@ -240,6 +244,18 @@ auth:
 | `AG_ADMIN_USERNAME` | `admin` | 默认管理员用户名 |
 | `AG_ADMIN_PASSWORD` | `admin` | 默认管理员密码 |
 
+#### 从旧版本升级（BaseURL 列改名）
+
+新版本将两个 BaseURL 列按产品名改名，并新增 Responses 列。代码**不读取旧列名**，升级顺序必须是**先改列、后部署**：
+
+```sql
+-- SQLite / PostgreSQL 通用
+ALTER TABLE providers RENAME COLUMN openai_base_url TO openai_chat_completions_base_url;
+ALTER TABLE providers RENAME COLUMN anthropic_base_url TO anthropic_messages_base_url;
+```
+
+`openai_responses_base_url` 列由启动时的 `AutoMigrate` 自动新增（默认空串，存量 Provider 自动走协议转换）。完整迁移/回滚说明见 `openspec/changes/archive/2026-11-15-add-responses/migration.md`。
+
 ### 数据库配置
 
 #### SQLite（默认）
@@ -306,6 +322,21 @@ GET  /anthropic/v1/models          # 模型列表
 POST /anthropic/v1/models/:id      # 模型详情
 ```
 
+### OpenAI Responses 兼容接口 (需要 API Key)
+
+```
+POST /openai/v1/responses          # Responses API（支持 stream）
+
+# 以下管理端点注册但由网关直接应答 400 stateless_gateway
+GET    /openai/v1/responses/:id
+DELETE /openai/v1/responses/:id
+POST   /openai/v1/responses/:id/cancel
+GET    /openai/v1/responses/:id/input_items
+/conversations 族
+```
+
+网关强制无状态：请求含 `previous_response_id`、`conversation` 或 `background` 时返回 400（`error.code = stateless_gateway`）；`store` 字段一律改写为 `false`。客户端需每轮全量回放对话输入。
+
 ### MCP 协议接口 (需要 API Key)
 
 ```
@@ -335,6 +366,9 @@ POST /api/v1/providers                  # 创建厂商
 PUT  /api/v1/providers/:id              # 更新厂商
 DELETE /api/v1/providers/:id            # 删除厂商
 POST /api/v1/providers/:id/test         # 测试连接
+POST /api/v1/providers/:id/test-custom  # 自定义模型测试（OpenAI/Anthropic/Responses）
+POST /api/v1/providers/:id/models/:mid/test  # Provider 模型三协议测试
+POST /api/v1/models/:id/test            # 虚拟模型（映射组合）测试
 POST /api/v1/providers/:id/sync         # 同步模型
 
 GET  /api/v1/aliases                    # 模型别名列表
@@ -393,6 +427,16 @@ curl http://localhost:18080/anthropic/v1/messages \
     "model": "claude-3-opus",
     "max_tokens": 1024,
     "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# Responses 格式调用（Codex CLI 等同款协议）
+curl http://localhost:18080/openai/v1/responses \
+  -H "Authorization: Bearer sk-your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-5",
+    "input": "Hello!",
+    "store": false
   }'
 
 # MCP 协议调用 - 初始化
