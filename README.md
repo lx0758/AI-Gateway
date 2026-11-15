@@ -1,4 +1,5 @@
 # AI Gateway
+
 ---
 
 **此项目是作者学习大模型接口的副产物，最早的核心功能仅仅是实现 OpenAI/Anthropic API 的相互转换。**
@@ -26,13 +27,13 @@
 
 ## 外观
 
-| 仪表盘 | 厂商列表 | 厂商模型 | 模型映射 |
-| --- | --- | --- | --- |
-| ![仪表盘](images/仪表盘.png) | ![厂商列表](images/厂商列表.png) | ![厂商模型](images/厂商模型.png) | ![模型映射](images/模型映射.png) |
-| 秘钥管理 | 秘钥详情 | MCP服务 | MCP详情 |
-| ![秘钥管理](images/秘钥管理.png) | ![秘钥详情](images/秘钥详情.png) | ![MCP服务](images/MCP服务.png) | ![MCP详情](images/MCP详情.png) |
-| 模型用量-1 | 模型用量-2 | 模型用量-3 | MCP用量-1 |
-| ![模型用量_1](images/模型用量_1.png) | ![模型用量_2](images/模型用量_2.png) | ![模型用量_3](images/模型用量_3.png) | ![MCP用量_1](images/MCP用量_1.png) |
+| 仪表盘                               | 厂商列表                             | 厂商模型                           | 模型映射                           |
+| ------------------------------------ | ------------------------------------ | ---------------------------------- | ---------------------------------- |
+| ![仪表盘](images/仪表盘.png)         | ![厂商列表](images/厂商列表.png)     | ![厂商模型](images/厂商模型.png)   | ![模型映射](images/模型映射.png)   |
+| 秘钥管理                             | 秘钥详情                             | MCP服务                            | MCP详情                            |
+| ![秘钥管理](images/秘钥管理.png)     | ![秘钥详情](images/秘钥详情.png)     | ![MCP服务](images/MCP服务.png)     | ![MCP详情](images/MCP详情.png)     |
+| 模型用量-1                           | 模型用量-2                           | MCP用量-1                          | MCP用量-2                          |
+| ![模型用量_1](images/模型用量_1.png) | ![模型用量_2](images/模型用量_2.png) | ![MCP用量_1](images/MCP用量_1.png) | ![MCP用量_2](images/MCP用量_2.png) |
 
 ## 工作原理
 
@@ -166,9 +167,10 @@ make
 # 运行
 ai-gateway/server/bin/ai-gateway-server
 ```
+
 > 编译产物在 `ai-gateway/server/bin/ai-gateway-server`
 
-服务启动后访问 <http://localhost:18080>
+服务启动后访问 [http://localhost:18080](http://localhost:18080)
 
 ### 默认账号
 
@@ -216,33 +218,33 @@ auth:
 
 所有变量以 `AG_` 为前缀：
 
-| 变量名 | 默认值 | 说明 |
-|--------|--------|------|
-| `AG_DEBUG_GIN` | `false` | Gin 框架调试模式 |
-| `AG_DEBUG_GORM` | `false` | GORM SQL 调试日志 |
-| `AG_DEBUG_PROVIDER` | `false` | Provider 调试日志, 请求/响应记录到 `debug_provider/` 目录 |
-| `AG_DEBUG_MCP` | `false` | MCP 调试日志, 请求/响应记录到 `debug_mcp/` 目录 |
-| `AG_SERVER_PORT` | `18080` | 服务端口 |
-| `AG_SERVER_TRUSTED_PROXIES` | `10.0.0.0/8,192.168.0.0/16,172.16.0.0/12` | 信任的代理IP CIDR范围（逗号分隔），用于获取真实客户端IP |
-| `AG_PPROF_PORT` | `6060` | Pprof 性能分析端口 |
-| `AG_DATABASE_TYPE` | `sqlite` | 数据库类型 (sqlite/postgres) |
-| `AG_DATABASE_PATH` | `data.db` | SQLite 数据库路径 |
-| `AG_DATABASE_HOST` | `localhost` | PostgreSQL 服务器地址 |
-| `AG_DATABASE_PORT` | `5432` | PostgreSQL 服务器端口 |
-| `AG_DATABASE_USERNAME` | `postgres` | PostgreSQL 用户名 |
-| `AG_DATABASE_PASSWORD` | `""` | PostgreSQL 密码 |
-| `AG_DATABASE_DBNAME` | `ai_gateway` | PostgreSQL 数据库名 |
-| `AG_DATABASE_POOL_MAX_OPEN` | `20` (SQLite: `1`) | 数据库最大连接数 |
-| `AG_DATABASE_POOL_MAX_IDLE` | `5` (SQLite: `1`) | 数据库最大空闲连接数 |
-| `AG_DATABASE_POOL_MAX_LIFETIME` | `1h` | 连接最大生命周期 |
-| `AG_DATABASE_POOL_MAX_IDLE_TIME` | `5m` | 空闲连接最大存活时间 |
-| `AG_SERVER_SESSION_SECRET` | (自动生成) | Session 密钥，未设置时自动生成 |
-| `AG_SERVER_SESSION_MAX_AGE` | `86400` | Session 有效期(秒) |
-| `AG_SERVER_SESSION_SECURE` | `false` | Cookie Secure 标志 |
-| `AG_SERVER_SESSION_HTTP_ONLY` | `true` | Cookie HttpOnly 标志 |
-| `AG_SERVER_SESSION_SAME_SITE` | `lax` | Cookie SameSite 属性 |
-| `AG_ADMIN_USERNAME` | `admin` | 默认管理员用户名 |
-| `AG_ADMIN_PASSWORD` | `admin` | 默认管理员密码 |
+| 变量名                             | 默认值                                      | 说明                                                        |
+| ---------------------------------- | ------------------------------------------- | ----------------------------------------------------------- |
+| `AG_DEBUG_GIN`                   | `false`                                   | Gin 框架调试模式                                            |
+| `AG_DEBUG_GORM`                  | `false`                                   | GORM SQL 调试日志                                           |
+| `AG_DEBUG_PROVIDER`              | `false`                                   | Provider 调试日志, 请求/响应记录到 `debug_provider/` 目录 |
+| `AG_DEBUG_MCP`                   | `false`                                   | MCP 调试日志, 请求/响应记录到 `debug_mcp/` 目录           |
+| `AG_SERVER_PORT`                 | `18080`                                   | 服务端口                                                    |
+| `AG_SERVER_TRUSTED_PROXIES`      | `10.0.0.0/8,192.168.0.0/16,172.16.0.0/12` | 信任的代理IP CIDR范围（逗号分隔），用于获取真实客户端IP     |
+| `AG_PPROF_PORT`                  | `6060`                                    | Pprof 性能分析端口                                          |
+| `AG_DATABASE_TYPE`               | `sqlite`                                  | 数据库类型 (sqlite/postgres)                                |
+| `AG_DATABASE_PATH`               | `data.db`                                 | SQLite 数据库路径                                           |
+| `AG_DATABASE_HOST`               | `localhost`                               | PostgreSQL 服务器地址                                       |
+| `AG_DATABASE_PORT`               | `5432`                                    | PostgreSQL 服务器端口                                       |
+| `AG_DATABASE_USERNAME`           | `postgres`                                | PostgreSQL 用户名                                           |
+| `AG_DATABASE_PASSWORD`           | `""`                                      | PostgreSQL 密码                                             |
+| `AG_DATABASE_DBNAME`             | `ai_gateway`                              | PostgreSQL 数据库名                                         |
+| `AG_DATABASE_POOL_MAX_OPEN`      | `20` (SQLite: `1`)                      | 数据库最大连接数                                            |
+| `AG_DATABASE_POOL_MAX_IDLE`      | `5` (SQLite: `1`)                       | 数据库最大空闲连接数                                        |
+| `AG_DATABASE_POOL_MAX_LIFETIME`  | `1h`                                      | 连接最大生命周期                                            |
+| `AG_DATABASE_POOL_MAX_IDLE_TIME` | `5m`                                      | 空闲连接最大存活时间                                        |
+| `AG_SERVER_SESSION_SECRET`       | (自动生成)                                  | Session 密钥，未设置时自动生成                              |
+| `AG_SERVER_SESSION_MAX_AGE`      | `86400`                                   | Session 有效期(秒)                                          |
+| `AG_SERVER_SESSION_SECURE`       | `false`                                   | Cookie Secure 标志                                          |
+| `AG_SERVER_SESSION_HTTP_ONLY`    | `true`                                    | Cookie HttpOnly 标志                                        |
+| `AG_SERVER_SESSION_SAME_SITE`    | `lax`                                     | Cookie SameSite 属性                                        |
+| `AG_ADMIN_USERNAME`              | `admin`                                   | 默认管理员用户名                                            |
+| `AG_ADMIN_PASSWORD`              | `admin`                                   | 默认管理员密码                                              |
 
 #### 从旧版本升级（BaseURL 列改名）
 
@@ -504,8 +506,8 @@ ai-gateway/
 ## 开发
 
 1. 安装 `Go` 和 `Node.js`
-1. 安装编译工具链: `sudo apt install make gcc`
-1. 在 `Linux` 下交叉编译 `WIndows` 二进制文件需要安装编译工具链: `sudo apt install mingw-w64`
+2. 安装编译工具链: `sudo apt install make gcc`
+3. 在 `Linux` 下交叉编译 `WIndows` 二进制文件需要安装编译工具链: `sudo apt install mingw-w64`
 
 ### 整体构建
 
